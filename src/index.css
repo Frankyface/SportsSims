@@ -33,4 +33,14 @@ header {
 .feed li { background: #121924; border-radius: 8px; padding: 8px 12px; font-size: 14px; }
 .feed .min { color: #c8102e; font-weight: 700; }
 .feed .sc { color: #7b8794; }
-.stats { color: #9aa5b1; font-size: 13px; margin-top: 16px; text-align: center; }
+.stats { color: #9aa5b1; font-size: 13px; margin-top: 16px; text-align: center; line-height: 1.5; }
+.matchCanvas {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+  border-radius: 14px;
+  background: #0a0e14;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
