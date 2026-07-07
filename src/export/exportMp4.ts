@@ -1,13 +1,15 @@
 // In-browser export: frame-step the deterministic renderer through a WebCodecs
-// H.264 encoder and mux to a real Instagram-ready 1080x1920 MP4 (moov atom at
-// front). No server, no ffmpeg, no cross-origin-isolation headers required.
+// H.264 encoder + a procedural AAC audio track, muxed to a real Instagram-ready
+// 1080x1920 MP4 (moov atom at front). No server, no ffmpeg, no cross-origin
+// isolation headers required.
 //
-// Audio is added in Stage 2 (broadcast overlay). A ffmpeg.wasm fallback for
-// browsers without WebCodecs H.264 also lands in Stage 2.
+// A ffmpeg.wasm fallback for browsers without WebCodecs H.264 is a documented
+// follow-up; the target operator runs Chrome/Edge, which is fully covered.
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import type { MatchResult } from '../sim/types'
-import { buildRenderModel, drawFrame, RENDER_W, RENDER_H } from '../render/renderMatch'
+import { buildRenderModel, drawFrame, RENDER_W, RENDER_H, type RenderModel } from '../render/renderMatch'
+import { buildMatchAudio, AUDIO_SR } from './audio'
 
 const FPS = 30
 const BITRATE = 10_000_000
@@ -31,16 +33,44 @@ async function pickCodec(): Promise<string | null> {
   return null
 }
 
-/** Render `match` to an Instagram-ready MP4 Blob. Reports 0..1 progress. */
+async function encodeAudio(muxer: Muxer<ArrayBufferTarget>, model: RenderModel, onError: (e: unknown) => void): Promise<void> {
+  const pcm = buildMatchAudio(model)
+  const encoder = new AudioEncoder({
+    output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+    error: onError,
+  })
+  encoder.configure({ codec: 'mp4a.40.2', sampleRate: AUDIO_SR, numberOfChannels: 1, bitrate: 128_000 })
+
+  const CHUNK = 4800 // 0.1s
+  for (let off = 0; off < pcm.length; off += CHUNK) {
+    const len = Math.min(CHUNK, pcm.length - off)
+    const chunk = new Float32Array(len)
+    chunk.set(pcm.subarray(off, off + len))
+    const audioData = new AudioData({
+      format: 'f32-planar',
+      sampleRate: AUDIO_SR,
+      numberOfFrames: len,
+      numberOfChannels: 1,
+      timestamp: Math.round((off / AUDIO_SR) * 1_000_000),
+      data: chunk,
+    })
+    encoder.encode(audioData)
+    audioData.close()
+  }
+  await encoder.flush()
+}
+
+/** Render `match` to an Instagram-ready MP4 Blob (video + audio). Reports 0..1 progress. */
 export async function exportMatchMp4(match: MatchResult, onProgress?: (p: number) => void): Promise<Blob> {
   if (typeof VideoEncoder === 'undefined') {
-    throw new Error('This browser has no WebCodecs support. Use Chrome/Edge, or wait for the Stage-2 fallback exporter.')
+    throw new Error('This browser has no WebCodecs support. Use Chrome or Edge to export.')
   }
   const codec = await pickCodec()
   if (!codec) throw new Error('No supported H.264 encoder configuration was found on this device.')
 
   const model = buildRenderModel(match, RENDER_W, RENDER_H)
   const totalFrames = Math.max(1, Math.ceil(model.plan.total * FPS))
+  const withAudio = typeof AudioEncoder !== 'undefined' && typeof AudioData !== 'undefined'
 
   const canvas = document.createElement('canvas')
   canvas.width = RENDER_W
@@ -52,17 +82,20 @@ export async function exportMatchMp4(match: MatchResult, onProgress?: (p: number
   const muxer = new Muxer({
     target,
     video: { codec: 'avc', width: RENDER_W, height: RENDER_H },
+    ...(withAudio ? { audio: { codec: 'aac' as const, sampleRate: AUDIO_SR, numberOfChannels: 1 } } : {}),
     fastStart: 'in-memory',
   })
 
   let encodeError: unknown = null
-  const encoder = new VideoEncoder({
+  const onError = (e: unknown) => {
+    encodeError = e
+  }
+
+  const video = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: (e) => {
-      encodeError = e
-    },
+    error: onError,
   })
-  encoder.configure({ codec, width: RENDER_W, height: RENDER_H, bitrate: BITRATE, framerate: FPS })
+  video.configure({ codec, width: RENDER_W, height: RENDER_H, bitrate: BITRATE, framerate: FPS })
 
   for (let i = 0; i < totalFrames; i++) {
     if (encodeError) throw encodeError
@@ -71,17 +104,21 @@ export async function exportMatchMp4(match: MatchResult, onProgress?: (p: number
       timestamp: Math.round((i * 1_000_000) / FPS),
       duration: Math.round(1_000_000 / FPS),
     })
-    encoder.encode(frame, { keyFrame: i % 60 === 0 })
+    video.encode(frame, { keyFrame: i % 60 === 0 })
     frame.close()
-    onProgress?.(i / totalFrames)
-    // Keep the encoder queue bounded so the tab stays responsive.
-    if (encoder.encodeQueueSize > 8) {
+    onProgress?.((i / totalFrames) * 0.9)
+    if (video.encodeQueueSize > 8) {
       await new Promise<void>((resolve) => setTimeout(resolve, 0))
     }
   }
-
-  await encoder.flush()
+  await video.flush()
   if (encodeError) throw encodeError
+
+  if (withAudio) {
+    await encodeAudio(muxer, model, onError)
+    if (encodeError) throw encodeError
+  }
+
   muxer.finalize()
   onProgress?.(1)
   return new Blob([target.buffer], { type: 'video/mp4' })
