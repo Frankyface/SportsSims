@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/sim/determinism-hygiene.test.ts","./src/sim/prng.ts","./src/sim/simulatematch.test.ts","./src/sim/simulatematch.ts","./src/sim/types.ts"],"version":"5.9.3"}

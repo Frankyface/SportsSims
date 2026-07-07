@@ -41,7 +41,22 @@ Inside the simulation module, **never** use: `Math.random`, `Date.now`, `perform
 
 - Dev: `npm install` then `npm run dev` (Vite). Verify changes in the preview before claiming done.
 - Build: `npm run build` → `dist/`. Deploy is a GitHub Action to Pages (see Stage 1).
-- Never mark work "done" on reading code alone — run it and observe the result.
+- Tests: `npm test` (Vitest). Stand this up in Stage 1, before any feature code.
+
+## Verification & success states (how we know it works) — REQUIRED
+
+**Test as we go.** Every feature is built against an explicit, checkable **success state**, and nothing is marked "done" until that state is *demonstrated* — not just coded. Reading code is not verification.
+
+- **Success states = the feature file's Acceptance Criteria + the stage's Definition of Done.** Treat every checkbox as a test to pass or an action to observe.
+- **Write the check first where practical** (TDD; honor the global testing standard — 80%+ on core logic, AAA structure). For the sim especially: a **determinism test** (same seed → byte-identical `MatchResult`) and a **Monte-Carlo calibration test** (10k matches hit the real football anchors) come with/before the sim code.
+- **Pick the verification tool for the change:**
+  - Logic (sim, standings, persistence) → Vitest unit tests + assertions.
+  - UI / render → the preview tools (load the dev server, screenshot/inspect, read console + network) — never ask the user to eyeball it.
+  - Video export → a smoke check: the produced MP4 has the right dimensions/codec/duration and actually plays / uploads as a Reel.
+  - Deploy → after each deploy, confirm the **live** `*.github.io` URL loads (not just that the Action went green).
+- **Report faithfully:** show the passing test / observed result / file inspection. Failing = say so, with the output.
+
+Each stage `overview.md` lists its concrete **Success states** to verify against.
 
 ## Git & branching (I handle all of it)
 

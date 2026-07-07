@@ -17,5 +17,11 @@ Research flagged in-browser MP4 export as "the thing most likely to have a hidde
 3. Clicking "Export" downloads a **1080×1920 H.264/AAC MP4** with the moov atom at the front.
 4. **The user manually posts that MP4 to @EliteSimSPN as a Reel and it works** — the real end-to-end proof.
 
+## Verification & success states (test these — don't assume)
+- **Determinism:** a Vitest test runs the same seed twice and asserts a byte-identical `MatchResult`. _(Set up the Vitest harness in `feature-project-setup-and-deploy` before writing sim/render code.)_
+- **Deploy:** after the Action runs, the live `*.github.io/SportsSims/` URL loads — verified via the preview tools, not just a green check.
+- **Export:** the downloaded file is a real 1080×1920 H.264/AAC MP4 (inspect dimensions/codec/duration) and plays.
+- **End-to-end proof:** the user uploads that MP4 to @EliteSimSPN as a Reel and it posts cleanly.
+
 ## Blocked by (human)
 `help.md` items 1 (enable Pages) — and ideally 2 & 3 (data repo + token) done in advance, though persistence isn't wired until Stage 3.

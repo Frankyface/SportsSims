@@ -12,6 +12,7 @@ Everything is verified on the live site, not just locally. A one-push-to-live pi
 - [ ] `.github/workflows/deploy.yml` builds and deploys `dist/` to Pages via the official Pages Actions.
 - [ ] A visible "hello EliteSimSPN" shell is live at the `*.github.io/SportsSims/` URL.
 - [ ] A basic app shell with room for tabs (Sim a Match, League, Standings, Settings) — empty is fine.
+- [ ] **Vitest configured** (`npm test` runs); the deploy workflow runs tests and only publishes if they pass — so we always ship verified.
 
 ## Technical notes
 - Pages source = "GitHub Actions" (user sets this — `help.md` #1).
