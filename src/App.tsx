@@ -1,47 +1,28 @@
-import { useEffect, useMemo, useState } from 'react'
-import { simulateMatch } from './sim/simulateMatch'
-import { generateLeague } from './ratings/teams'
-import { toTeamRating } from './ratings/strength'
-import { MatchCanvas } from './ui/MatchCanvas'
-import { exportMatchMp4, downloadBlob } from './export/exportMp4'
+import { useEffect, useState } from 'react'
+import type { LeagueState } from './league/types'
+import { createLeague } from './league/league'
+import { saveLocal, loadLocal } from './league/persistence'
+import { LeagueTab } from './ui/LeagueTab'
+import { FriendlyTab } from './ui/FriendlyTab'
+import { SettingsTab } from './ui/SettingsTab'
+
+const LEAGUE_ID = 'main-league'
+const LEAGUE_NAME = 'EliteSim Premier League'
+type Tab = 'league' | 'friendly' | 'settings'
 
 export default function App() {
-  const league = useMemo(() => generateLeague('demo-league', 10), [])
-  const [matchNo, setMatchNo] = useState(1)
-  const [exporting, setExporting] = useState(0)
-  const [exportErr, setExportErr] = useState<string | null>(null)
+  const [tab, setTab] = useState<Tab>('league')
+  const [league, setLeague] = useState<LeagueState>(() => loadLocal(LEAGUE_ID) ?? createLeague(LEAGUE_ID, LEAGUE_NAME))
 
-  const { match, home, away } = useMemo(() => {
-    const h = league[(matchNo * 2) % league.length]
-    const a = league[(matchNo * 2 + 1) % league.length]
-    const m = simulateMatch({
-      seedKey: `friendly:${matchNo}`,
-      home: toTeamRating(h.identity, h.glicko),
-      away: toTeamRating(a.identity, a.glicko),
-      homeAdvantage: 1.1,
-    })
-    return { match: m, home: h, away: a }
-  }, [league, matchNo])
-
-  // Expose a hook so export can be verified programmatically in dev.
   useEffect(() => {
-    ;(window as unknown as { __exportCurrent?: () => Promise<Blob> }).__exportCurrent = () => exportMatchMp4(match)
-  }, [match])
+    saveLocal(league)
+  }, [league])
 
-  async function doExport() {
-    setExportErr(null)
-    setExporting(0.0001)
-    try {
-      const blob = await exportMatchMp4(match, (p) => setExporting(Math.max(0.0001, p)))
-      downloadBlob(blob, `elitesimspn-${home.identity.abbr}-${away.identity.abbr}.mp4`)
-    } catch (e) {
-      setExportErr(e instanceof Error ? e.message : String(e))
-    } finally {
-      setExporting(0)
+  function resetLeague() {
+    if (window.confirm('Start a brand-new league? This clears the current one on this device.')) {
+      setLeague(createLeague(LEAGUE_ID, LEAGUE_NAME))
     }
   }
-
-  const busy = exporting > 0
 
   return (
     <main className="wrap">
@@ -52,27 +33,27 @@ export default function App() {
         <span className="tag">Elite Simulated Sports Programming Network</span>
       </header>
 
-      <MatchCanvas match={match} playKey={matchNo} />
-
-      <div className="controls">
-        <button onClick={() => setMatchNo((n) => n + 1)} disabled={busy}>
-          Next match ▸
+      <nav className="tabs">
+        <button className={tab === 'league' ? 'on' : ''} onClick={() => setTab('league')}>
+          League
         </button>
-        <button onClick={doExport} disabled={busy}>
-          {busy ? `Exporting ${Math.round(exporting * 100)}%` : 'Export MP4'}
+        <button className={tab === 'friendly' ? 'on' : ''} onClick={() => setTab('friendly')}>
+          Friendly
         </button>
-      </div>
+        <button className={tab === 'settings' ? 'on' : ''} onClick={() => setTab('settings')}>
+          Settings
+        </button>
+      </nav>
 
-      {exportErr && <p className="err">{exportErr}</p>}
+      {tab === 'league' && <LeagueTab state={league} setState={setLeague} />}
+      {tab === 'friendly' && <FriendlyTab />}
+      {tab === 'settings' && <SettingsTab state={league} setState={setLeague} />}
 
-      <p className="stats">
-        <span style={{ color: home.identity.color }}>{home.identity.name}</span> ({Math.round(home.glicko.rating)})
-        {'  vs  '}
-        <span style={{ color: away.identity.color }}>{away.identity.name}</span> ({Math.round(away.glicko.rating)})
-        {'  ·  Final '}
-        {match.score[0]}–{match.score[1]} · Shots {match.stats.shots[0]}–{match.stats.shots[1]} · xG{' '}
-        {match.stats.xg[0].toFixed(2)}–{match.stats.xg[1].toFixed(2)}
-      </p>
+      {tab === 'league' && (
+        <button className="btn ghost small" onClick={resetLeague}>
+          Reset league
+        </button>
+      )}
     </main>
   )
 }
