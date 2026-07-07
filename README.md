@@ -6,7 +6,7 @@ Think **ESPN, except every team, game, and season is simulated** — with real s
 
 ## Status
 
-🚧 **Pre-build.** The complete vision and the staged plan live in [`docs/master_plan.md`](docs/master_plan.md). Where the project is *right now* and what's next is always in [`handoff.md`](handoff.md).
+✅ **V1 shipped** — Soccer end-to-end: an Elo/Glicko-2 deterministic sim → animated MP4 (with audio) → persistent league, standings & playoffs → one-click matchday content pack (a video per game + a standings post + captions). Current state & next steps live in [`handoff.md`](handoff.md); the full vision in [`docs/master_plan.md`](docs/master_plan.md).
 
 ## Tech at a glance
 

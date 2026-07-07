@@ -1,34 +1,39 @@
 # Handoff — EliteSimSPN
-_Last updated: 2026-07-07 · Current stage: Stage 3 — Leagues & standings (starting). **Stages 1–2 complete.**_
+_Last updated: 2026-07-07 · **V1 COMPLETE.** Next: post-V1 (Rugby/Golf, star players, automation)._
 
 ## 🎯 Goals
-Finish V1 (Stages 1–4): Soccer end-to-end — sim → animated video (with audio) → Instagram-ready MP4 → **persistent leagues/standings** → **one-click matchday content drop**. Rating model + video pipeline are done; Stage 3 makes the world persistent.
+V1 is done: Soccer end-to-end — deterministic **Elo/Glicko-2** sim → animated video (with audio) → Instagram-ready MP4 → persistent league / standings / playoffs → **one-click matchday content pack**. All committed & pushed. Remaining work is post-V1.
 
-## 📍 Current State
-- **Stages 1–2 COMPLETE & verified.** Deterministic sim; **Elo/Glicko-2 rating model**; Canvas match animation; **WebCodecs export → valid 1080×1920 MP4 with video (`avc1`) + audio (`mp4a`)**, ~9 MB / ~34s, encoded ~6× real-time. Broadcast overlay (scorebug, lower-thirds, intro/result, wordmark) + procedural audio (crowd/whistle/goal roars). A working friendly viewer generates a 10-team Elo league and exports clips.
-- **Rating model:** correlation 0.67, upset rate 28%, top-seed title rate 45% — clear good/bad teams, real upsets, not a coin flip.
-- **Tests: 15 passing.** App builds clean (38 modules). No console errors.
-- **Not done:** persistent leagues/standings/persistence (Stage 3), matchday content drop (Stage 4). Deferred: ffmpeg export fallback for non-WebCodecs browsers (operator uses Chrome). Live Pages deploy blocked on the user enabling Pages (`help.md` #1).
+## 📍 Current State — V1 shipped & verified
+- **Rating model:** Elo/Glicko-2 with randomized starting ratings/RD/volatility, per-season evolution + decay. Verified — Glicko matches the published example; season sim: correlation **0.67**, upset rate **28%**, top-seed title rate **45%** (clear good/bad teams, real upsets, not a coin flip).
+- **Match sim:** deterministic possession/xG/momentum model; calibrated (~2.9 goals, ~26 shots, ~23% draws).
+- **Video:** Canvas highlight animation (pitch/tokens/ball/scorebug/lower-thirds/cards/intro/result) + procedural audio → **WebCodecs MP4 (avc1 + mp4a, 1080×1920)**; verified valid & ~6× real-time.
+- **League:** 10-team double round-robin (90 matches), standings, top-4 playoffs, champion, season rollover with evolved ratings. Persists to **localStorage + a GitHub repo** (Contents API).
+- **UI:** tabs — **League** (standings, sim round/season, results→video, matchday content pack), **Friendly**, **Settings** (cloud save/load).
+- **Content pack:** one click → a video per game + a standings PNG + prediction-hook captions. Verified end-to-end in the browser.
+- **Tests: 21 passing.** Build clean (51 modules). No console errors.
 
 ## 📂 Files
-- `src/sim/*` (sim + PRNG), `src/ratings/*` (Glicko-2, team gen, strength), `src/render/*` (director + renderer), `src/export/*` (WebCodecs video + procedural audio), `src/ui/MatchCanvas.tsx`, `src/App.tsx`.
+- `src/sim` (sim + PRNG), `src/ratings` (Glicko-2, team gen, strength), `src/render` (director, renderer, standings card), `src/export` (WebCodecs video + audio), `src/league` (engine + persistence), `src/content` (captions, matchday pack), `src/ui` (tabs + components), `src/App.tsx`.
 
 ## ✅ Things I've Changed (newest first)
-- **Stage 2 done:** procedural match **audio** (crowd + whistle + goal roars) → AAC, muxed alongside video (verified `avc1` + `mp4a`). Overlay + friendly viewer in place. Committed.
-- **Stage 1 done:** Canvas renderer + WebCodecs MP4 export (valid MP4 verified in-browser). Committed `e9573e3`.
-- Elo/Glicko-2 rating model (verified season dynamics). Committed `6f8a484`.
-- Stage 1 core scaffold + sim + tests `f9ae6d2`; docs scaffold `47395e5`.
+- **Stage 4 — matchday content pack** (videos + standings PNG + captions). `8b0d9d7`. **V1 complete.**
+- Stage 3 — persistent league + standings + playoffs + persistence + tabbed UI. `dbe4340`.
+- Stage 2 — procedural match audio. `366dc9d`.
+- Stage 1 — Canvas renderer + WebCodecs export. `e9573e3`.
+- Elo/Glicko-2 rating model. `6f8a484`. · Stage 1 core `f9ae6d2`. · Docs scaffold `47395e5`.
 
-## ❌ Tried But Failed
-- Resolved gotchas: dual-Vite config types, 8.3 short path for preview, `server.fs.strict:false`, xG-as-proxy bug, typed-array `BufferSource` strictness (copy chunk).
-- Audio quality is basic procedural synthesis — valid track, but not verifiable by ear here; flagged for user review.
+## ❌ Tried But Failed / Deferred
+- ffmpeg.wasm export fallback for non-WebCodecs browsers (operator uses Chrome) — deferred.
+- Audio is basic procedural synthesis — valid track, worth an ear-check.
+- **Live GitHub Pages deploy is blocked on the user enabling Pages (`help.md` #1).**
 
-## ➡️ Next Up (Stage 3 — Leagues & standings)
-1. **League engine:** double round-robin fixtures (18 matchdays), season lifecycle, playoffs, champion → archive to history → Glicko decay/regress into next season.
-2. **Standings + team pages UI** with tabs (Friendly / League / Standings / Settings).
-3. **Repo persistence:** save/load league JSON to `elitesim-data` via the GitHub Contents API + a token wizard (Settings); localStorage working cache; friendlies stay ephemeral.
-4. Then **Stage 4** (matchday content drop: batch videos + standings post + captions + calendar) to finish V1. **Commit at each stage boundary.**
+## ➡️ Next Up (post-V1)
+1. **User tasks:** enable GitHub Pages (`help.md` #1) to see it live; optionally create the data repo + token (`help.md` #2–3) to use cloud save/load.
+2. **Stage 5:** Rugby & Golf (reuse the engine).
+3. **Stage 6:** star players & richer drama; public standings page.
+4. **Stage 7:** automation ladder (GitHub Actions + Instagram API).
 
 ## 🔗 Pointer
-→ Current stage folder: `staging/stage-3-leagues-and-standings/`
-→ Active feature file: `staging/stage-3-leagues-and-standings/feature-league-and-season-model.md`
+→ V1 shipped. Next stage folder: `staging/stage-5-rugby-and-golf/`
+→ Active feature file: `staging/stage-5-rugby-and-golf/feature-rugby.md`
