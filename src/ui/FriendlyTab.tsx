@@ -27,7 +27,7 @@ export function FriendlyTab() {
   return (
     <div>
       <p className="hint">A one-off match to see how it works — nothing is saved.</p>
-      <MatchView match={match} filename={`elitesimspn-friendly-${home.identity.abbr}-${away.identity.abbr}.mp4`} playKey={n} />
+      <MatchView match={match} filename={`esspn-friendly-${home.identity.abbr}-${away.identity.abbr}.mp4`} playKey={n} />
       <div className="controls">
         <button className="btn" onClick={() => setN((x) => x + 1)}>
           New matchup ▸

@@ -12,7 +12,7 @@ import { SIM_VERSION, type MatchResult } from '../sim/types'
 import { generateFixtures } from './fixtures'
 import type { Fixture, LeagueState, MatchScore, SeasonRecord, StandingRow } from './types'
 
-export function createLeague(seedKey: string, name: string, teamCount = 10): LeagueState {
+export function createLeague(seedKey: string, name: string, teamCount = 6): LeagueState {
   const teams = generateLeague(seedKey, teamCount)
   const fixtures = generateFixtures(teams.map((t) => t.identity.id))
   return {

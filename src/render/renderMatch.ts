@@ -7,6 +7,7 @@
 
 import type { MatchResult, TeamRating } from '../sim/types'
 import { buildRenderPlan, beatAt, type Beat, type RenderPlan } from './director'
+import { drawWordmark } from './wordmark'
 
 export interface RenderModel {
   plan: RenderPlan
@@ -296,26 +297,7 @@ function drawResult(ctx: Ctx, model: RenderModel, progress: number): void {
   ctx.restore()
 }
 
-function drawWordmark(ctx: Ctx, model: RenderModel): void {
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.font = 'bold 32px system-ui, sans-serif'
-  const cx = model.width / 2
-  ctx.textAlign = 'left'
-  const parts: Array<[string, string]> = [
-    ['ELITE', '#e8edf4'],
-    ['SIM', '#ff5566'],
-    ['SPN', '#e8edf4'],
-  ]
-  const widths = parts.map((p) => ctx.measureText(p[0]).width)
-  const totalW = widths.reduce((s, w) => s + w, 0)
-  let x = cx - totalW / 2
-  for (let i = 0; i < parts.length; i++) {
-    ctx.fillStyle = parts[i][1]
-    ctx.fillText(parts[i][0], x, 180)
-    x += widths[i]
-  }
-}
+// (ESSPN wordmark is shared from ./wordmark)
 
 /** Draw one frame of the match at render-time `t` seconds. Pure function of (model, t). */
 export function drawFrame(ctx: Ctx, model: RenderModel, t: number): void {
@@ -332,5 +314,5 @@ export function drawFrame(ctx: Ctx, model: RenderModel, t: number): void {
   if (beat.kind === 'goal') drawGoalFlash(ctx, model, progress)
   if (beat.kind === 'intro') drawIntro(ctx, model, progress)
   if (beat.kind === 'result') drawResult(ctx, model, progress)
-  drawWordmark(ctx, model)
+  drawWordmark(ctx, model.width / 2, 180, 32)
 }

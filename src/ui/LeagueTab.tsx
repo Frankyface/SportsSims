@@ -143,7 +143,7 @@ export function LeagueTab({ state, setState }: { state: LeagueState; setState: (
             <span style={{ color: teamById(state, pickedF.away).identity.color }}>{teamById(state, pickedF.away).identity.abbr}</span>
             <span className="sub"> · {pickedF.stage === 'regular' ? `Matchday ${pickedF.round + 1}` : pickedF.stage.toUpperCase()}</span>
           </h3>
-          <MatchView match={fixtureMatch(state, pickedF.id)} filename={`elitesimspn-s${state.season}-${pickedF.id}.mp4`} playKey={viewNo} />
+          <MatchView match={fixtureMatch(state, pickedF.id)} filename={`esspn-s${state.season}-${pickedF.id}.mp4`} playKey={viewNo} />
           <button className="btn ghost" onClick={() => setPicked(null)}>
             Close
           </button>

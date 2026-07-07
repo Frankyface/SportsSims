@@ -17,7 +17,7 @@ interface SeasonOutcome {
   topSeedIdx: number
 }
 
-function playSeason(seedKey: string, count = 10): SeasonOutcome {
+function playSeason(seedKey: string, count = 6): SeasonOutcome {
   const teams = generateLeague(seedKey, count)
   const startRating = teams.map((t) => t.glicko.rating)
   const rat = teams.map((t) => toTeamRating(t.identity, t.glicko)) // fixed for the season

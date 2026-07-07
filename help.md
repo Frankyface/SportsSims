@@ -8,13 +8,13 @@ Legend: `[ ]` = to do · `[x]` = done
 
 ## 🟢 Needed for Stage 1 (do these first)
 
-### [ ] 1. Turn on GitHub Pages for the `SportsSims` repo
+### [x] 1. Turn on GitHub Pages for the `SportsSims` repo
 - **What:** Flip the switch that publishes the app to a free public web address.
 - **Why:** It's where your app (and later your videos) live online.
 - **How:** Go to <https://github.com/Frankyface/SportsSims/settings/pages> → under **"Build and deployment" → Source**, choose **"GitHub Actions"** → save. (Claude will add the workflow that does the actual publishing.)
 - **Unblocks:** Stage 1 (getting the app live).
 
-### [ ] 2. Create a second repo just for league data: `elitesim-data`
+### [x] 2. Create a second repo just for league data: `elitesim-data`
 - **What:** A separate, empty GitHub repo that will hold your standings/results as a file.
 - **Why:** Keeping data separate from the app code means the "save key" (next item) can only ever touch this one harmless file — not your app.
 - **How:** Go to <https://github.com/new> → **Repository name:** `elitesim-data` → **Public** (simplest; the data is meant to be seen) → tick **"Add a README file"** → **Create repository**.

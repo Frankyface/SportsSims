@@ -6,8 +6,8 @@ import { LeagueTab } from './ui/LeagueTab'
 import { FriendlyTab } from './ui/FriendlyTab'
 import { SettingsTab } from './ui/SettingsTab'
 
-const LEAGUE_ID = 'main-league'
-const LEAGUE_NAME = 'EliteSim Premier League'
+const LEAGUE_ID = 'esspn-league'
+const LEAGUE_NAME = 'ESSPN Premier League'
 type Tab = 'league' | 'friendly' | 'settings'
 
 export default function App() {
@@ -28,7 +28,7 @@ export default function App() {
     <main className="wrap">
       <header>
         <span className="net">
-          ELITE<b>SIM</b>SPN
+          E<b>SS</b>PN
         </span>
         <span className="tag">Elite Simulated Sports Programming Network</span>
       </header>

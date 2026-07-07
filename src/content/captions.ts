@@ -1,8 +1,9 @@
-// Template-driven captions generated from match & season data. Every caption
-// ends on a prediction hook (the top comment-driver for this genre).
+// Template-driven captions with club personality (nicknames) and a prediction
+// hook (the top comment-driver for this genre).
 
-import type { LeagueState, Fixture, MatchScore } from '../league/types'
+import type { LeagueState, Fixture, MatchScore, StandingRow } from '../league/types'
 import { computeStandings, teamById } from '../league/league'
+import { HASHTAGS } from '../brand'
 
 export function matchCaption(state: LeagueState, f: Fixture, sc: MatchScore): string {
   const home = teamById(state, f.home)
@@ -13,17 +14,17 @@ export function matchCaption(state: LeagueState, f: Fixture, sc: MatchScore): st
 
   let story: string
   if (sc.home === sc.away) {
-    story = `${h.name} and ${a.name} share the spoils in a ${sc.home}-${sc.away} draw.`
+    story = `${h.nickname} and ${a.nickname} share the spoils.`
   } else {
     const winner = sc.home > sc.away ? home : away
     const loser = sc.home > sc.away ? away : home
     const margin = Math.abs(sc.home - sc.away)
     if (winner.glicko.rating < loser.glicko.rating - 60) {
-      story = `🚨 UPSET! ${winner.identity.name} stun ${loser.identity.name}.`
+      story = `🚨 UPSET! ${winner.identity.nickname} stun ${loser.identity.name}.`
     } else if (margin >= 3) {
-      story = `${winner.identity.name} run riot 🔥`
+      story = `${winner.identity.nickname} run riot 🔥`
     } else {
-      story = `${winner.identity.name} edge a tight one.`
+      story = `${winner.identity.nickname} edge a tight one.`
     }
   }
 
@@ -34,12 +35,12 @@ export function matchCaption(state: LeagueState, f: Fixture, sc: MatchScore): st
     story,
     '',
     'Who wins the next one? Drop your score 👇',
-    `#EliteSimSPN #SimSoccer #${h.abbr} #${a.abbr}`,
+    `${HASHTAGS} #${h.abbr} #${a.abbr}`,
   ].join('\n')
 }
 
-export function standingsCaption(state: LeagueState, roundLabel: string): string {
-  const table = computeStandings(state)
+export function standingsCaption(state: LeagueState, roundLabel: string, rowsOverride?: StandingRow[]): string {
+  const table = rowsOverride ?? computeStandings(state)
   const leader = teamById(state, table[0].teamId).identity
   const second = teamById(state, table[1].teamId).identity
   const bottom = teamById(state, table[table.length - 1].teamId).identity
@@ -49,12 +50,12 @@ export function standingsCaption(state: LeagueState, roundLabel: string): string
     `📊 THE TABLE — ${roundLabel}, Season ${state.season}`,
     '',
     gap === 0
-      ? `${leader.name} and ${second.name} are locked together at the top on ${table[0].points} pts.`
-      : `${leader.name} lead on ${table[0].points} pts, ${gap} clear of ${second.name}.`,
-    `${bottom.name} are rooted to the bottom.`,
+      ? `${leader.nickname} and ${second.nickname} are locked together on ${table[0].points} pts.`
+      : `${leader.nickname} lead on ${table[0].points} pts, ${gap} clear of ${second.nickname}.`,
+    `${bottom.nickname} prop up the table.`,
     'Top 4 make the playoffs.',
     '',
     "Who's winning the title? 👇",
-    '#EliteSimSPN #SimSoccer',
+    HASHTAGS,
   ].join('\n')
 }

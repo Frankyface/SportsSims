@@ -11,9 +11,9 @@ describe('persistence — base64 handles unicode', () => {
 
 describe('persistence — league serialization', () => {
   it('survives a JSON round-trip with results intact', () => {
-    const s = playRound(createLeague('ser-test', 'Serialize', 10), 0)
+    const s = playRound(createLeague('ser-test', 'Serialize', 6), 0)
     const clone = JSON.parse(JSON.stringify(s))
-    expect(clone.teams).toHaveLength(10)
+    expect(clone.teams).toHaveLength(6)
     expect(Object.keys(clone.results).length).toBe(Object.keys(s.results).length)
     expect(clone.fixtures.length).toBe(s.fixtures.length)
     // base64 round-trip of the whole state
