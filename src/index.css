@@ -44,3 +44,4 @@ header {
   background: #0a0e14;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
 }
+.err { color: #ff6b6b; font-size: 13px; text-align: center; margin-top: 10px; }

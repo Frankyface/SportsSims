@@ -1,39 +1,35 @@
 # Handoff — EliteSimSPN
-_Last updated: 2026-07-07 · Current stage: Stage 1 — Foundation & de-risking slice (in progress)_
+_Last updated: 2026-07-07 · Current stage: Stage 2 — Watchable soccer (starting). **Stage 1 complete.**_
 
 ## 🎯 Goals
-Prove the riskiest path end-to-end: seed → deterministic soccer match → render → Instagram-ready MP4, live on GitHub Pages. The sim engine + scaffold are **done and verified**; the Canvas animation and WebCodecs export are what remain.
+Finish V1 (Stages 1–4): Soccer end-to-end — sim → animated video → Instagram-ready MP4 → leagues/standings → one-click matchday content drop. The Elo/Glicko-2 rating model is done. Stage 1 is done. Now Stage 2 (watchability polish + audio + friendly tab).
 
 ## 📍 Current State
-- **Kickoff + planning complete.** Vision, v1 scope, tech stack, 7-stage roadmap in [`docs/master_plan.md`](docs/master_plan.md); feasibility GO verdict + evidence in [`docs/research-findings.md`](docs/research-findings.md).
-- **Scaffold + app pushed** to `github.com/Frankyface/SportsSims` (`main`, latest commit `f9ae6d2`).
-- **App builds & runs.** React + Vite + TS; `npm run dev`, `npm run build`, and `npm test` all pass. Deploy workflow (`.github/workflows/deploy.yml`) added (tests → build → Pages).
-- **Deterministic sim engine done + verified.** `src/sim/` — `prng.ts` (xmur3→mulberry32), `types.ts`, `simulateMatch.ts` (possession / xG / momentum model). **9 tests pass:** determinism (same seed → byte-identical), shape/consistency, Monte-Carlo calibration (avgGoals 2.85, shots 25.7/game, draws 24% — realistic), and a banned-API hygiene guard.
-- **Rating model added + verified.** `src/ratings/` — Glicko-2 (`glicko2.ts`), league generation with randomized starting Elo/RD/volatility (`teams.ts`), Glicko→playing-strength bridge (`strength.ts`). Match strength now derives from Elo; per-match form variance (from RD) drives upsets.
-- **Verified live in the browser** (preview on :5199): renders a real match (e.g. CAR 4–1 KAN, goal-by-goal feed, true xG 1.68–1.08). Currently a **text feed** — the Canvas animation replaces it next.
-- **Not yet done:** Canvas "tokens on a pitch" animation, WebCodecs MP4 export, live Pages deploy (blocked on the user enabling Pages).
+- **Stage 1 COMPLETE & verified.** App builds/runs; deploy workflow in place; deterministic sim; **Elo/Glicko-2 rating model**; **Canvas match animation**; **WebCodecs MP4 export produces a valid 1080×1920 H.264 `video/mp4`** (verified in-browser: `ftyp` magic, ~8.5 MB for ~34s, encoded ~6× faster than real-time).
+- **Rating model verified:** correlation 0.67, upset rate 28%, top-seed title rate 45% — clear good/bad teams, real upsets, not a coin flip.
+- **Live app** (preview :5199): generates a 10-team Elo league, plays an animated friendly (pitch / tokens / ball / scorebug / lower-thirds / GOAL flash), and exports an MP4. No console errors.
+- **Tests: 15 passing** (determinism, calibration, hygiene, Glicko worked-example, season dynamics).
+- **Not done:** audio + ffmpeg fallback (Stage 2), broadcast-overlay polish + proper Friendly-tab UI (Stage 2), leagues/standings/persistence (Stage 3), matchday content drop (Stage 4). Live Pages deploy is blocked on the user enabling Pages (`help.md` #1).
 
 ## 📂 Files I'm Working On
-- `src/sim/*` — sim engine (done). `src/App.tsx` — temporary text render (to be replaced by the Canvas renderer).
-- Next: `src/render/` (Canvas match renderer) + `src/export/` (WebCodecs MP4).
+- `src/sim/*` (sim + PRNG), `src/ratings/*` (Glicko-2, team gen, strength), `src/render/*` (director + renderer), `src/export/exportMp4.ts` (WebCodecs), `src/ui/MatchCanvas.tsx`, `src/App.tsx`.
 
 ## ✅ Things I've Changed (newest first)
-- Added the **Elo/Glicko-2 rating model** (`src/ratings/`): randomized starting rating/RD/volatility, Glicko→strength bridge, season decay. Verified — Glicko matches the published example; season sim gives **correlation 0.67, upset rate 28%, top-seed title rate 45%** (clear good/bad teams, real upsets, not a coin flip). **15 tests pass.**
-- Built + verified Stage 1 core: React/Vite/TS scaffold, deploy workflow, deterministic sim engine. Committed `f9ae6d2`, pushed.
-- Fixed the xG model to be **true expected-goals** (was a proxy reading ~2.5× high); recalibrated shots to ~13/team. Verified by test + live preview.
-- Added a verification & success-states discipline to `CLAUDE.md` + each stage.
-- Scaffolded the full documentation system; ran the feasibility research pass (GO); pushed the docs (`47395e5`).
+- **Stage 1 finished:** Canvas match renderer + WebCodecs MP4 export — valid MP4 verified in-browser. Committed.
+- Elo/Glicko-2 rating model with verified season dynamics. Committed `6f8a484`.
+- Stage 1 core: scaffold + deterministic sim + tests. Committed `f9ae6d2`. Docs scaffold `47395e5`.
 
 ## ❌ Tried But Failed
-- `MediaRecorder`-emits-MP4 — avoided by design (WebCodecs instead). Transcendental math in the sim — banned + guarded by a test.
-- Preview needed an **8.3 short path** in launch.json (spaces break the npm spawn) **and** `server.fs.strict:false` in `vite.config.ts` (short-path vs Vite's serve allow-list). Both resolved.
+- Resolved earlier gotchas: dual-Vite config types, 8.3 short path for the preview, `server.fs.strict:false`, and an xG-as-proxy bug (now true xG).
+- Audio deliberately deferred to Stage 2 — the export is currently video-only (valid & postable, but silent).
 
-## ➡️ Next Up
-1. **Human unblock (1 click):** user enables GitHub Pages — [`help.md`](help.md) item 1 — so auto-deploy goes live. (The deploy Action builds+tests fine but its final publish step waits on this.)
-2. Build the **Canvas match renderer** — stylized "tokens on a pitch" animation of the event timeline (stylized ② look, simu.lation2d-ish geometry) with the non-linear highlight edit + broadcast scorebug. → `feature-canvas-renderer-and-export.md`.
-3. Build the **WebCodecs MP4 export** (frame-step → H.264/AAC → mp4-muxer → download; verify dimensions/codec + a real IG post).
-4. End-to-end proof: user posts an exported clip to @EliteSimSPN.
+## ➡️ Next Up (Stage 2 — Watchable soccer)
+1. Broadcast overlay polish + **audio** (crowd bed + whistle/goal SFX mixed into the MP4 via WebCodecs AudioEncoder).
+2. Proper **"Sim a Match" (Friendly) tab** (pick or generate two teams, sim, watch, export — nothing saved).
+3. **Export robustness** — ffmpeg.wasm single-thread fallback + clear feature-detection messaging.
+4. Then Stage 3 (leagues / standings / persistence) and Stage 4 (matchday content drop). Commit at each stage boundary.
+- Reminder: user should enable GitHub Pages (`help.md` #1) to see it live on the web.
 
 ## 🔗 Pointer
-→ Current stage folder: `staging/stage-1-foundation-and-slice/`
-→ Active feature file: `staging/stage-1-foundation-and-slice/feature-canvas-renderer-and-export.md`
+→ Current stage folder: `staging/stage-2-watchable-soccer/`
+→ Active feature file: `staging/stage-2-watchable-soccer/feature-broadcast-overlay.md`
