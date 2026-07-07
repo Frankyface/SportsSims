@@ -1,4 +1,4 @@
-import { makeRng, seedFromKey } from './prng'
+import { makeRng, seedFromKey, randNormal } from './prng'
 import {
   SIM_VERSION,
   type MatchConfig,
@@ -36,9 +36,11 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   let eventId = 0
   const events: MatchEvent[] = []
 
-  // hidden per-match "form of the day" — lets an underdog genuinely have a great day
-  const formHome = 0.85 + rng() * 0.3
-  const formAway = 0.85 + rng() * 0.3
+  // hidden per-match "form of the day" — a seeded normal draw scaled by each team's
+  // formSpread (derived from Glicko RD). Uncertain teams swing more, so underdogs
+  // genuinely have on/off days and upsets happen — without ever rigging the result.
+  const formHome = clamp(1 + randNormal(rng) * home.formSpread, 0.55, 1.45)
+  const formAway = clamp(1 + randNormal(rng) * away.formSpread, 0.55, 1.45)
 
   const stats: MatchStats = {
     possession: [0, 0],

@@ -1,37 +1,39 @@
 # Handoff — EliteSimSPN
-_Last updated: 2026-07-07 · Current stage: Stage 1 — Foundation & de-risking slice (not started)_
+_Last updated: 2026-07-07 · Current stage: Stage 1 — Foundation & de-risking slice (in progress)_
 
 ## 🎯 Goals
-Stand up the project and prove the single riskiest thing end-to-end: **seed → deterministic soccer match → Canvas render → WebCodecs MP4 download**, live on GitHub Pages, and confirm the file actually posts as an Instagram Reel. Everything else builds on this slice.
+Prove the riskiest path end-to-end: seed → deterministic soccer match → render → Instagram-ready MP4, live on GitHub Pages. The sim engine + scaffold are **done and verified**; the Canvas animation and WebCodecs export are what remain.
 
 ## 📍 Current State
-- Planning + kickoff **complete**. Full interview done; vision, v1 scope, tech stack, and 7-stage roadmap decided and written up in [`docs/master_plan.md`](docs/master_plan.md).
-- **Feasibility verified** (background research, GO verdict) — see [`docs/research-findings.md`](docs/research-findings.md). Key upgrades locked: WebCodecs export (no header issues on Pages), own-account IG posting skips App Review, league data in a separate `elitesim-data` repo.
-- Repo initialized locally on `main`, remote → `github.com/Frankyface/SportsSims` (confirmed empty). Scaffold **committed locally** (commit `47395e5`, 34 files) but **not yet pushed** — awaiting the user's go-ahead. **No app code written yet.**
-- **Nothing is built.** No React app, no sim, no deploy pipeline yet.
+- **Kickoff + planning complete.** Vision, v1 scope, tech stack, 7-stage roadmap in [`docs/master_plan.md`](docs/master_plan.md); feasibility GO verdict + evidence in [`docs/research-findings.md`](docs/research-findings.md).
+- **Scaffold + app pushed** to `github.com/Frankyface/SportsSims` (`main`, latest commit `f9ae6d2`).
+- **App builds & runs.** React + Vite + TS; `npm run dev`, `npm run build`, and `npm test` all pass. Deploy workflow (`.github/workflows/deploy.yml`) added (tests → build → Pages).
+- **Deterministic sim engine done + verified.** `src/sim/` — `prng.ts` (xmur3→mulberry32), `types.ts`, `simulateMatch.ts` (possession / xG / momentum model). **9 tests pass:** determinism (same seed → byte-identical), shape/consistency, Monte-Carlo calibration (avgGoals 2.85, shots 25.7/game, draws 24% — realistic), and a banned-API hygiene guard.
+- **Rating model added + verified.** `src/ratings/` — Glicko-2 (`glicko2.ts`), league generation with randomized starting Elo/RD/volatility (`teams.ts`), Glicko→playing-strength bridge (`strength.ts`). Match strength now derives from Elo; per-match form variance (from RD) drives upsets.
+- **Verified live in the browser** (preview on :5199): renders a real match (e.g. CAR 4–1 KAN, goal-by-goal feed, true xG 1.68–1.08). Currently a **text feed** — the Canvas animation replaces it next.
+- **Not yet done:** Canvas "tokens on a pitch" animation, WebCodecs MP4 export, live Pages deploy (blocked on the user enabling Pages).
 
 ## 📂 Files I'm Working On
-- Documentation scaffold (this handoff, `CLAUDE.md`, `docs/`, `staging/`) — just created.
-- Next code target: `staging/stage-1-foundation-and-slice/` feature files.
+- `src/sim/*` — sim engine (done). `src/App.tsx` — temporary text render (to be replaced by the Canvas renderer).
+- Next: `src/render/` (Canvas match renderer) + `src/export/` (WebCodecs MP4).
 
 ## ✅ Things I've Changed (newest first)
-- Added a **verification & success-states discipline** to `CLAUDE.md` and each stage (test-as-we-go — per user request 2026-07-07).
-- Committed the scaffold locally (34 files, commit `47395e5`). **Push to GitHub is pending the user's go-ahead.**
-- Scaffolded the full documentation system (CLAUDE.md, handoff, new_session_prompt, help, master_plan, research-findings, 7 staging stages).
-- Ran a 5-topic feasibility research pass → GO verdict; folded findings into the plan.
-- `git init` on `main` + added the GitHub remote.
+- Added the **Elo/Glicko-2 rating model** (`src/ratings/`): randomized starting rating/RD/volatility, Glicko→strength bridge, season decay. Verified — Glicko matches the published example; season sim gives **correlation 0.67, upset rate 28%, top-seed title rate 45%** (clear good/bad teams, real upsets, not a coin flip). **15 tests pass.**
+- Built + verified Stage 1 core: React/Vite/TS scaffold, deploy workflow, deterministic sim engine. Committed `f9ae6d2`, pushed.
+- Fixed the xG model to be **true expected-goals** (was a proxy reading ~2.5× high); recalibrated shots to ~13/team. Verified by test + live preview.
+- Added a verification & success-states discipline to `CLAUDE.md` + each stage.
+- Scaffolded the full documentation system; ran the feasibility research pass (GO); pushed the docs (`47395e5`).
 
 ## ❌ Tried But Failed
-- _(nothing yet)_ — Known traps to avoid (from research): do **not** rely on `MediaRecorder` to emit MP4 (breaks silently across machines) — use WebCodecs. Do **not** use transcendental math in the sim (breaks determinism).
+- `MediaRecorder`-emits-MP4 — avoided by design (WebCodecs instead). Transcendental math in the sim — banned + guarded by a test.
+- Preview needed an **8.3 short path** in launch.json (spaces break the npm spawn) **and** `server.fs.strict:false` in `vite.config.ts` (short-path vs Vite's serve allow-list). Both resolved.
 
 ## ➡️ Next Up
-1. **Push decision:** get the committed scaffold onto GitHub (awaiting user go-ahead).
-2. **Human unblock:** user completes the Stage-1 items in [`help.md`](help.md) — create the `elitesim-data` repo + a fine-grained token, and enable GitHub Pages on `SportsSims`.
-3. **Verification harness first:** set up Vitest + the determinism test (same seed → identical `MatchResult`) *before* feature code — every feature is built against a testable success state (see `CLAUDE.md` → Verification & success states).
-4. Scaffold the React + Vite + TypeScript app; get auto-deploy-to-Pages working (a "hello world" live on the `*.github.io` URL, verified via preview tools).
-5. Build the two-layer core (pure `simulateMatch()` + dumb Canvas renderer) on ONE hardcoded match, with the determinism + Monte-Carlo tests.
-6. Add WebCodecs export → download a 1080×1920 MP4; user manually posts it to @EliteSimSPN to confirm the pipeline.
+1. **Human unblock (1 click):** user enables GitHub Pages — [`help.md`](help.md) item 1 — so auto-deploy goes live. (The deploy Action builds+tests fine but its final publish step waits on this.)
+2. Build the **Canvas match renderer** — stylized "tokens on a pitch" animation of the event timeline (stylized ② look, simu.lation2d-ish geometry) with the non-linear highlight edit + broadcast scorebug. → `feature-canvas-renderer-and-export.md`.
+3. Build the **WebCodecs MP4 export** (frame-step → H.264/AAC → mp4-muxer → download; verify dimensions/codec + a real IG post).
+4. End-to-end proof: user posts an exported clip to @EliteSimSPN.
 
 ## 🔗 Pointer
 → Current stage folder: `staging/stage-1-foundation-and-slice/`
-→ Active feature file: `staging/stage-1-foundation-and-slice/feature-project-setup-and-deploy.md`
+→ Active feature file: `staging/stage-1-foundation-and-slice/feature-canvas-renderer-and-export.md`

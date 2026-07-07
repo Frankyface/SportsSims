@@ -37,3 +37,13 @@ export function seedFromKey(seedKey: string): number {
 export function makeRng(seedKey: string): () => number {
   return mulberry32(seedFromKey(seedKey))
 }
+
+/**
+ * Approx standard normal N(0,1) via the central-limit trick (sum of 12 uniforms - 6).
+ * Deterministic — uses only addition, so it is safe inside the sim (no transcendental math).
+ */
+export function randNormal(rng: () => number): number {
+  let s = 0
+  for (let i = 0; i < 12; i++) s += rng()
+  return s - 6
+}

@@ -5,11 +5,11 @@ import type { MatchConfig, TeamRating } from './sim/types'
 // Two hardcoded sample teams for the Stage-1 slice (real rosters arrive in Stage 3).
 const CARDINALS: TeamRating = {
   id: 'CAR', name: 'South City Cardinals', abbr: 'CAR', city: 'South City',
-  color: '#c8102e', colorAlt: '#111111', attack: 1.08, defense: 1.02, finishing: 1.05, discipline: 1.0,
+  color: '#c8102e', colorAlt: '#111111', attack: 1.08, defense: 1.02, finishing: 1.05, discipline: 1.0, formSpread: 0.13,
 }
 const KANGAROOS: TeamRating = {
   id: 'KAN', name: 'Kangaroos City FC', abbr: 'KAN', city: 'Kangaroos City',
-  color: '#0067b1', colorAlt: '#ffffff', attack: 0.98, defense: 1.05, finishing: 0.97, discipline: 1.0,
+  color: '#0067b1', colorAlt: '#ffffff', attack: 0.98, defense: 1.05, finishing: 0.97, discipline: 1.0, formSpread: 0.16,
 }
 
 const KEY_EVENTS = new Set(['goal', 'red', 'bigChance'])

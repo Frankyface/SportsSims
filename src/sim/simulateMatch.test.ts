@@ -14,6 +14,7 @@ function team(id: string, name: string, over: Partial<TeamRating> = {}): TeamRat
     defense: 1,
     finishing: 1,
     discipline: 1,
+    formSpread: 0.15,
     ...over,
   }
 }

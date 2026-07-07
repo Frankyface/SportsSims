@@ -2,7 +2,7 @@
 // Keep this pure & serializable — a MatchResult is what gets saved and re-rendered.
 
 /** Bump when the sim math changes so old saved matches re-render on the version that produced them. */
-export const SIM_VERSION = 1
+export const SIM_VERSION = 2
 
 export interface TeamRating {
   id: string          // immutable — never renumber (fandom depends on stable identity)
@@ -15,6 +15,7 @@ export interface TeamRating {
   defense: number
   finishing: number
   discipline: number
+  formSpread: number  // per-match performance variance (from Glicko RD); higher = more upset-prone
 }
 
 export interface MatchConfig {
