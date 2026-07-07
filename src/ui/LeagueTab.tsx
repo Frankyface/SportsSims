@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { LeagueState } from '../league/types'
 import {
   teamById,
@@ -15,12 +15,19 @@ import { buildMatchdayPack, type MatchdayPack } from '../content/matchdayPack'
 import { StandingsTable } from './StandingsTable'
 import { MatchView } from './MatchView'
 import { PackPanel } from './PackPanel'
+import { buildSeasonContent } from '../content/seasonContent'
+import { downloadBlob } from '../export/exportMp4'
 
 export function LeagueTab({ state, setState }: { state: LeagueState; setState: (s: LeagueState) => void }) {
   const [picked, setPicked] = useState<string | null>(null)
   const [viewNo, setViewNo] = useState(0)
   const [pack, setPack] = useState<MatchdayPack | null>(null)
   const [packProg, setPackProg] = useState<{ p: number; label: string } | null>(null)
+  const [seasonBusy, setSeasonBusy] = useState<{ p: number; label: string } | null>(null)
+
+  useEffect(() => {
+    ;(window as unknown as { __buildSeason?: () => Promise<Blob> }).__buildSeason = () => buildSeasonContent(state)
+  }, [state])
 
   const regularRounds = [...new Set(state.fixtures.filter((f) => f.stage === 'regular').map((f) => f.round))].sort((a, b) => a - b)
   const nextRegularRound = regularRounds.find((r) =>
@@ -82,6 +89,18 @@ export function LeagueTab({ state, setState }: { state: LeagueState; setState: (
       window.alert('Pack failed: ' + (e instanceof Error ? e.message : String(e)))
     } finally {
       setPackProg(null)
+    }
+  }
+
+  async function downloadSeason() {
+    setSeasonBusy({ p: 0, label: 'starting' })
+    try {
+      const zip = await buildSeasonContent(state, (p, label) => setSeasonBusy({ p, label }))
+      downloadBlob(zip, `ESSPN-${state.name.replace(/\s/g, '')}-S${state.season}.zip`)
+    } catch (e) {
+      window.alert('Season download failed: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setSeasonBusy(null)
     }
   }
 
@@ -161,6 +180,21 @@ export function LeagueTab({ state, setState }: { state: LeagueState; setState: (
             </button>
           </div>
           {pack && <PackPanel pack={pack} />}
+        </>
+      )}
+
+      {played.length > 0 && (
+        <>
+          <h3 className="sectionH">📦 Download season content</h3>
+          <p className="hint">
+            Every played game as a video + a standings post after each, numbered in posting order, in one .zip with a
+            POSTING_ORDER.txt. A full season takes a few minutes to encode.
+          </p>
+          <div className="controls">
+            <button className="btn" onClick={downloadSeason} disabled={seasonBusy !== null}>
+              {seasonBusy ? `Building… ${Math.round(seasonBusy.p * 100)}% · ${seasonBusy.label}` : '⬇ Download Season Content'}
+            </button>
+          </div>
         </>
       )}
 

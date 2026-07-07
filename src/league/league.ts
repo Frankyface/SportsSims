@@ -86,14 +86,14 @@ export function playRound(state: LeagueState, round: number): LeagueState {
   return s
 }
 
-export function computeStandings(state: LeagueState): StandingRow[] {
+export function computeStandings(state: LeagueState, results: Record<string, MatchScore> = state.results): StandingRow[] {
   const rows = new Map<string, StandingRow>()
   for (const t of state.teams) {
     rows.set(t.identity.id, { teamId: t.identity.id, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, points: 0, form: [] })
   }
   const regular = state.fixtures.filter((f) => f.stage === 'regular').sort((a, b) => a.round - b.round)
   for (const f of regular) {
-    const sc = state.results[f.id]
+    const sc = results[f.id]
     if (!sc) continue
     const H = rows.get(f.home)
     const A = rows.get(f.away)
