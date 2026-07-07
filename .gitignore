@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+build/
+*.local
+
+# Vite cache
+.vite/
+
+# Environment & secrets — NEVER commit tokens or keys
+.env
+.env.*
+!.env.example
+*.pem
+secrets.json
+
+# Generated video/media exports (don't bloat the repo with test clips)
+exports/
+*.mp4
+*.webm
+# (keep sample/branding assets by whitelisting them explicitly if needed)
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.sw?
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Scratch
+*.tmp

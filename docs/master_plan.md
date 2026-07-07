@@ -1,0 +1,113 @@
+# EliteSimSPN — Master Plan
+
+_The complete vision, written so a brand-new session with zero prior context can rebuild the whole project. Last updated 2026-07-07._
+
+## Pitch
+
+**EliteSimSPN** — the *Elite Simulated Sports Programming Network* — is a fictional ESPN. A free web app simulates persistent, invented sports leagues and turns each match into a short (~25–40s), broadcast-styled replay video posted to the faceless Instagram account **@EliteSimSPN**. Soccer launches first; Rugby, Golf, then American Football, Basketball, and Hockey follow on the same engine.
+
+## Problem & Why
+
+Simulation/race videos (marble racing, *Marbula One*, Horse Race Tests, square-race sims) pull huge, devoted audiences. But almost all of them are **disposable** — a single clip with no continuity. The magic that actually builds a *fanbase* is what most of them under-use:
+
+> **Recurring competitors you get attached to + a persistent seasonal standings race + "anyone can win" RNG drama.**
+
+EliteSimSPN is built around that fandom engine from day one, and adds the one thing none of the marble accounts have: a **credible broadcast package** (scoreboard, lower-thirds, a real "network" identity). That's the differentiation — it makes a simple 2D sim feel like a sport people take seriously. (Jelle's Marble Runs' ESPN-grade presentation literally got it onto ESPN during the 2020 sports void.)
+
+## Target users & use cases
+
+- **Primary user = the operator (you).** A solo, non-coder creator running a faceless account. Jobs-to-be-done:
+  1. **Sim a game** and get a finished, post-ready video with one click.
+  2. **Run a league** — sim a whole matchday at once and get every game's video *plus* an updated-standings post, all ready to post.
+  3. **Keep the world going** — standings, results, and history persist across sessions so the season race is real and editable.
+- **Secondary users = the Instagram audience.** They never touch the app; they consume the videos and (later) a public standings page. Their job: pick a team, follow the race, argue in the comments.
+
+## v1 scope (Soccer, free, on GitHub Pages)
+
+- A **"Sim a Match" (friendly) tab**: click → watch a stylized ~30s match → nothing is saved. The "see how it works" sandbox (can use generic teams).
+- A **10-team Soccer league**, home-and-away (18 matchdays) + end-of-season **playoffs**; a **champion crowned**, then the season archives to history and standings reset.
+- **One click → an Instagram-ready MP4** auto-generated (stylized ② look: recognizably a match — pitch, ball, tokens, goals emerge — but clean, not a graphics arms race).
+- **Sim a whole matchday at once** → all game videos + a standings-update graphic + written captions (with a prediction hook), organized for posting.
+- **Standings persist** to a separate `elitesim-data` repo; **friendlies stay ephemeral** (never saved).
+- Runs entirely on **GitHub Pages, for free.** You post by tapping "share" yourself (Rung 1).
+
+### Explicit v1 non-goals
+Rugby & Golf (fast-follows), named star players (data model keeps the slot; UI stays team-level), promotion/relegation across divisions (parked note), **any** auto-posting, any paid services/APIs.
+
+## Future roadmap (6–12 months)
+
+- **Multiply sports:** Rugby, then Golf (individual — heats of 4, majors, season-long rankings), then American Football / Basketball / Hockey.
+- **Turn on star players:** ~4 named stars per team, scorers, streaks, rivalry- and persona-driven captions; a public standings/records page in the IG bio.
+- **Automation ladder → the "self-running newsroom":** batch/queue (Rung 2) → scheduled auto-posting with one-tap approval via GitHub Actions + the official Instagram API (Rung 3) → fully hands-off, running to a real-sports-style calendar (Rung 4).
+- **Possible later:** promotion/relegation across two divisions; a cross-sport shared universe (a team you love in Soccer shows up in Rugby); sport sub-accounts under the network brand (@EliteSimSPN → …Golf, …Rugby), ESPN-style.
+
+## Tech stack & key decisions (with the why)
+
+- **React + Vite + TypeScript**, static build → **GitHub Pages.** Free; the most AI-supported stack (matters because Claude maintains it on ~1hr/week of the user's time); TypeScript keeps it safe across sessions.
+- **HTML5 Canvas** for the match — simple 2D tokens-on-a-pitch, easy to render deterministically and capture.
+- **Deterministic seeded simulation** — a pure `simulateMatch(config) → MatchResult{score, events[]}` with a single PRNG (`xmur3`→`mulberry32`) as its only source of randomness. Same seed → identical match → identical video. This unlocks later server-side auto-rendering (Rung 4). **Non-negotiable; see determinism rules in `CLAUDE.md`.**
+- **WebCodecs** (`VideoEncoder` + `mp4-muxer`) for in-browser export — produces a real Instagram-ready H.264/AAC MP4 with the moov atom up front, and needs **no** cross-origin-isolation headers (which GitHub Pages can't set). Frame-stepped (not real-time recorded) → exact 30fps. `ffmpeg.wasm` single-thread is the fallback only.
+- **Persistence = JSON in a separate `elitesim-data` repo** via the GitHub Contents API, with a fine-grained single-repo token. localStorage is the instant working cache; the repo file is the durable, versioned source of truth. Separate repo = tiny token blast radius + saves don't rebuild the site.
+- **Automation spine (later) = GitHub Actions** (free/unlimited on public repos, ffmpeg preinstalled) that re-renders the deterministic sim headlessly and posts via the Instagram API. Own-account posting stays in Meta "Standard Access" → **no App Review**.
+
+The evidence and exact APIs/gotchas behind all of this: [`research-findings.md`](research-findings.md).
+
+## Architecture sketch
+
+```
+┌─────────────────────────── GitHub Pages (free, static) ───────────────────────────┐
+│  React + Vite + TS app                                                             │
+│                                                                                    │
+│   [Pure Sim]  simulateMatch(config, seed) ─► MatchResult { score, events[] }       │
+│      │  (no DOM, no Math.random/Date.now, one PRNG, versioned)                      │
+│      ▼                                                                              │
+│   [Dumb Renderer]  (events, renderSeed, frameIndex) ─► Canvas frame                 │
+│      │  broadcast overlay: scoreboard bug · lower-thirds · intro/result cards       │
+│      ├──► live preview (watch in browser)                                           │
+│      └──► WebCodecs frame-step ─► H.264/AAC ─► mp4-muxer ─► download .mp4 (Reel)    │
+│                                                                                    │
+│   [League state]  localStorage cache  ◄──►  GitHub Contents API                     │
+└───────────────────────────────────────────────────────┬────────────────────────────┘
+                                                         │ (write, fine-grained token)
+                                              ┌──────────▼───────────┐
+                                              │  elitesim-data repo   │  league-history.json
+                                              └───────────────────────┘
+   (Later, Rung 3/4) GitHub Actions ─ headless re-render of the SAME sim ─► IG Graph API
+```
+
+The **same sim + renderer** power the in-browser preview, the WebCodecs export, and (later) the headless Actions re-render. One engine, three uses — the reason determinism is sacred.
+
+## Staged roadmap
+
+| # | Stage | Goal | Headline / definition of done | v1? |
+|---|-------|------|------------------------------|-----|
+| 1 | Foundation & de-risking slice | Stand up the app + prove the riskiest path | App auto-deploys to Pages; a **hardcoded deterministic match renders on Canvas and exports a 1080×1920 MP4** you post to @EliteSimSPN successfully | ✅ |
+| 2 | Watchable soccer | Make the match genuinely fun to watch | Calibrated sim (drama, upsets, believable scores) + **broadcast overlay** + the **"Friendly" tab** → a dramatic, legible ~30s clip | ✅ |
+| 3 | Leagues & standings | Persistent seasons | 10-team season + playoffs; standings **persist to `elitesim-data`** across reloads/devices; friendlies stay ephemeral | ✅ |
+| 4 | Matchday content drop | One click = a day's content | Batch-sim a matchday → all game videos + a **standings-update post + captions** on an **ESPN-style calendar** | ✅ **(v1 finish line)** |
+| 5 | Rugby & Golf | Multiply the engine | Rugby (team) + Golf (heats of 4, majors, season rankings) via the same pipeline | — |
+| 6 | Star players & drama | Deepen fandom | ~4 named stars/team, scorers, streaks, rivalry/persona captions, public standings page | — |
+| 7 | Automation ladder | The self-running newsroom | Rung 2 (batch/queue) → Rung 3 (scheduled auto-post + one-tap approval) → Rung 4 (hands-off) | — |
+
+## Open questions & risks
+
+**Top risks (designing against them):**
+- **Watchability** — a boring/samey sim kills fandom. Mitigation: an explicit "is this fun to watch?" gate in Stage 2; calibrate against real football stats; a momentum/comeback mechanic for late drama.
+- **Scope creep** — 6 sports × video × automation. Mitigation: Soccer end-to-end (Stages 1–4) before anything multiplies; every sport reuses the same spine.
+- **Determinism drift** — an accidental `Math.random`/`**` in the sim silently breaks later auto-rendering. Mitigation: the determinism rules + (planned) a lint check on the sim module.
+- **Genre saturation** — marble/square races are crowded. Mitigation: our moat is the persistent league + broadcast narrative, not physics novelty.
+
+**Open questions (revisit as we build):**
+- Posting cadence: a real-sports calendar rhythm vs. a simple fixed 3×/week to start? (Research leans "start 3×/week at a fixed time, scale to daily.")
+- Public vs private `elitesim-data` repo (public = free tokenless reads + fits a fan account; private = hidden but reads also need the token).
+- Exact scoreline "personality" for the brand (grind-y 1–0s vs end-to-end thrillers) — a single sim tuning knob, but a creative call.
+
+## Glossary
+
+- **Matchday / round** — one slate of league fixtures; the unit of a "content drop."
+- **Friendly** — a one-off sim, not part of any league; produces a video but is never saved.
+- **Deterministic sim** — same input seed always yields the same match and video.
+- **Event timeline** — the ordered list of what happened in a match (kickoff, shots, goals, cards…); the renderer animates it and captions quote it.
+- **Broadcast overlay / package** — the on-screen ESPN-style graphics: scoreboard bug, lower-thirds, intro "tale of the tape," result end-card.
+- **Rung 1–4** — the automation ladder, from "you tap post" (1) to "fully hands-off newsroom" (4).
+- **The linked list** — the doc model: `handoff.md` is the head (where we are), the `staging/` feature files are the body (ordered work).
