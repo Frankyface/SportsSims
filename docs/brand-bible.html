@@ -1,0 +1,348 @@
+<title>ESSPN — Club Identity Book</title>
+<style>
+  :root {
+    --ground: #080b11;
+    --surface: #10151e;
+    --surface-2: #161d29;
+    --line: rgba(255, 255, 255, 0.09);
+    --ink: #eef2f7;
+    --muted: #8b95a4;
+    --faint: #5c6675;
+    --net: #ff2d46;
+    --net-deep: #c8102e;
+    --display: "Arial Narrow", "Roboto Condensed", "Helvetica Neue", system-ui, sans-serif;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 50% -8%, rgba(255, 45, 70, 0.10), transparent 60%),
+      var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: clamp(28px, 5vw, 72px) 20px 96px; }
+
+  /* Masthead */
+  .masthead { text-align: center; margin-bottom: clamp(36px, 6vw, 72px); }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 20px;
+  }
+  .logo {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(4rem, 15vw, 9rem);
+    letter-spacing: 0.02em;
+    line-height: 0.9;
+    text-transform: uppercase;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .logo .ss { color: var(--net); }
+  .full {
+    font-family: var(--mono);
+    font-size: clamp(11px, 2.4vw, 14px);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 18px;
+  }
+  .lede {
+    max-width: 60ch;
+    margin: 28px auto 0;
+    color: var(--muted);
+    font-size: clamp(1rem, 2.4vw, 1.18rem);
+    text-wrap: pretty;
+  }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .rule {
+    width: 100%;
+    height: 2px;
+    margin: clamp(30px, 5vw, 52px) 0 0;
+    background: linear-gradient(90deg, transparent, var(--net-deep) 20%, var(--net) 50%, var(--net-deep) 80%, transparent);
+    opacity: 0.8;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: clamp(40px, 6vw, 64px) 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .section-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+
+  .club {
+    position: relative;
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: translateY(14px);
+    animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  }
+  .club::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 5px;
+    background: linear-gradient(90deg, var(--c1), var(--c2));
+  }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .club { opacity: 1; transform: none; animation: none; }
+  }
+
+  .club-top { display: flex; gap: 18px; padding: 26px 24px 18px; align-items: flex-start; }
+  .crest { flex: 0 0 76px; width: 76px; height: 92px; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45)); }
+  .crest svg { width: 100%; height: 100%; display: block; }
+  .crest .mono {
+    font-family: var(--display);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .head { min-width: 0; flex: 1; }
+  .tier { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .bar { position: relative; flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.09); overflow: hidden; }
+  .bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: linear-gradient(90deg, var(--c1), var(--c2)); }
+  .tier-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .name {
+    font-family: var(--display);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(1.5rem, 3.4vw, 2rem);
+    line-height: 0.98;
+    letter-spacing: 0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .nick { color: var(--c2b); font-weight: 600; font-size: 1.02rem; margin-top: 4px; }
+  .arch {
+    display: inline-block;
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+
+  .desc { margin: 0; padding: 4px 24px 20px; color: #cdd5e0; font-size: 0.96rem; }
+
+  .swatches { display: flex; gap: 10px; padding: 0 24px 20px; }
+  .swatch { display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .swatch .dot { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.14); }
+
+  .brief {
+    margin-top: auto;
+    padding: 18px 24px 24px;
+    border-top: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .brief-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--c2b);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .brief-label::before { content: "✎"; }
+  .brief p { margin: 0; font-size: 0.92rem; color: #dbe1ea; }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--faint);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  footer code { font-family: var(--mono); color: var(--muted); }
+  a { color: var(--net); }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="kicker">Club Identity Book · v1</div>
+    <h1 class="logo">E<span class="ss">SS</span>PN</h1>
+    <div class="full">Elite Simulated Sports Programming Network</div>
+    <p class="lede">
+      The six founding clubs of the <b>ESSPN Premier League</b>. Each is a footballing archetype with its own strength,
+      style, and soul — starting points for the crests you're about to draw. Colours are the ones the app already renders;
+      the briefs are the personality to build the logo around.
+    </p>
+    <div class="rule"></div>
+  </header>
+
+  <div class="section-label">The founding six</div>
+  <main class="grid" id="grid"></main>
+
+  <footer>
+    Ratings, colours and copy live in <code>src/ratings/teams.ts</code>. Redraw a crest, swap a colour, rename a club —
+    it flows straight into every sim video and standings post.
+  </footer>
+</div>
+
+<script>
+  const CLUBS = [
+    {
+      abbr: "KNG", name: "Kingsbridge Athletic", nick: "The Crowns", arch: "Old-money aristocrats",
+      c1: "#1a237e", c2: "#d4af37", rating: 1720, tier: "Title favourites", crest: "shield",
+      desc: "The old-money aristocrats. Kingsbridge have won everything and expect to win it again — a marble-halls institution with a trophy room the size of a cathedral and a support that boos anything short of a title. Elegant, entitled, quietly ruthless. The team everyone loves to beat.",
+      logo: "A regal heraldic crest: a royal-navy shield, a gold five-point crown up top, twin laurel branches, a serif ‘KA’ monogram. Minted gold on deep navy — coat-of-arms formality, nothing playful."
+    },
+    {
+      abbr: "COB", name: "Cobalt Bay FC", nick: "The Chrome", arch: "Nouveau-riche project",
+      c1: "#00bcd4", c2: "#e8f7fb", rating: 1660, tier: "Big spenders", crest: "diamond",
+      desc: "New money, no history, all glamour. A mid-table nobody until an offshore fortune arrived and bought a galaxy of stars overnight. Flashy, front-footed and financially bulletproof — but does all that chrome hide a soft centre? Rivals adore watching them bottle it.",
+      logo: "A sleek lowercase wordmark in electric cyan with a chrome bevel; a stylized bay-wave curve or a cut-diamond motif. Tech-startup slick, a little gaudy — money you can see."
+    },
+    {
+      abbr: "MAR", name: "Marlowe City", nick: "The Artisans", arch: "Tiki-taka technicians",
+      c1: "#2196f3", c2: "#e9f2fb", rating: 1600, tier: "Top-half chasers", crest: "roundel",
+      desc: "Football as art. Marlowe pass you dizzy — a possession-obsessed academy side of slight, silky technicians who’d rather win 4–3 than 1–0 and physically cannot defend a set-piece. Poetry when it clicks; a horror show when it doesn’t. Purists swoon, pragmatists despair.",
+      logo: "A clean arty roundel: thin sky-blue line-work, a swirling ball or an Art-Deco ‘M’, lots of white space. Elegant, boutique, gallery-poster minimalism."
+    },
+    {
+      abbr: "IRN", name: "Ironhaven United", nick: "The Foundry", arch: "Industrial grinders",
+      c1: "#7b1e2b", c2: "#9aa7b2", rating: 1520, tier: "Mid-table", crest: "shield",
+      desc: "Forged in a steel town, Ironhaven are grit incarnate — hard, honest, defensively stubborn, the kind of side that out-works you and nicks it 1–0. No superstars, no nonsense, a packed stand of dockworkers who’d die for the shirt. The neutral’s second team and every striker’s nightmare.",
+      logo: "A rugged industrial crest: crossed hammers or an anvil over a claret shield, riveted steel border, bold slab-serif ‘IRONHAVEN’ banner. Weathered, heavy, blue-collar — sparks optional."
+    },
+    {
+      abbr: "BLK", name: "Blackwater Wanderers", nick: "The Ghosts", arch: "Chaos mavericks",
+      c1: "#6a1b9a", c2: "#ff6d00", rating: 1470, tier: "Wildcards", crest: "gothic",
+      desc: "Nobody knows what Blackwater will do — least of all Blackwater. A boom-or-bust cult club of mavericks and misfits who look like geniuses and clowns in the same half. Brilliant, baffling, utterly unpredictable. The variance kings; back them at your peril.",
+      logo: "A moody, mystical mark: a purple crest with an orange will-o’-the-wisp flame or a wandering-star, a gothic ‘W’. Dark, cultish, a touch occult — mysterious and a little unhinged."
+    },
+    {
+      abbr: "SUN", name: "Sundervale Rovers", nick: "The Terriers", arch: "Plucky minnows",
+      c1: "#ffb300", c2: "#2e7d32", rating: 1380, tier: "Lovable underdogs", crest: "badge",
+      desc: "The little club that shouldn’t be here. A tiny market-town side running on heart, duct tape and a manager who’s basically a wizard. Everyone’s favourite underdog — they’ll ship five one week and knock off the champions the next. Pure chaos-heart energy, adopted worldwide by anyone who loves a giant-killing.",
+      logo: "A cheeky homespun badge: a scrappy terrier’s head, an amber-and-green scarf motif, a hand-drawn ‘ROVERS’ ribbon. Retro non-league charm, deliberately rough at the edges. Lovable."
+    }
+  ];
+
+  const RMIN = 1330, RMAX = 1760;
+
+  function crestSvg(type, c1, c2, abbr) {
+    const grad = `<defs>
+      <linearGradient id="g-${abbr}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${c1}"/>
+        <stop offset="1" stop-color="${shade(c1, -0.28)}"/>
+      </linearGradient></defs>`;
+    let shape = "";
+    if (type === "roundel") {
+      shape = `<circle cx="50" cy="58" r="46" fill="url(#g-${abbr})" stroke="${c2}" stroke-width="3.5"/>
+               <circle cx="50" cy="58" r="37" fill="none" stroke="${c2}" stroke-width="1.5" opacity="0.7"/>`;
+    } else if (type === "diamond") {
+      shape = `<path d="M50 6 L94 58 L50 110 L6 58 Z" fill="url(#g-${abbr})" stroke="${c2}" stroke-width="3.5" stroke-linejoin="round"/>`;
+    } else if (type === "badge") {
+      shape = `<rect x="7" y="12" width="86" height="94" rx="22" fill="url(#g-${abbr})" stroke="${c2}" stroke-width="3.5"/>`;
+    } else {
+      // shield (default) — gothic just tweights the crown differently, same silhouette
+      shape = `<path d="M50 5 L93 19 V60 C93 89 73 106 50 115 C27 106 7 89 7 60 V19 Z" fill="url(#g-${abbr})" stroke="${c2}" stroke-width="3.5" stroke-linejoin="round"/>`;
+    }
+    const crown = type === "shield"
+      ? `<path d="M34 30 l6 8 l10 -11 l10 11 l6 -8 v10 h-32 z" fill="${c2}" opacity="0.92"/>`
+      : "";
+    return `<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      ${grad}${shape}${crown}
+      <text class="mono" x="50" y="${type === 'roundel' ? 66 : 74}" text-anchor="middle"
+        font-size="30" fill="#ffffff" style="paint-order:stroke;stroke:rgba(0,0,0,0.25);stroke-width:1px">${abbr}</text>
+    </svg>`;
+  }
+
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    r = Math.round(Math.max(0, Math.min(255, r + amt * 255)));
+    g = Math.round(Math.max(0, Math.min(255, g + amt * 255)));
+    b = Math.round(Math.max(0, Math.min(255, b + amt * 255)));
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+
+  function legibleAccent(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    return lum < 0.42 ? shade(hex, 0.35) : hex; // lift dark brand colours so the nickname stays readable
+  }
+
+  const grid = document.getElementById("grid");
+  CLUBS.forEach((club, i) => {
+    const pct = Math.round(((club.rating - RMIN) / (RMAX - RMIN)) * 100);
+    const c2b = legibleAccent(club.c2);
+    const el = document.createElement("article");
+    el.className = "club";
+    el.style.setProperty("--c1", club.c1);
+    el.style.setProperty("--c2", club.c2);
+    el.style.setProperty("--c2b", c2b);
+    el.style.animationDelay = (i * 70) + "ms";
+    el.innerHTML = `
+      <div class="club-top">
+        <div class="crest">${crestSvg(club.crest, club.c1, club.c2, club.abbr)}</div>
+        <div class="head">
+          <div class="tier">
+            <div class="bar"><i style="width:${pct}%"></i></div>
+            <span class="tier-label">${club.tier}</span>
+          </div>
+          <h2 class="name">${club.name}</h2>
+          <div class="nick">“${club.nick}”</div>
+          <div><span class="arch">${club.arch}</span></div>
+        </div>
+      </div>
+      <p class="desc">${club.desc}</p>
+      <div class="swatches">
+        <span class="swatch"><span class="dot" style="background:${club.c1}"></span>${club.c1.toUpperCase()}</span>
+        <span class="swatch"><span class="dot" style="background:${club.c2}"></span>${club.c2.toUpperCase()}</span>
+        <span class="swatch">Elo ${club.rating}</span>
+      </div>
+      <div class="brief">
+        <div class="brief-label">Logo brief</div>
+        <p>${club.logo}</p>
+      </div>`;
+    grid.appendChild(el);
+  });
+</script>

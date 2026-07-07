@@ -1,5 +1,5 @@
 # Handoff — EliteSimSPN
-_Last updated: 2026-07-07 · **V1 COMPLETE.** Next: post-V1 (Rugby/Golf, star players, automation)._
+_Last updated: 2026-07-07 · **V1 COMPLETE + LIVE** (ESSPN branding, 6 clubs). Next: post-V1 (Rugby/Golf, star players, automation)._
 
 ## 🎯 Goals
 V1 is done: Soccer end-to-end — deterministic **Elo/Glicko-2** sim → animated video (with audio) → Instagram-ready MP4 → persistent league / standings / playoffs → **one-click matchday content pack**. All committed & pushed. Remaining work is post-V1.
@@ -17,6 +17,8 @@ V1 is done: Soccer end-to-end — deterministic **Elo/Glicko-2** sim → animate
 - `src/sim` (sim + PRNG), `src/ratings` (Glicko-2, team gen, strength), `src/render` (director, renderer, standings card), `src/export` (WebCodecs video + audio), `src/league` (engine + persistence), `src/content` (captions, matchday pack), `src/ui` (tabs + components), `src/App.tsx`.
 
 ## ✅ Things I've Changed (newest first)
+- **Post-V1 tweaks (all live):** rebranded to **ESSPN** (wordmark E·SS·PN, captions, filenames); replaced the roster with **6 characterful clubs** (archetypes + personalities + logo briefs in `src/ratings/teams.ts` + `docs/brand-bible.html`); shrank the league to **6 teams** (top-4 playoffs retained); added **Download Season Content** (every game + as-of standings post, posting order, one zip). Commits `7c7b350`, `feedcbc`.
+- **App is LIVE** at frankyface.github.io/SportsSims (Pages on; deploys on push). `elitesim-data` repo ready for cloud save (needs the token — help.md #3).
 - **Stage 4 — matchday content pack** (videos + standings PNG + captions). `8b0d9d7`. **V1 complete.**
 - Stage 3 — persistent league + standings + playoffs + persistence + tabbed UI. `dbe4340`.
 - Stage 2 — procedural match audio. `366dc9d`.
