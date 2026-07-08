@@ -98,6 +98,7 @@ header {
 .settings input { display: block; width: 100%; margin-top: 4px; padding: 9px; border-radius: 8px; border: 1px solid #1b2532; background: #0a0e14; color: #e8edf4; font-size: 14px; }
 
 /* Rugby club book */
+.sectionTitle { margin: 28px 0 4px; font-size: 20px; }
 .clubGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; margin-top: 8px; }
 .clubCard { background: #121924; border-radius: 12px; border-top: 4px solid #333; padding: 14px 16px; }
 .clubTop { display: flex; gap: 14px; align-items: center; }
