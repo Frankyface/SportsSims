@@ -38,7 +38,7 @@ Rugby & Golf (fast-follows), named star players (data model keeps the slot; UI s
 
 ## Future roadmap (6–12 months)
 
-- **Multiply sports:** Rugby, then Golf (individual — heats of 4, majors, season-long rankings), then American Football / Basketball / Hockey.
+- **Multiply sports:** Rugby, then Golf (individual — heats of 4, majors, season-long rankings), then American Football / Basketball / Hockey. _(Rugby's identity is already built: the **Bastion Championships** — 6 hand-authored clubs, real crests, and a club-book tab — exist ahead of the rugby match sim, which is the next build.)_
 - **Turn on star players:** ~4 named stars per team, scorers, streaks, rivalry- and persona-driven captions; a public standings/records page in the IG bio.
 - **Automation ladder → the "self-running newsroom":** batch/queue (Rung 2) → scheduled auto-posting with one-tap approval via GitHub Actions + the official Instagram API (Rung 3) → fully hands-off, running to a real-sports-style calendar (Rung 4).
 - **Possible later:** promotion/relegation across two divisions; a cross-sport shared universe (a team you love in Soccer shows up in Rugby); sport sub-accounts under the network brand (@EliteSimSPN → …Golf, …Rugby), ESPN-style.
@@ -91,7 +91,7 @@ _Stages 1–4 (v1) are **shipped & live**. Stage 3 shrank from 10 teams to the 6
 | 2 | Watchable soccer | Make the match genuinely fun to watch | Calibrated sim (drama, upsets, believable scores) + **broadcast overlay** + the **"Friendly" tab** → a dramatic, legible ~30s clip | ✅ |
 | 3 | Leagues & standings | Persistent seasons | 10-team season + playoffs; standings **persist to `elitesim-data`** across reloads/devices; friendlies stay ephemeral | ✅ |
 | 4 | Matchday content drop | One click = a day's content | Batch-sim a matchday → all game videos + a **standings-update post + captions** on an **ESPN-style calendar** | ✅ **(v1 finish line)** |
-| 5 | Rugby & Golf | Multiply the engine | Rugby (team) + Golf (heats of 4, majors, season rankings) via the same pipeline | — |
+| 5 | Rugby & Golf | Multiply the engine | Rugby (team) + Golf (heats of 4, majors, season rankings) via the same pipeline. _In progress: Rugby **identity** (Bastion Championships — 6 clubs + crests + club-book) built; the **sim** is next._ | — |
 | 6 | Star players & drama | Deepen fandom | ~4 named stars/team, scorers, streaks, rivalry/persona captions, public standings page | — |
 | 7 | Automation ladder | The self-running newsroom | Rung 2 (batch/queue) → Rung 3 (scheduled auto-post + one-tap approval) → Rung 4 (hands-off) | — |
 
@@ -110,7 +110,7 @@ _Stages 1–4 (v1) are **shipped & live**. Stage 3 shrank from 10 teams to the 6
 
 ## Glossary
 
-- **ESSPN** — the fictional network/broadcaster brand (wordmark E·SS·PN). **Crown League** — the competition ESSPN shows (the 6-club Soccer league).
+- **ESSPN** — the fictional network/broadcaster brand (wordmark E·SS·PN). **Crown League** — the Soccer competition ESSPN shows (6 clubs). **Bastion Championships** — the Rugby competition (6 clubs; identity + crests built, sim pending).
 - **Offseason** — between seasons, each club's rating drifts a little (form + transfer-window noise); a "big offseason" raises its volatility. Ratings persist year to year (no reset to the mean).
 - **Matchday / round** — one slate of league fixtures; the unit of a "content drop."
 - **Friendly** — a one-off sim, not part of any league; produces a video but is never saved.

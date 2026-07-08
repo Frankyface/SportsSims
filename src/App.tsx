@@ -4,11 +4,12 @@ import { createLeague } from './league/league'
 import { saveLocal, loadLocal } from './league/persistence'
 import { LeagueTab } from './ui/LeagueTab'
 import { FriendlyTab } from './ui/FriendlyTab'
+import { RugbyTab } from './ui/RugbyTab'
 import { SettingsTab } from './ui/SettingsTab'
 
 const LEAGUE_ID = 'crown-league'
 const LEAGUE_NAME = 'Crown League'
-type Tab = 'league' | 'friendly' | 'settings'
+type Tab = 'league' | 'friendly' | 'rugby' | 'settings'
 
 // A fresh random seed each time a league is created, so every new league plays
 // out differently. (This is a UI action, not the deterministic sim — a saved
@@ -47,6 +48,9 @@ export default function App() {
         <button className={tab === 'friendly' ? 'on' : ''} onClick={() => setTab('friendly')}>
           Friendly
         </button>
+        <button className={tab === 'rugby' ? 'on' : ''} onClick={() => setTab('rugby')}>
+          Rugby
+        </button>
         <button className={tab === 'settings' ? 'on' : ''} onClick={() => setTab('settings')}>
           Settings
         </button>
@@ -54,6 +58,7 @@ export default function App() {
 
       {tab === 'league' && <LeagueTab state={league} setState={setLeague} />}
       {tab === 'friendly' && <FriendlyTab />}
+      {tab === 'rugby' && <RugbyTab />}
       {tab === 'settings' && <SettingsTab state={league} setState={setLeague} />}
 
       {tab === 'league' && (

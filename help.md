@@ -57,6 +57,17 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 
 ---
 
+## 🎨 Optional (cosmetic, any time)
+
+### [ ] Regenerate the Highmoor "Stags" rugby crest on a transparent background
+- **What:** Re-export the Highmoor RFC crest with a transparent (or dark) background instead of the grey one.
+- **Why:** Its grey background shows as a grey square on the app's dark club cards. (The other five rugby crests blend fine; the Bastion league logo's *flat-white* background Claude can knock out automatically.)
+- **How:** In your image tool, make the background transparent, save as PNG, drop it in a folder and tell Claude — Claude downscales + wires it in.
+- **Unblocks:** nothing — pure polish. Do it whenever, or never.
+
+---
+
 ## ✅ Done
 - [x] Created the `SportsSims` GitHub repo.
 - [x] Registered the **@EliteSimSPN** Instagram handle.
+- [x] Supplied the 6 rugby club crests + the Bastion Championships logo.

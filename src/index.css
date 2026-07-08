@@ -97,6 +97,20 @@ header {
 .settings label { display: block; margin-bottom: 12px; font-size: 13px; color: #9aa5b1; }
 .settings input { display: block; width: 100%; margin-top: 4px; padding: 9px; border-radius: 8px; border: 1px solid #1b2532; background: #0a0e14; color: #e8edf4; font-size: 14px; }
 
+/* Rugby club book */
+.clubGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; margin-top: 8px; }
+.clubCard { background: #121924; border-radius: 12px; border-top: 4px solid #333; padding: 14px 16px; }
+.clubTop { display: flex; gap: 14px; align-items: center; }
+.clubCrest { width: 96px; height: 96px; flex: 0 0 auto; object-fit: contain; background: #0b0f17; border-radius: 12px; }
+.clubCrest.fallback { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px; color: #fff; }
+.clubMeta { min-width: 0; }
+.clubMeta h3 { margin: 0 0 2px; font-size: 19px; line-height: 1.15; }
+.clubMeta .nick { color: #cdd6e0; font-size: 14px; font-style: italic; }
+.clubMeta .sub { display: block; margin-top: 5px; }
+.swatches { display: inline-flex; gap: 5px; margin-top: 9px; }
+.swatches span { width: 16px; height: 16px; border-radius: 4px; display: inline-block; border: 1px solid rgba(255, 255, 255, 0.15); }
+.clubDesc { color: #9aa5b1; font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
+
 /* Content pack */
 .pack { margin-top: 12px; }
 .packItems { list-style: none; padding: 0; margin: 12px 0 0; }
