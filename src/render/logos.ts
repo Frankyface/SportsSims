@@ -10,6 +10,7 @@ import ironhaven from '../assets/logos/ironhaven.png'
 import meridian from '../assets/logos/meridian.png'
 import sundervale from '../assets/logos/sundervale.png'
 import leagueLogo from '../assets/logos/league.png'
+import { ensureFontsLoaded } from './fonts'
 
 const LEAGUE_KEY = '__league'
 
@@ -46,12 +47,13 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 /** Preload every logo once. Safe to call repeatedly. Never rejects (missing logos fall back to a colour chip). */
 export function ensureLogosLoaded(): Promise<void> {
   if (!loadPromise) {
-    loadPromise = Promise.all(
-      Object.entries(URLS).map(async ([key, url]) => {
+    loadPromise = Promise.all([
+      ensureFontsLoaded(),
+      ...Object.entries(URLS).map(async ([key, url]) => {
         const img = await loadImage(url)
         if (img) cache.set(key, img)
       }),
-    ).then(() => undefined)
+    ]).then(() => undefined)
   }
   return loadPromise
 }

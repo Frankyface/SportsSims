@@ -14,6 +14,7 @@ import ravensworth from '../assets/logos/ravensworth.png'
 import duncarrow from '../assets/logos/duncarrow.png'
 import wrenshire from '../assets/logos/wrenshire.png'
 import bastion from '../assets/logos/bastion.png'
+import { ensureFontsLoaded } from './fonts'
 
 const BASTION_KEY = '__bastion'
 
@@ -50,12 +51,13 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 /** Preload every rugby crest once. Safe to call repeatedly. Never rejects. */
 export function ensureRugbyLogosLoaded(): Promise<void> {
   if (!loadPromise) {
-    loadPromise = Promise.all(
-      Object.entries(URLS).map(async ([key, url]) => {
+    loadPromise = Promise.all([
+      ensureFontsLoaded(),
+      ...Object.entries(URLS).map(async ([key, url]) => {
         const img = await loadImage(url)
         if (img) cache.set(key, img)
       }),
-    ).then(() => undefined)
+    ]).then(() => undefined)
   }
   return loadPromise
 }

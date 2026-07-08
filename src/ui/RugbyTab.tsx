@@ -4,6 +4,8 @@ import { toTeamRating } from '../ratings/strength'
 import { simulateRugbyMatch } from '../sim/rugbySim'
 import { bastionLogoUrl, rugbyLogoUrl } from '../render/rugbyLogos'
 import type { RugbyLeagueState } from '../league/rugbyLeague'
+import { buildRugbyClubCards } from '../content/clubCardsPack'
+import { ClubBook } from './ClubBook'
 import { RugbyLeagueTab } from './RugbyLeagueTab'
 import { RugbyMatchView } from './RugbyMatchView'
 
@@ -147,48 +149,16 @@ function RugbyFriendly() {
   )
 }
 
-/** Read-only club book: the Bastion Championships lineup. */
+/** Read-only club book: the Bastion Championships lineup + downloadable cards. */
 function RugbyClubBook() {
   return (
-    <div>
-      <div className="leagueHead">
-        <img className="league-logo" src={bastionLogoUrl} alt={RUGBY_LEAGUE.name} />
-        <div>
-          <h2>{RUGBY_LEAGUE.name}</h2>
-          <span className="sub">{RUGBY_CLUBS.length} clubs · the ESSPN rugby competition</span>
-        </div>
-      </div>
-
-      <div className="clubGrid">
-        {RUGBY_CLUBS.map((c) => {
-          const crest = rugbyLogoUrl(c.id)
-          return (
-            <article key={c.id} className="clubCard" style={{ borderTopColor: c.color }}>
-              <div className="clubTop">
-                {crest ? (
-                  <img className="clubCrest" src={crest} alt={`${c.name} crest`} />
-                ) : (
-                  <span className="clubCrest fallback" style={{ background: c.color }}>
-                    {c.abbr}
-                  </span>
-                )}
-                <div className="clubMeta">
-                  <h3>{c.name}</h3>
-                  <span className="nick">“{c.nickname}”</span>
-                  <span className="sub">
-                    {c.city} · {c.archetype}
-                  </span>
-                  <span className="swatches" aria-hidden="true">
-                    <span style={{ background: c.color }} />
-                    <span style={{ background: c.colorAlt }} />
-                  </span>
-                </div>
-              </div>
-              <p className="clubDesc">{c.description}</p>
-            </article>
-          )
-        })}
-      </div>
-    </div>
+    <ClubBook
+      title={RUGBY_LEAGUE.name}
+      subtitle={`${RUGBY_CLUBS.length} clubs · the ESSPN rugby competition`}
+      logoUrl={bastionLogoUrl}
+      clubs={RUGBY_CLUBS}
+      crestUrl={rugbyLogoUrl}
+      buildCards={buildRugbyClubCards}
+    />
   )
 }

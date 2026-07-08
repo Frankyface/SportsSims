@@ -115,6 +115,14 @@ header {
 .swatches span { width: 16px; height: 16px; border-radius: 4px; display: inline-block; border: 1px solid rgba(255, 255, 255, 0.15); }
 .clubDesc { color: #9aa5b1; font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
 
+/* Club-card previews */
+.cardItems { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.cardItems li { background: #0d1420; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.cardPreview { width: 100%; height: auto; display: block; background: #06080c; }
+.cardMeta { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.cardItems .packRow { margin-bottom: 0; }
+.cardItems textarea { width: 100%; background: #0a0e14; color: #cdd6e0; border: 1px solid #1b2532; border-radius: 8px; padding: 8px; font-size: 12px; font-family: inherit; resize: vertical; }
+
 /* Content pack */
 .pack { margin-top: 12px; }
 .packItems { list-style: none; padding: 0; margin: 12px 0 0; }
