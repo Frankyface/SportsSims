@@ -6,8 +6,8 @@
 import type { ClubDef } from '../ratings/teams'
 import { CLUBS } from '../ratings/teams'
 import { RUGBY_CLUBS } from '../ratings/rugbyTeams'
-import { ensureLogosLoaded, getLogo } from '../render/logos'
-import { ensureRugbyLogosLoaded, getRugbyLogo } from '../render/rugbyLogos'
+import { ensureLogosLoaded, getLeagueLogo, getLogo } from '../render/logos'
+import { ensureRugbyLogosLoaded, getBastionLogo, getRugbyLogo } from '../render/rugbyLogos'
 import { exportTeamCardPng, type TeamCardBrand, type TeamCardInput } from '../render/teamCard'
 import { BASTION, CROWN } from '../render/theme'
 import { FILE_PREFIX } from '../brand'
@@ -29,7 +29,7 @@ function clubCaption(club: ClubDef, competitionName: string, tags: string): stri
     '',
     club.description,
     '',
-    `${competitionName} · @ESSPN`,
+    `${competitionName} · Club Identity`,
     tags,
   ].join('\n')
 }
@@ -78,8 +78,8 @@ export async function buildSoccerClubCards(onProgress?: CardProgress): Promise<C
   return buildCards(
     CLUBS,
     getLogo,
-    { competition: CROWN, competitionName: 'Crown League' },
-    '#ESSPN #SimSoccer',
+    { competition: CROWN, competitionName: 'Crown League', logo: getLeagueLogo() ?? null },
+    '#CrownLeague #SimSoccer',
     onProgress,
   )
 }
@@ -89,8 +89,8 @@ export async function buildRugbyClubCards(onProgress?: CardProgress): Promise<Cl
   return buildCards(
     RUGBY_CLUBS,
     getRugbyLogo,
-    { competition: BASTION, competitionName: 'Bastion Championships' },
-    '#ESSPN #SimRugby',
+    { competition: BASTION, competitionName: 'Bastion Championships', logo: getBastionLogo() ?? null },
+    '#BastionChampionships #SimRugby',
     onProgress,
   )
 }

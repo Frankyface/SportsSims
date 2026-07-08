@@ -9,7 +9,13 @@
 // changes; version 1's score-deciding RNG stream is frozen by
 // golfScoreCompat.test.ts from the first shipped build.
 
-export const GOLF_SIM_VERSION = 1
+/**
+ * v2 (2026-07-08, operator realism pass): water balls splash IN the hazard and
+ * take a visible penalty DROP (non-stroke 'penaltyDrop' shot record); bunker
+ * shots come out short and rarely hole out; shots from the rough roll an extra
+ * variance die (flyers AND chunks). Score stream regenerated — golden updated.
+ */
+export const GOLF_SIM_VERSION = 2
 
 /** Eight golfers, two groups of four: indices 0..3 tee first, 4..7 after. */
 export const FIELD_SIZE = 8
@@ -76,7 +82,8 @@ export interface GolfRoundConfig {
   startToPar: number[]
 }
 
-export type GolfLie = 'tee' | 'fairway' | 'rough' | 'bunker' | 'green' | 'holed'
+export type GolfLie = 'tee' | 'fairway' | 'rough' | 'bunker' | 'green' | 'water' | 'holed'
+/** 'penaltyDrop' records the DROP after a water ball — it is NOT a stroke. */
 export type GolfShotKind = 'drive' | 'approach' | 'chip' | 'putt' | 'recovery' | 'penaltyDrop'
 
 /**

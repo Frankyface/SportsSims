@@ -65,16 +65,16 @@ describe('golf group director — every shot, all nine holes', () => {
     expect(plan.holes.map((h) => h.hole)).toEqual([...Array(HOLES_PER_ROUND).keys()])
     for (const h of plan.holes) {
       const inHole = plan.segs.filter((s) => s.shot.hole === h.hole)
-      const teeShots = inHole.slice(0, GROUP_SIZE)
-      expect(teeShots.map((s) => s.shot.golfer)).toEqual(plan.golfers)
-      expect(teeShots.every((s) => s.shot.fromLie === 'tee')).toBe(true)
+      // tee shots come first in group order (splash drops may interleave)
+      const tees = inHole.filter((s) => s.shot.fromLie === 'tee').slice(0, GROUP_SIZE)
+      expect(tees.map((s) => s.shot.golfer)).toEqual(plan.golfers)
       // and the hole span brackets its shots
       expect(inHole[0].t0).toBeCloseTo(h.t0, 5)
       expect(inHole[inHole.length - 1].t1).toBeCloseTo(h.t1, 5)
     }
   })
 
-  it('after the honours, the farthest ball always plays first', () => {
+  it('after the honours, the farthest ball plays first; drops follow their splash immediately', () => {
     const m = simulateGolfRound(cfg('farthest', 'saltmarsh', 3))
     for (const g of [0, 1] as const) {
       const plan = buildGolfGroupPlan(m, g)
@@ -82,8 +82,15 @@ describe('golf group director — every shot, all nine holes', () => {
         const inHole = plan.segs.filter((s) => s.shot.hole === h.hole)
         // replay the queues and check each post-tee pick was the farthest out
         const remaining = new Map(plan.golfers.map((gi) => [gi, inHole.filter((s) => s.shot.golfer === gi).map((s) => s.shot)]))
+        let teesSeen = 0
         for (const [idx, seg] of inHole.entries()) {
-          if (idx >= GROUP_SIZE) {
+          if (seg.shot.kind === 'penaltyDrop') {
+            // a drop is forced: same golfer as the previous (splash) segment
+            expect(inHole[idx - 1].shot.golfer).toBe(seg.shot.golfer)
+            expect(inHole[idx - 1].shot.penalty).toBe(true)
+          } else if (seg.shot.fromLie === 'tee') {
+            teesSeen++
+          } else if (teesSeen >= GROUP_SIZE) {
             const pickDist = 1 - seg.shot.from[1]
             for (const [gi, q] of remaining) {
               if (gi === seg.shot.golfer || q.length === 0) continue

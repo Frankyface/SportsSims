@@ -58,6 +58,26 @@ function rollQuality(rng: () => number, perf: number, holeDiff: number): number 
   return clamp01(0.58 + perf * 0.2 + (rng() * 2 - 1) * 0.32 - holeDiff * 0.07)
 }
 
+/** The visible penalty DROP after a water ball — recorded, but NOT a stroke. */
+function pushDrop(st: HoleState, golfer: number, hole: number, to: [number, number]): void {
+  st.shots.push({
+    golfer,
+    hole,
+    shotNo: st.strokes,
+    kind: 'penaltyDrop',
+    from: [st.x, st.y],
+    to,
+    fromLie: 'water',
+    toLie: 'rough',
+    quality: 1,
+    holed: false,
+    penalty: false,
+  })
+  st.x = to[0]
+  st.y = to[1]
+  st.lie = 'rough'
+}
+
 function pushShot(
   st: HoleState,
   golfer: number,
@@ -107,8 +127,10 @@ function playHole(
   // --- tee + long game: advance until the ball reaches the green ---
   while (st.lie !== 'green' && st.lie !== 'holed' && st.strokes < maxStrokes) {
     const q = rollQuality(rng, perf, hole.difficulty)
-    const fromTrouble = st.lie === 'rough' ? 0.1 : st.lie === 'bunker' ? 0.18 : 0
-    const eff = clamp01(q - fromTrouble)
+    const fromTrouble = st.lie === 'rough' ? 0.1 : st.lie === 'bunker' ? 0.22 : 0
+    let eff = clamp01(q - fromTrouble)
+    // the rough is a lottery: an extra variance die — flyers AND chunks
+    if (st.lie === 'rough') eff = clamp01(eff + (rng() * 2 - 1) * 0.16)
     const remaining = 1 - st.y
 
     // Is this a green attempt? Par 3s always; otherwise once within reach.
@@ -119,16 +141,18 @@ function playHole(
     if (!attackGreen) {
       // Advancing shot (drive or lay-up): cover ground, find a lie.
       const isDrive = st.lie === 'tee'
-      const gain = isDrive ? 0.5 + eff * 0.26 + risk * 0.06 : Math.min(remaining - 0.12, 0.3 + eff * 0.2)
-      const y2 = clamp(st.y + Math.max(0.1, gain), 0.05, 0.93)
+      let gain = isDrive ? 0.5 + eff * 0.26 + risk * 0.06 : Math.min(remaining - 0.12, 0.3 + eff * 0.2)
+      if (st.lie === 'bunker') gain *= 0.55 // sand robs distance — it's hard in there
+      const y2 = clamp(st.y + Math.max(0.08, gain), 0.05, 0.93)
       const lat = (rng() * 2 - 1) * (0.55 - eff * 0.35)
       const troubleRoll = rng()
       const splashP = hole.water ? clamp(hole.hazard * 0.08 + risk * 0.04 - eff * 0.06, 0, 0.22) : 0
       const bunkerP = clamp(hole.hazard * 0.11 - eff * 0.07, 0, 0.25)
       const roughP = clamp(0.3 - eff * 0.2 + risk * 0.06, 0.05, 0.45)
       if (troubleRoll < splashP) {
-        // In the water: penalty, drop short of trouble.
-        pushShot(st, golfer, holeIdx, isDrive ? 'drive' : 'approach', [lat < 0 ? -0.85 : 0.85, y2 - 0.06], 'rough', eff, { penalty: true })
+        // In the water: splash where it crossed, then the visible penalty drop.
+        pushShot(st, golfer, holeIdx, isDrive ? 'drive' : 'approach', [lat < 0 ? -0.85 : 0.85, y2], 'water', eff, { penalty: true })
+        pushDrop(st, golfer, holeIdx, [lat < 0 ? -0.62 : 0.62, y2 - 0.07])
       } else if (troubleRoll < splashP + bunkerP) {
         pushShot(st, golfer, holeIdx, isDrive ? 'drive' : 'approach', [lat < 0 ? -0.6 : 0.6, y2], 'bunker', eff)
       } else if (troubleRoll < splashP + bunkerP + roughP) {
@@ -144,8 +168,10 @@ function playHole(
     const kind = isChip ? (st.lie === 'bunker' ? 'recovery' : 'chip') : st.lie === 'tee' && hole.par === 3 ? 'drive' : 'approach'
     const hitP = clamp01((isChip ? 0.86 : 0.7) + eff * 0.28 - remaining * 0.2 - hole.hazard * 0.07)
     if (rng() < hitP) {
-      // On the green: how close? Flushed shots finish tight.
-      const d = clamp(0.33 - eff * 0.24 + rng() * 0.13, 0.015, 0.42)
+      // On the green: how close? Flushed shots finish tight; bunker blasts
+      // come out heavy and finish short-side long.
+      let d = clamp(0.33 - eff * 0.24 + rng() * 0.13, 0.015, 0.42)
+      if (st.lie === 'bunker') d = clamp(d + 0.09 + (1 - eff) * 0.08, 0.03, 0.5)
       // The rare holed-out approach / chip-in (an ace on a par 3 tee shot).
       if (d <= 0.02 && rng() < (isChip ? 0.3 : 0.12)) {
         pushShot(st, golfer, holeIdx, kind, [0, 1], 'holed', 1, { holed: true })
@@ -158,7 +184,9 @@ function playHole(
       const missRoll = rng()
       const splashP = hole.water ? clamp(hole.hazard * 0.2 + risk * 0.07 - eff * 0.1, 0, 0.38) : 0
       if (missRoll < splashP) {
-        pushShot(st, golfer, holeIdx, kind, [st.x < 0 ? -0.7 : 0.7, Math.max(0.6, 1 - remaining * 0.5)], 'rough', eff, { penalty: true })
+        const side = st.x < 0 ? -1 : 1
+        pushShot(st, golfer, holeIdx, kind, [side * 0.85, Math.max(0.66, 1 - remaining * 0.4)], 'water', eff, { penalty: true })
+        pushDrop(st, golfer, holeIdx, [side * 0.6, Math.max(0.6, 1 - remaining * 0.5)])
       } else if (missRoll < splashP + 0.45) {
         pushShot(st, golfer, holeIdx, kind, [rng() < 0.5 ? -0.35 : 0.35, 0.93], 'bunker', eff)
       } else {

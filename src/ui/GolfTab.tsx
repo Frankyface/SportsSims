@@ -19,9 +19,10 @@ import type { MatchdayPack } from '../content/matchdayPack'
 import { downloadBlob } from '../export/exportMp4'
 import { GolfRoundView } from './GolfRoundView'
 import { GolfRankingsTable } from './GolfRankingsTable'
+import { GolfFriendlyTab } from './GolfFriendlyTab'
 import { PackPanel } from './PackPanel'
 
-type GolfView = 'season' | 'golfers'
+type GolfView = 'season' | 'friendly' | 'golfers'
 
 /** The Apex Tour home: the season calendar + the golfer book. */
 export function GolfTab({
@@ -41,12 +42,16 @@ export function GolfTab({
         <button className={view === 'season' ? 'on' : ''} onClick={() => setView('season')}>
           Season
         </button>
+        <button className={view === 'friendly' ? 'on' : ''} onClick={() => setView('friendly')}>
+          Friendly
+        </button>
         <button className={view === 'golfers' ? 'on' : ''} onClick={() => setView('golfers')}>
           Golfers
         </button>
       </nav>
 
       {view === 'season' && <GolfSeasonView state={state} setState={setState} onReset={onReset} />}
+      {view === 'friendly' && <GolfFriendlyTab />}
       {view === 'golfers' && <GolferBook state={state} />}
     </div>
   )
@@ -62,7 +67,6 @@ function GolfSeasonView({
   onReset: () => void
 }) {
   const [models, setModels] = useState<[GolfRenderModel, GolfRenderModel] | null>(null)
-  const [group, setGroup] = useState<0 | 1>(1)
   const [viewEventIndex, setViewEventIndex] = useState(0)
   const [viewLabel, setViewLabel] = useState('')
   const [playKey, setPlayKey] = useState(0)
@@ -87,7 +91,6 @@ function GolfSeasonView({
       buildGolfRenderModel(result, 0, brand, courseName, chips),
       buildGolfRenderModel(result, 1, brand, courseName, chips),
     ])
-    setGroup(1)
     setViewEventIndex(eventIndex)
     setViewLabel(label)
     setPlayKey((k) => k + 1)
@@ -175,26 +178,27 @@ function GolfSeasonView({
 
       {models && (
         <>
-          <p className="hint">{viewLabel} — every shot, all 9 holes, one video per foursome.</p>
+          <p className="hint">{viewLabel} — every shot, all 9 holes. BOTH foursomes below.</p>
           <div className="controls">
-            <button className={`btn ${group === 0 ? '' : 'ghost'}`} onClick={() => setGroup(0)}>
-              Group 1
-            </button>
-            <button className={`btn ${group === 1 ? '' : 'ghost'}`} onClick={() => setGroup(1)}>
-              Final group{models[1].m.config.round > 1 ? ' (leaders)' : ''}
-            </button>
             <button
               className="btn ghost"
-              onClick={() => void downloadLeaderboardPng(viewEventIndex, models[group].m.config.round)}
+              onClick={() => void downloadLeaderboardPng(viewEventIndex, models[0].m.config.round)}
             >
               ⬇ Round leaderboard PNG
             </button>
           </div>
-          <GolfRoundView
-            model={models[group]}
-            filename={`esspn-golf-${viewLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-g${group + 1}.mp4`}
-            playKey={playKey * 2 + group}
-          />
+          {([0, 1] as const).map((grp) => (
+            <div key={grp}>
+              <h3>
+                {grp === 0 ? '⛳ Group 1' : `🏁 Final group${models[1].m.config.round > 1 ? ' (leaders)' : ''}`}
+              </h3>
+              <GolfRoundView
+                model={models[grp]}
+                filename={`esspn-golf-${viewLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-g${grp + 1}.mp4`}
+                playKey={playKey * 2 + grp}
+              />
+            </div>
+          ))}
         </>
       )}
 

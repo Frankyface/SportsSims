@@ -49,12 +49,20 @@ describe('golf sim invariants', () => {
           const s = r.strokes[gi][hIdx]
           expect(s).toBeGreaterThanOrEqual(1)
           expect(s).toBeLessThanOrEqual(par + 6) // loop bound + penalty + pickup putt
-          // the shot record agrees with the card
+          // the shot record agrees with the card (drops are NOT strokes)
           const shots = r.shots.filter((x) => x.golfer === gi && x.hole === hIdx)
-          const counted = shots.length + shots.filter((x) => x.penalty).length
+          const strokes = shots.filter((x) => x.kind !== 'penaltyDrop')
+          const counted = strokes.length + strokes.filter((x) => x.penalty).length
           expect(counted).toBe(s)
           // every hole ends in the cup
           expect(shots[shots.length - 1].holed).toBe(true)
+          // every splash is followed immediately by its drop
+          shots.forEach((x, i2) => {
+            if (x.penalty) {
+              expect(x.toLie).toBe('water')
+              expect(shots[i2 + 1]?.kind).toBe('penaltyDrop')
+            }
+          })
         }
       }
       // leaderboard sorted on total

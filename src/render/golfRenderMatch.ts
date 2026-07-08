@@ -118,14 +118,16 @@ function readableOn(hex: string): string {
 
 // --- the group on the course -------------------------------------------------
 
+/** Where the drawn water lives at roughly this screen height. */
+function waterPoint(l: GolfHoleLayout, yScreen: number): [number, number] {
+  if (l.water) return [l.water.x, l.water.y]
+  const seaX = l.waterSide < 0 ? GOLF_ART.x + 90 : GOLF_ART.x + GOLF_ART.w - 90
+  return [seaX, yScreen]
+}
+
 /** Penalty shots fly into the drawn water (cosmetic; the sim's drop spot rules). */
 function visualTarget(l: GolfHoleLayout, shot: GolfShot): [number, number] {
-  if (shot.penalty) {
-    if (l.water) return [l.water.x, l.water.y]
-    const [, y] = holeToScreen(l, shot.to)
-    const seaX = l.waterSide < 0 ? GOLF_ART.x + 90 : GOLF_ART.x + GOLF_ART.w - 90
-    return [seaX, y]
-  }
+  if (shot.penalty) return waterPoint(l, holeToScreen(l, shot.to)[1])
   return holeToScreen(l, shot.to)
 }
 
@@ -156,7 +158,7 @@ function drawWaitingGolfers(
   plan.golfers.forEach((gi, slot) => {
     if (gi === activeGolfer) return
     const st = golferPosAt(plan, gi, t, hole)
-    if (st.holed) return
+    if (st.holed || st.lie === 'water') return // sunk balls wait for the drop
     const g = model.m.config.golfers[gi]
     let [x, y] = st.started ? holeToScreen(l, st.pos) : [l.tee[0] - 45 + slot * 30, l.tee[1] + 34]
     // nudge co-located balls apart so four dots never stack
@@ -172,12 +174,32 @@ function drawWaitingGolfers(
 function drawActiveShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, seg: GolfShotSeg, t: number): void {
   const g = model.m.config.golfers[seg.shot.golfer]
   const p = clamp01((t - seg.t0) / (seg.t1 - seg.t0))
-  const from = holeToScreen(l, seg.shot.from)
+  const isDrop = seg.shot.kind === 'penaltyDrop'
+  const from = isDrop ? waterPoint(l, holeToScreen(l, seg.shot.from)[1]) : holeToScreen(l, seg.shot.from)
   const to = visualTarget(l, seg.shot)
   const isPutt = seg.shot.kind === 'putt'
-  const flightEnd = isPutt ? 0.78 : 0.72
+
+  if (isDrop) {
+    // the walk of shame: ball reappears falling onto the drop spot
+    const dp = ease(clamp01(p / 0.7))
+    drawGolferChip(ctx, to[0], to[1] - 30, 16, g.color)
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(to[0], to[1] - 60 * (1 - dp), 8, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = `rgba(255,255,255,${0.5 * (1 - p)})`
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(from[0], from[1], 12 + p * 20, 0, Math.PI * 2)
+    ctx.stroke()
+    drawShotTag(ctx, g, seg, to)
+    return
+  }
+
+  // Putts ROLL: fast off the face, dying at the hole — misses visibly slide by.
+  const flightEnd = isPutt ? 0.82 : 0.72
   const fp = clamp01(p / flightEnd)
-  const e = ease(fp)
+  const e = isPutt ? 1 - (1 - fp) * (1 - fp) : ease(fp)
 
   const dx = to[0] - from[0]
   const dy = to[1] - from[1]
@@ -257,10 +279,19 @@ function drawActiveShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, seg
     }
   }
 
-  // shot tag: who's playing + stroke number
+  drawShotTag(ctx, g, seg, from)
+}
+
+/** The "who's playing" tag under the active golfer. */
+function drawShotTag(
+  ctx: Ctx,
+  g: { name: string; color: string },
+  seg: GolfShotSeg,
+  anchor: [number, number],
+): void {
   const tagW = 280
-  const tagY = Math.min(from[1] + 42, GOLF_ART.y + GOLF_ART.h - 40)
-  const tagX = Math.max(GOLF_ART.x + 10, Math.min(from[0] - tagW / 2, GOLF_ART.x + GOLF_ART.w - tagW - 10))
+  const tagY = Math.min(anchor[1] + 42, GOLF_ART.y + GOLF_ART.h - 40)
+  const tagX = Math.max(GOLF_ART.x + 10, Math.min(anchor[0] - tagW / 2, GOLF_ART.x + GOLF_ART.w - tagW - 10))
   roundRect(ctx, tagX, tagY, tagW, 40, 8)
   ctx.fillStyle = 'rgba(9,13,20,0.82)'
   ctx.fill()
@@ -270,12 +301,11 @@ function drawActiveShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, seg
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.font = 'bold 21px system-ui, sans-serif'
-  const kindLbl = seg.shot.kind === 'penaltyDrop' ? 'DROP' : seg.shot.kind.toUpperCase()
-  ctx.fillText(
-    `${g.name.split(' ').pop()?.toUpperCase()} · ${kindLbl} ${seg.shot.shotNo}`,
-    tagX + tagW / 2 + 4,
-    tagY + 20,
-  )
+  const isDrop = seg.shot.kind === 'penaltyDrop'
+  const label = isDrop
+    ? `${g.name.split(' ').pop()?.toUpperCase()} · PENALTY DROP`
+    : `${g.name.split(' ').pop()?.toUpperCase()} · ${seg.shot.kind.toUpperCase()} ${seg.shot.shotNo}`
+  ctx.fillText(label, tagX + tagW / 2 + 4, tagY + 20)
 }
 
 // --- overlays ---------------------------------------------------------------
@@ -588,12 +618,13 @@ export function drawGolfFrame(ctx: Ctx, model: GolfRenderModel, t: number): void
   const hole = golfHoleAt(plan, t)
   const layout = model.layouts[hole.hole]
 
-  // Green zoom: once the whole group is putting, push in on the green.
+  // Green zoom: once the whole group is putting, push RIGHT in on the green
+  // so every putt — and every miss — is readable.
   let zoomP = 0
   if (hole.greenT !== undefined && t >= hole.greenT && t < hole.t1 + 0.2) {
     zoomP = ease(clamp01((t - hole.greenT) / 0.7))
   }
-  const scale = 1 + 0.85 * zoomP
+  const scale = 1 + 1.6 * zoomP
   ctx.save()
   if (zoomP > 0) {
     const anchorX = GOLF_ART.x + GOLF_ART.w / 2 - 60

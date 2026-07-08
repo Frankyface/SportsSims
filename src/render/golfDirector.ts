@@ -104,14 +104,16 @@ function isTapIn(shot: GolfShot): boolean {
   return shot.kind === 'putt' && (1 - shot.from[1]) / 0.08 <= 0.06
 }
 
-/** Raw (pre-scale) screen time a shot deserves. */
+/** Raw (pre-scale) screen time a shot deserves. Putts get the most air —
+ * the zoomed-in green is where the drama lives, so makes AND misses read. */
 function shotWeight(shot: GolfShot, holeIdx: number): number {
   let w: number
-  if (shot.kind === 'putt') w = isTapIn(shot) ? 0.32 : 0.48
-  else if (shot.kind === 'chip' || shot.kind === 'recovery') w = 0.6
-  else w = 0.68 // drives + approaches: let the flight read
+  if (shot.kind === 'putt') w = isTapIn(shot) ? 0.45 : 0.95
+  else if (shot.kind === 'penaltyDrop') w = 0.5 // the walk of shame to the drop
+  else if (shot.kind === 'chip' || shot.kind === 'recovery') w = 0.58
+  else w = 0.6 // drives + approaches
   if (shot.penalty) w += 0.55 // the splash beat
-  if (shot.holed && shot.kind === 'putt' && !isTapIn(shot)) w += 0.5 // celebrate
+  if (shot.holed && shot.kind === 'putt' && !isTapIn(shot)) w += 0.6 // celebrate
   if (shot.holed && shot.kind !== 'putt') w += 0.7 // chip-in / holed approach / ace
   if (holeIdx === HOLES_PER_ROUND - 1) w *= 1.15 // the closing hole breathes
   return w
@@ -125,27 +127,30 @@ function shotWeight(shot: GolfShot, holeIdx: number): number {
 export function interleaveHoleShots(byGolfer: GolfShot[][]): GolfShot[] {
   const queues = byGolfer.map((shots) => [...shots])
   const out: GolfShot[] = []
-  // honours: everyone hits the tee shot first, in order
-  for (const q of queues) {
-    const tee = q.shift()
-    if (tee) out.push(tee)
+  // a splashed ball takes its penalty drop IMMEDIATELY — it never queues
+  const emit = (i: number): void => {
+    out.push(queues[i].shift() as GolfShot)
+    while (queues[i][0]?.kind === 'penaltyDrop') out.push(queues[i].shift() as GolfShot)
   }
-  // then farthest-out plays first
+  // honours: everyone hits the tee shot first, in order
+  for (let i = 0; i < queues.length; i++) {
+    if (queues[i].length > 0) emit(i)
+  }
+  // then farthest-out plays first (ties: earlier tee order)
   for (;;) {
     let pick = -1
     let farthest = -Infinity
     for (let i = 0; i < queues.length; i++) {
       const q = queues[i]
       if (q.length === 0) continue
-      const next = q[0]
-      const dist = 1 - next.from[1] + Math.abs(next.from[0]) * 0.001
+      const dist = 1 - q[0].from[1]
       if (dist > farthest + 1e-9) {
         farthest = dist
         pick = i
       }
     }
     if (pick < 0) break
-    out.push(queues[pick].shift() as GolfShot)
+    emit(pick)
   }
   return out
 }
@@ -339,20 +344,23 @@ export function golferPosAt(
   gi: number,
   t: number,
   hole: number,
-): { pos: [number, number]; holed: boolean; started: boolean } {
+): { pos: [number, number]; lie: string; holed: boolean; started: boolean } {
   let pos: [number, number] | null = null
+  let lie = 'tee'
   let holed = false
   for (const s of plan.segs) {
     if (s.shot.golfer !== gi || s.shot.hole !== hole) continue
     if (s.t0 > t) break
     if (t >= s.t1) {
       pos = s.shot.to
+      lie = s.shot.toLie
       if (s.shot.holed) holed = true
     } else {
       pos = s.shot.from // mid-flight: the renderer draws the moving ball itself
+      lie = s.shot.fromLie
     }
   }
-  return { pos: pos ?? [0, 0], holed, started: pos !== null }
+  return { pos: pos ?? [0, 0], lie, holed, started: pos !== null }
 }
 
 /** Highest-priority moment active at t (one lower third at a time). */

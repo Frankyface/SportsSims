@@ -13,7 +13,6 @@ import {
   DATA,
   HAIRLINE,
   MUTED,
-  NET_RED,
   TEXT,
   type CompetitionAccent,
   clampLines,
@@ -21,7 +20,6 @@ import {
   drawBackground,
   drawCornerTicks,
   drawCrestBadge,
-  drawWordmark,
   f,
   fitFont,
   mixToward,
@@ -75,6 +73,7 @@ export interface TeamCardInput {
 export interface TeamCardBrand {
   competition: CompetitionAccent
   competitionName: string // e.g. "Crown League"
+  logo: HTMLImageElement | null | undefined // the competition crest — this is the card's brand mark
 }
 
 type Ctx = CanvasRenderingContext2D
@@ -82,57 +81,72 @@ type Ctx = CanvasRenderingContext2D
 export function drawTeamCard(ctx: Ctx, club: TeamCardInput, brand: TeamCardBrand): void {
   const T = TEAM_CARD
   const tokens = deriveClubTokens(club.color, club.colorAlt)
-  const accent = tokens.accent
+  const clubAccent = tokens.accent // the club is the subject — its crest/nickname/swatches
+  const leagueAccent = brand.competition.accent // the league is the brand — chrome + ticks
 
   drawBackground(ctx, T.W, T.H, {
     glowCx: T.CREST_CX,
     glowCy: T.CREST_CY,
-    glowColor: accent,
+    glowColor: clubAccent,
     glowAlpha: 0.18,
     glowR: T.HALO_R,
   })
 
-  drawHeader(ctx, brand, accent)
-  drawHero(ctx, club, tokens.accent)
-  drawName(ctx, club, accent)
+  drawHeader(ctx, brand, leagueAccent, tokens.field)
+  drawHero(ctx, club, clubAccent)
+  drawName(ctx, club, clubAccent)
   drawPanel(ctx, club, tokens.field)
   drawDescription(ctx, club)
-  drawFooter(ctx, brand, accent)
-  drawCornerTicks(ctx, T.W, T.H, NET_RED)
+  drawFooter(ctx, brand, leagueAccent)
+  drawCornerTicks(ctx, T.W, T.H, leagueAccent)
 }
 
-function drawHeader(ctx: Ctx, brand: TeamCardBrand, accent: string): void {
+/** Contain-fit a logo image into a box centred at (cx, cy) — shows the whole crest. */
+function drawContain(ctx: Ctx, img: HTMLImageElement, cx: number, cy: number, boxW: number, boxH: number): void {
+  const scale = Math.min(boxW / img.width, boxH / img.height)
+  const w = img.width * scale
+  const h = img.height * scale
+  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h)
+}
+
+function drawHeader(ctx: Ctx, brand: TeamCardBrand, leagueAccent: string, clubSpine: string): void {
   const T = TEAM_CARD
-  // network red rule + thin club spine beneath it — "ESSPN presents <club>"
-  ctx.fillStyle = NET_RED
+  // league accent rule + thin club spine beneath — "<Competition> presents <club>"
+  ctx.fillStyle = leagueAccent
   ctx.fillRect(0, 0, T.W, 6)
-  ctx.fillStyle = accent
+  ctx.fillStyle = clubSpine
   ctx.fillRect(0, 6, T.W, 6)
 
-  // wordmark left
-  drawWordmark(ctx, T.MARGIN, 96, 34, 'left')
-
-  // competition chip, right-anchored
-  const label = brand.competitionName.toUpperCase()
-  ctx.font = f('700', 22)
-  ctx.save()
+  const cy = 92
   const c = ctx as Ctx & { letterSpacing?: string }
-  if ('letterSpacing' in c) c.letterSpacing = '4px'
-  const textW = ctx.measureText(label).width
-  const chipW = textW + 40
-  const chipH = 42
-  const chipX = T.RIGHT - chipW
-  const chipY = 96 - chipH / 2
-  roundRect(ctx, chipX, chipY, chipW, chipH, chipH / 2)
-  ctx.strokeStyle = accent
-  ctx.lineWidth = 2
-  ctx.stroke()
-  ctx.fillStyle = accent
+
+  // competition crest, left — this is the card's brand mark (not the network's)
+  let textX = T.MARGIN
+  if (brand.logo) {
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.45)'
+    ctx.shadowBlur = 8
+    ctx.shadowOffsetY = 2
+    drawContain(ctx, brand.logo, T.MARGIN + 31, cy, 62, 62)
+    ctx.restore()
+    textX = T.MARGIN + 62 + 18
+  }
+
+  // competition wordmark
+  ctx.fillStyle = TEXT
+  ctx.font = f('800', 34)
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
-  ctx.fillText(label, chipX + 20, 97)
+  if ('letterSpacing' in c) c.letterSpacing = '1px'
+  ctx.fillText(brand.competitionName.toUpperCase(), textX, cy + 1)
+
+  // right-anchored card-type label
+  ctx.fillStyle = MUTED
+  ctx.font = f('700', 20)
+  ctx.textAlign = 'right'
+  if ('letterSpacing' in c) c.letterSpacing = '3px'
+  ctx.fillText('CLUB IDENTITY', T.RIGHT, cy + 1)
   if ('letterSpacing' in c) c.letterSpacing = '0px'
-  ctx.restore()
 
   // header divider
   ctx.strokeStyle = HAIRLINE
@@ -282,7 +296,7 @@ function drawDescription(ctx: Ctx, club: TeamCardInput): void {
   lines.forEach((l, i) => ctx.fillText(l, T.MARGIN, T.DESC_Y + i * T.DESC_LH))
 }
 
-function drawFooter(ctx: Ctx, brand: TeamCardBrand, accent: string): void {
+function drawFooter(ctx: Ctx, brand: TeamCardBrand, leagueAccent: string): void {
   const T = TEAM_CARD
   ctx.strokeStyle = HAIRLINE
   ctx.lineWidth = 1
@@ -290,21 +304,28 @@ function drawFooter(ctx: Ctx, brand: TeamCardBrand, accent: string): void {
   ctx.moveTo(T.MARGIN, T.FOOTER_RULE_Y + 0.5)
   ctx.lineTo(T.RIGHT, T.FOOTER_RULE_Y + 0.5)
   ctx.stroke()
+  // league accent segment
+  ctx.strokeStyle = leagueAccent
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(T.MARGIN, T.FOOTER_RULE_Y + 1.5)
+  ctx.lineTo(T.MARGIN + 120, T.FOOTER_RULE_Y + 1.5)
+  ctx.stroke()
 
-  // accent tick + handle
-  ctx.fillStyle = accent
+  // league accent tick + competition name (the card's brand, not @ESSPN)
+  ctx.fillStyle = leagueAccent
   ctx.fillRect(T.MARGIN, 1284, 8, 28)
   ctx.fillStyle = TEXT
-  ctx.font = f('700', 26)
+  ctx.font = f('800', 26)
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
-  ctx.fillText('@ESSPN', T.MARGIN + 22, 1300)
+  ctx.fillText(brand.competitionName.toUpperCase(), T.MARGIN + 22, 1300)
 
-  // context note, right
+  // right-anchored series descriptor
   ctx.fillStyle = MUTED
   ctx.font = f('600', 22)
   ctx.textAlign = 'right'
-  ctx.fillText(`${brand.competitionName} · Club Identity`.toUpperCase(), T.RIGHT, 1300)
+  ctx.fillText('MEET THE CLUB', T.RIGHT, 1300)
 }
 
 export async function exportTeamCardPng(club: TeamCardInput, brand: TeamCardBrand): Promise<Blob> {
