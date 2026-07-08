@@ -251,10 +251,10 @@
       logo: "A rugged industrial crest: crossed hammers or an anvil over a claret shield, riveted steel border, bold slab-serif ‘IRONHAVEN’ banner. Weathered, heavy, blue-collar — sparks optional."
     },
     {
-      abbr: "BLK", name: "Blackwater Wanderers", nick: "The Ghosts", arch: "Chaos mavericks",
-      c1: "#6a1b9a", c2: "#ff6d00", rating: 1470, tier: "Wildcards", crest: "gothic",
-      desc: "Nobody knows what Blackwater will do — least of all Blackwater. A boom-or-bust cult club of mavericks and misfits who look like geniuses and clowns in the same half. Brilliant, baffling, utterly unpredictable. The variance kings; back them at your peril.",
-      logo: "A moody, mystical mark: a purple crest with an orange will-o’-the-wisp flame or a wandering-star, a gothic ‘W’. Dark, cultish, a touch occult — mysterious and a little unhinged."
+      abbr: "MDN", name: "Meridian FC", nick: "The Nomads", arch: "Cosmopolitan flair",
+      c1: "#d81b60", c2: "#f5b301", crest: "roundel",
+      desc: "A rootless, glamorous cult club stitched together from every corner of the map — mercurial, expressive, impossible to pin down. They play with a swagger neutrals adore and traditionalists can’t stand (‘no soul, just showreels’). One week sublime, the next a circus. Football’s beautiful drifters.",
+      logo: "A worldly emblem: a compass rose or stylized globe inside a rose-magenta roundel, thin gold line-work, a sleek monogram ‘M’. Cosmopolitan, jet-set, premium but rootless."
     },
     {
       abbr: "SUN", name: "Sundervale Rovers", nick: "The Terriers", arch: "Plucky minnows",
@@ -312,7 +312,6 @@
 
   const grid = document.getElementById("grid");
   CLUBS.forEach((club, i) => {
-    const pct = Math.round(((club.rating - RMIN) / (RMAX - RMIN)) * 100);
     const c2b = legibleAccent(club.c2);
     const el = document.createElement("article");
     el.className = "club";
@@ -324,10 +323,6 @@
       <div class="club-top">
         <div class="crest">${crestSvg(club.crest, club.c1, club.c2, club.abbr)}</div>
         <div class="head">
-          <div class="tier">
-            <div class="bar"><i style="width:${pct}%"></i></div>
-            <span class="tier-label">${club.tier}</span>
-          </div>
           <h2 class="name">${club.name}</h2>
           <div class="nick">“${club.nick}”</div>
           <div><span class="arch">${club.arch}</span></div>
@@ -337,7 +332,6 @@
       <div class="swatches">
         <span class="swatch"><span class="dot" style="background:${club.c1}"></span>${club.c1.toUpperCase()}</span>
         <span class="swatch"><span class="dot" style="background:${club.c2}"></span>${club.c2.toUpperCase()}</span>
-        <span class="swatch">Elo ${club.rating}</span>
       </div>
       <div class="brief">
         <div class="brief-label">Logo brief</div>
