@@ -17,7 +17,7 @@ import {
   type Moment,
   type RenderPlan,
 } from './director'
-import { ballStateAt, drawBall, drawCrowd, drawPitch, drawPlayers } from './renderScene'
+import { ballStateAt, drawBall, drawCrowd, drawGoals, drawPitch, drawPlayers, PITCH } from './renderScene'
 import { drawWordmark } from './wordmark'
 import { getLogo, getLeagueLogo, drawLogoCircle, drawLogoContain } from './logos'
 
@@ -46,8 +46,12 @@ export function buildRenderModel(m: MatchResult, width = RENDER_W, height = REND
   }
 }
 
-// Portrait layout; keep key content inside the IG safe band (avoid top ~220, bottom ~470).
-const BUG_Y = 240
+// Portrait layout, pulled up tight to fill the frame. The wordmark + scorebug
+// live in the top ~250px; the pitch + deep crowd fill the rest. IG's own posted
+// UI covers roughly the top ~120px and bottom ~320px — which is why the crowd
+// (loseable atmosphere) sits there and the scorebug + ball stay in the middle.
+const BUG_Y = 150
+const WORDMARK_Y = 95
 
 function ease(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) * (-2 * t + 2)) / 2
@@ -183,7 +187,7 @@ function drawGoalFlash(ctx: Ctx, model: RenderModel, m: Moment, prog: number): v
 
   // confetti burst from the goal end in the scorer's colours (pure fn of prog)
   const scorer = m.team === 'away' ? model.away : model.home
-  const originY = m.team === 'home' ? 390 : 1720
+  const originY = m.team === 'home' ? PITCH.y + 8 : PITCH.y + PITCH.h - 8
   const colors = [scorer.color, '#ffffff', scorer.colorAlt]
   const tau = prog * 2.2
   ctx.globalAlpha = 1 - clamp01(prog * 1.1)
@@ -366,6 +370,7 @@ export function drawFrame(ctx: Ctx, model: RenderModel, t: number): void {
   ctx.translate(shakeX, shakeY)
   drawCrowd(ctx, plan, model.seed, model.home.color, model.home.colorAlt, model.away.color, model.away.colorAlt, tPlay)
   drawPitch(ctx)
+  drawGoals(ctx)
   drawPlayers(ctx, plan, model.seed, model.home.color, model.away.color, tPlay, ball)
   drawBall(ctx, ball, model.home.color, model.away.color)
   ctx.restore()
@@ -386,5 +391,5 @@ export function drawFrame(ctx: Ctx, model: RenderModel, t: number): void {
 
   if (t < plan.introDur) drawIntro(ctx, model, t / plan.introDur)
   if (t >= plan.resultStart) drawResult(ctx, model, clamp01((t - plan.resultStart) / plan.resultDur))
-  drawWordmark(ctx, model.width / 2, 180, 32)
+  drawWordmark(ctx, model.width / 2, WORDMARK_Y, 32)
 }

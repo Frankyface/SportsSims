@@ -8,14 +8,18 @@ import { KEEPER_SLOT, SLOTS, slotBase } from '../sim/formation'
 import type { Side } from '../sim/types'
 import { segIndexAt, type BallSeg, type RenderPlan } from './director'
 
-// Pitch sits fully below the scorebug (bug ends at y=340) so balls in the TOP
-// net — the money shot — are never occluded by the overlay. Crowd stands fill
-// the existing blank space behind each goal (the pitch itself is untouched):
-// a slim rail of fans up top, a fuller home end below the bottom goal.
-export const PITCH = { x: 20, y: 380, w: 1040, h: 1350 }
-export const CROWD_TOP = { x: 20, y: 344, w: 1040, h: 34 }
-export const CROWD_BOTTOM = { x: 20, y: 1734, w: 1040, h: 72 }
+// Full-frame stadium layout (1080x1920). The bookends are pulled up tight
+// (wordmark ~95, scorebug 150-250) and the pitch grows to fill most of the
+// height, with DEEP tiered crowd terraces packing the space behind each goal
+// so nothing reads as dead black. The pitch stays clear of the scorebug so a
+// ball in the TOP net — the money shot — is never occluded.
+// Vertical budget: bug 150-250 · topCrowd 256-376 · pitch 384-1776 · botCrowd 1780-1904.
+export const PITCH = { x: 20, y: 384, w: 1040, h: 1392 } // w:h = 0.747 (believable pitch)
+export const CROWD_TOP = { x: 20, y: 256, w: 1040, h: 120 }
+export const CROWD_BOTTOM = { x: 20, y: 1780, w: 1040, h: 124 }
 const AWAY_SECTION_FRAC = 0.26 // right end of the TOP stand belongs to away fans
+const CROWD_ROWS = 5 // tiers per terrace
+const ROW_STEP = 20 // px between tiers
 
 type Ctx = CanvasRenderingContext2D
 
@@ -265,6 +269,21 @@ interface Stand {
   h: number
 }
 
+/** Multiply a hex colour toward black (cheap depth shading for back rows). */
+function shade(hex: string, mul: number): string {
+  const h = hex.replace('#', '')
+  const r = Math.round(parseInt(h.slice(0, 2), 16) * mul)
+  const g = Math.round(parseInt(h.slice(2, 4), 16) * mul)
+  const b = Math.round(parseInt(h.slice(4, 6), 16) * mul)
+  return `rgb(${r},${g},${b})`
+}
+
+/**
+ * One block of terrace. Rows build AWAY from the pitch edge: the front row
+ * (nearest the pitch) is largest and brightest, back rows shrink and darken
+ * so the stand reads with real depth. Fans sway idly and leap (always upward)
+ * when their team scores. `pitchBelow` = this stand sits above the pitch.
+ */
 function drawStandSection(
   ctx: Ctx,
   stand: Stand,
@@ -275,36 +294,48 @@ function drawStandSection(
   saltBase: number,
   t: number,
   jump: number,
+  pitchBelow: boolean,
 ): void {
-  const COL_STEP = 17
-  // the slim top rail fits one row of fans; the home end fits three
-  const rows = Math.max(1, Math.floor((stand.h - 8) / 22))
-  const radius = rows === 1 ? 5.5 : 6.5
-  const bounceMax = rows === 1 ? 6 : 9
-  for (let row = 0; row < rows; row++) {
-    const baseY = stand.y + 14 + row * 22
-    for (let cx = x0 + 9; cx < x1 - 6; cx += COL_STEP) {
-      const h = (seed ^ Math.imul((saltBase + row * 977 + cx) | 0, 2654435761)) >>> 0
-      const jx = ((h % 11) - 5) * 0.9
-      const jy = (((h >> 8) % 9) - 4) * 0.8
+  const COL_STEP = 15
+  const frontY = pitchBelow ? stand.y + stand.h - 12 : stand.y + 12
+  const rowDir = pitchBelow ? -1 : 1
+  for (let row = 0; row < CROWD_ROWS; row++) {
+    const depth = row / (CROWD_ROWS - 1) // 0 front .. 1 back
+    const rowY = frontY + rowDir * row * ROW_STEP
+    const radius = 6.4 - depth * 2.1
+    const mul = 1 - depth * 0.5
+    const off = (row % 2) * (COL_STEP / 2) // stagger tiers like real seats
+    for (let cx = x0 + 8 + off; cx < x1 - 5; cx += COL_STEP) {
+      const h = (seed ^ Math.imul((saltBase + row * 977 + Math.floor(cx)) | 0, 2654435761)) >>> 0
+      const jx = ((h % 11) - 5) * 0.7
+      const jy = (((h >> 8) % 7) - 3) * 0.6
       const ph = (h >> 16) % 628
-      const sway = Math.sin(t * 1.3 + ph * 0.01) * 1.4
-      // fans leap when their team scores
-      const bounce = jump > 0 ? Math.abs(Math.sin(t * 9 + ph * 0.01)) * bounceMax * jump : 0
-      ctx.fillStyle = colors[h % colors.length]
+      const sway = Math.sin(t * 1.3 + ph * 0.01) * 1.2
+      const bounce = jump > 0 ? Math.abs(Math.sin(t * 9 + ph * 0.01)) * 9 * jump * (1 - depth * 0.4) : 0
+      ctx.fillStyle = shade(colors[h % colors.length], mul)
       ctx.beginPath()
-      ctx.arc(cx + jx + sway, baseY + jy - bounce, radius, 0, Math.PI * 2)
+      ctx.arc(cx + jx + sway, rowY + jy - bounce, radius, 0, Math.PI * 2)
       ctx.fill()
     }
   }
 }
 
+/** Dark tiered backdrop for a stand — darkest at the back so depth reads. */
+function drawTerraceBack(ctx: Ctx, stand: Stand, pitchBelow: boolean): void {
+  const g = ctx.createLinearGradient(0, stand.y, 0, stand.y + stand.h)
+  const back = 'rgba(4,6,10,0.98)'
+  const front = 'rgba(13,18,26,0.82)'
+  g.addColorStop(0, pitchBelow ? back : front)
+  g.addColorStop(1, pitchBelow ? front : back)
+  ctx.fillStyle = g
+  ctx.fillRect(stand.x, stand.y, stand.w, stand.h)
+}
+
 /**
- * The stands behind each goal. The bottom stand is the HOME end, a wall of
- * home colours; the top stand is home too except the corner away section —
- * the pocket of travelling fans that gives the ground its atmosphere.
- * Pure function of (plan, seed, t): fans sway idly and leap when their team
- * scores. Cosmetic only.
+ * The stands behind each goal, filling the frame with a real deep terrace.
+ * The bottom stand is the HOME end (a wall of home colours); the top stand is
+ * home too except the corner away section — the pocket of travelling fans
+ * that gives the ground its atmosphere. Pure function of (plan, seed, t).
  */
 export function drawCrowd(
   ctx: Ctx,
@@ -332,24 +363,69 @@ export function drawCrowd(
   const awayPalette = [awayColor, awayColor, awayAlt, '#e8edf4'] as const
 
   for (const stand of [CROWD_TOP, CROWD_BOTTOM]) {
-    // terrace backdrop
-    ctx.fillStyle = 'rgba(10,14,20,0.85)'
-    ctx.fillRect(stand.x, stand.y, stand.w, stand.h)
+    const pitchBelow = stand === CROWD_TOP
+    drawTerraceBack(ctx, stand, pitchBelow)
 
     if (stand === CROWD_TOP) {
       const split = stand.x + stand.w * (1 - AWAY_SECTION_FRAC)
-      drawStandSection(ctx, stand, stand.x, split, homePalette, seed, 101, t, homeJump)
-      drawStandSection(ctx, stand, split, stand.x + stand.w, awayPalette, seed, 707, t, awayJump)
-      // segregation line between the sections
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+      drawStandSection(ctx, stand, stand.x, split, homePalette, seed, 101, t, homeJump, pitchBelow)
+      drawStandSection(ctx, stand, split, stand.x + stand.w, awayPalette, seed, 707, t, awayJump, pitchBelow)
+      // segregation line between home + away sections
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)'
       ctx.lineWidth = 3
       ctx.beginPath()
       ctx.moveTo(split, stand.y + 4)
       ctx.lineTo(split, stand.y + stand.h - 4)
       ctx.stroke()
     } else {
-      drawStandSection(ctx, stand, stand.x, stand.x + stand.w, homePalette, seed, 303, t, homeJump)
+      drawStandSection(ctx, stand, stand.x, stand.x + stand.w, homePalette, seed, 303, t, homeJump, pitchBelow)
     }
+  }
+}
+
+/**
+ * Goal frames + nets at each end. The net recess reaches back into the crowd
+ * band, so a ball struck into the top net lands inside a real goal with the
+ * terrace erupting behind it. Pure; drawn over the crowd, under players/ball.
+ */
+export function drawGoals(ctx: Ctx): void {
+  const cx = PITCH.x + PITCH.w / 2
+  const gw = 232
+  const depth = 34
+  const gx0 = cx - gw / 2
+  const gx1 = cx + gw / 2
+  for (const top of [true, false]) {
+    const lineY = top ? PITCH.y : PITCH.y + PITCH.h
+    const backY = top ? lineY - depth : lineY + depth
+    const yTop = Math.min(lineY, backY)
+    // dark recess so the net + ball read against the crowd
+    ctx.fillStyle = 'rgba(0,0,0,0.42)'
+    ctx.fillRect(gx0, yTop, gw, depth)
+    // net grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    for (let gx = gx0; gx <= gx1 + 0.1; gx += 15) {
+      ctx.moveTo(gx, lineY)
+      ctx.lineTo(gx, backY)
+    }
+    for (let d = 0; d <= depth; d += 11) {
+      const yy = top ? lineY - d : lineY + d
+      ctx.moveTo(gx0, yy)
+      ctx.lineTo(gx1, yy)
+    }
+    ctx.stroke()
+    // posts + crossbar
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.lineWidth = 4
+    ctx.beginPath()
+    ctx.moveTo(gx0, lineY)
+    ctx.lineTo(gx0, backY)
+    ctx.moveTo(gx1, lineY)
+    ctx.lineTo(gx1, backY)
+    ctx.moveTo(gx0, backY)
+    ctx.lineTo(gx1, backY)
+    ctx.stroke()
   }
 }
 
