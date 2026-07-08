@@ -17,7 +17,7 @@ import {
   type Moment,
   type RenderPlan,
 } from './director'
-import { ballStateAt, drawBall, drawPitch, drawPlayers } from './renderScene'
+import { ballStateAt, drawBall, drawCrowd, drawPitch, drawPlayers } from './renderScene'
 import { drawWordmark } from './wordmark'
 import { getLogo, getLeagueLogo, drawLogoCircle, drawLogoContain } from './logos'
 
@@ -104,9 +104,17 @@ function drawScorebug(ctx: Ctx, model: RenderModel, t: number): void {
   ctx.fillStyle = '#fff'
   ctx.font = 'bold 40px system-ui, sans-serif'
   ctx.textAlign = 'left'
-  ctx.fillText(model.home.abbr, x + 84, y + h / 2)
+  ctx.fillText(model.home.abbr, x + 84, y + h / 2 - 8)
   ctx.textAlign = 'right'
-  ctx.fillText(model.away.abbr, x + w - 84, y + h / 2)
+  ctx.fillText(model.away.abbr, x + w - 84, y + h / 2 - 8)
+
+  // who's at home matters — for the crowd, the audio, and the story
+  ctx.font = 'bold 15px system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'
+  ctx.textAlign = 'left'
+  ctx.fillText('HOME', x + 84, y + h - 22)
+  ctx.textAlign = 'right'
+  ctx.fillText('AWAY', x + w - 84, y + h - 22)
 
   const score = scoreAt(plan, t)
   ctx.textAlign = 'center'
@@ -356,6 +364,7 @@ export function drawFrame(ctx: Ctx, model: RenderModel, t: number): void {
   }
   ctx.save()
   ctx.translate(shakeX, shakeY)
+  drawCrowd(ctx, plan, model.seed, model.home.color, model.home.colorAlt, model.away.color, model.away.colorAlt, tPlay)
   drawPitch(ctx)
   drawPlayers(ctx, plan, model.seed, model.home.color, model.away.color, tPlay, ball)
   drawBall(ctx, ball, model.home.color, model.away.color)

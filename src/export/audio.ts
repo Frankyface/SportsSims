@@ -86,19 +86,28 @@ export function buildMatchAudio(model: RenderModel, bank: AudioAssetBank = EMPTY
   }
 
   // Crowd reactions: real samples when provided, procedural roar otherwise.
+  // The stands are the HOME crowd (plus one away section), so the SIDE of an
+  // event decides what you hear: home goals roar; away goals get the small
+  // travelling-section cheer and the home end's boos; cards against the home
+  // side draw louder jeers than cards against the visitors.
   let momentIdx = 0
   for (const m of plan.moments) {
     momentIdx++
     if (m.kind === 'goal') {
+      const isHome = m.team === 'home'
       const cheer = pick(bank.cheer, seed, momentIdx)
-      if (cheer) mixSample(out, cheer, m.t, 0.9)
-      else addRoar(out, m.t, rng)
-    } else if (m.kind === 'bigChance' || m.kind === 'save') {
+      if (cheer) mixSample(out, cheer, m.t, isHome ? 0.95 : 0.4)
+      else addRoar(out, m.t, rng, isHome ? 0.5 : 0.3)
+      if (!isHome) {
+        const boo = pick(bank.boo, seed, momentIdx + 13)
+        if (boo) mixSample(out, boo, m.t + 0.4, 0.55)
+      }
+    } else if (m.kind === 'bigChance' || m.kind === 'save' || m.kind === 'corner') {
       const cheer = pick(bank.cheer, seed, momentIdx)
-      if (cheer) mixSample(out, cheer, m.t, 0.45)
+      if (cheer) mixSample(out, cheer, m.t, m.team === 'home' ? 0.45 : 0.22)
     } else if (m.kind === 'card') {
       const boo = pick(bank.boo, seed, momentIdx)
-      if (boo) mixSample(out, boo, m.t + 0.2, 0.8)
+      if (boo) mixSample(out, boo, m.t + 0.2, m.team === 'home' ? 0.9 : 0.6)
     }
   }
 
@@ -118,7 +127,7 @@ function addWhistle(out: Float32Array, at: number): void {
   }
 }
 
-function addRoar(out: Float32Array, at: number, rng: () => number): void {
+function addRoar(out: Float32Array, at: number, rng: () => number, gain = 0.5): void {
   const start = Math.floor(at * AUDIO_SR)
   const dur = Math.floor(1.6 * AUDIO_SR)
   let lp = 0
@@ -128,6 +137,6 @@ function addRoar(out: Float32Array, at: number, rng: () => number): void {
     const env = p < 0.08 ? p / 0.08 : Math.pow(1 - (p - 0.08) / 0.92, 1.5)
     const white = rng() * 2 - 1
     lp += (white - lp) * 0.2
-    out[start + i] += lp * env * 0.5
+    out[start + i] += lp * env * gain
   }
 }

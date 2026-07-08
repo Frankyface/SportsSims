@@ -9,8 +9,13 @@ import type { Side } from '../sim/types'
 import { segIndexAt, type BallSeg, type RenderPlan } from './director'
 
 // Pitch sits fully below the scorebug (bug ends at y=340) so balls in the TOP
-// net — the money shot — are never occluded by the overlay.
+// net — the money shot — are never occluded by the overlay. Crowd stands fill
+// the existing blank space behind each goal (the pitch itself is untouched):
+// a slim rail of fans up top, a fuller home end below the bottom goal.
 export const PITCH = { x: 20, y: 380, w: 1040, h: 1350 }
+export const CROWD_TOP = { x: 20, y: 344, w: 1040, h: 34 }
+export const CROWD_BOTTOM = { x: 20, y: 1734, w: 1040, h: 72 }
+const AWAY_SECTION_FRAC = 0.26 // right end of the TOP stand belongs to away fans
 
 type Ctx = CanvasRenderingContext2D
 
@@ -252,6 +257,101 @@ function isCelebration(plan: RenderPlan, ball: BallState): boolean {
 }
 
 // ---- drawing ----
+
+interface Stand {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+function drawStandSection(
+  ctx: Ctx,
+  stand: Stand,
+  x0: number,
+  x1: number,
+  colors: readonly string[],
+  seed: number,
+  saltBase: number,
+  t: number,
+  jump: number,
+): void {
+  const COL_STEP = 17
+  // the slim top rail fits one row of fans; the home end fits three
+  const rows = Math.max(1, Math.floor((stand.h - 8) / 22))
+  const radius = rows === 1 ? 5.5 : 6.5
+  const bounceMax = rows === 1 ? 6 : 9
+  for (let row = 0; row < rows; row++) {
+    const baseY = stand.y + 14 + row * 22
+    for (let cx = x0 + 9; cx < x1 - 6; cx += COL_STEP) {
+      const h = (seed ^ Math.imul((saltBase + row * 977 + cx) | 0, 2654435761)) >>> 0
+      const jx = ((h % 11) - 5) * 0.9
+      const jy = (((h >> 8) % 9) - 4) * 0.8
+      const ph = (h >> 16) % 628
+      const sway = Math.sin(t * 1.3 + ph * 0.01) * 1.4
+      // fans leap when their team scores
+      const bounce = jump > 0 ? Math.abs(Math.sin(t * 9 + ph * 0.01)) * bounceMax * jump : 0
+      ctx.fillStyle = colors[h % colors.length]
+      ctx.beginPath()
+      ctx.arc(cx + jx + sway, baseY + jy - bounce, radius, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+}
+
+/**
+ * The stands behind each goal. The bottom stand is the HOME end, a wall of
+ * home colours; the top stand is home too except the corner away section —
+ * the pocket of travelling fans that gives the ground its atmosphere.
+ * Pure function of (plan, seed, t): fans sway idly and leap when their team
+ * scores. Cosmetic only.
+ */
+export function drawCrowd(
+  ctx: Ctx,
+  plan: RenderPlan,
+  seed: number,
+  homeColor: string,
+  homeAlt: string,
+  awayColor: string,
+  awayAlt: string,
+  t: number,
+): void {
+  // is either set of fans mid-celebration?
+  let homeJump = 0
+  let awayJump = 0
+  for (const m of plan.moments) {
+    if (m.kind !== 'goal') continue
+    const q = (t - m.t) / 2.4
+    if (q >= 0 && q < 1) {
+      if (m.team === 'home') homeJump = 1 - q
+      else awayJump = 1 - q
+    }
+  }
+
+  const homePalette = [homeColor, homeColor, homeAlt, '#e8edf4'] as const
+  const awayPalette = [awayColor, awayColor, awayAlt, '#e8edf4'] as const
+
+  for (const stand of [CROWD_TOP, CROWD_BOTTOM]) {
+    // terrace backdrop
+    ctx.fillStyle = 'rgba(10,14,20,0.85)'
+    ctx.fillRect(stand.x, stand.y, stand.w, stand.h)
+
+    if (stand === CROWD_TOP) {
+      const split = stand.x + stand.w * (1 - AWAY_SECTION_FRAC)
+      drawStandSection(ctx, stand, stand.x, split, homePalette, seed, 101, t, homeJump)
+      drawStandSection(ctx, stand, split, stand.x + stand.w, awayPalette, seed, 707, t, awayJump)
+      // segregation line between the sections
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(split, stand.y + 4)
+      ctx.lineTo(split, stand.y + stand.h - 4)
+      ctx.stroke()
+    } else {
+      drawStandSection(ctx, stand, stand.x, stand.x + stand.w, homePalette, seed, 303, t, homeJump)
+    }
+  }
+}
 
 export function drawPitch(ctx: Ctx): void {
   const { x, y, w, h } = PITCH
