@@ -37,7 +37,7 @@ Inside the simulation module, **never** use: `Math.random`, `Date.now`, `perform
 
 - Small, focused files (aim 200–400 lines, 800 max). Organize by feature/domain. Extract utilities.
 - Immutability: return new objects, don't mutate. Handle errors explicitly; validate at boundaries (tokens, saved JSON, external API responses).
-- Keep the **pure sim** and the **renderer** in separate modules with no shared mutable state. The renderer is a pure function of `(events, renderSeed, frameIndex)`.
+- Keep the **pure sim** and the **renderer** in separate modules with no shared mutable state. The renderer is a **pure function `drawFrame(ctx, model, t)`** — same for the live preview and the frame-stepped export, so they stay pixel-identical. Cosmetic randomness (choreography, crowd, audio) lives on **separate PRNG streams** — the render seed (`renderSeed`) and the `seedKey + ':pbp'` choreography stream — so it can NEVER perturb the score-deciding sim stream (which is frozen and golden-guarded by `scoreCompat.test.ts`). Drop-in match audio is discovered from `src/assets/audio/` by name prefix (`music-*`/`cheer-*`/`boo-*`); `SIM_VERSION` is currently **4**.
 - **Multi-sport isolation:** each new sport gets its own modules and must NOT entangle the live soccer path. Rugby lives in `ratings/rugbyTeams.ts`, `render/rugbyLogos.ts`, `ui/RugbyTab.tsx` (its own crest loader + competition brand). Reuse shared types/spine (`ClubDef`, league/persistence/content), don't fork the soccer sim.
 - Tests for new logic (sim math especially — Monte-Carlo calibration counts as a test). Aim 80% on core logic.
 - Names: `camelCase` funcs/vars, `PascalCase` types/components, `UPPER_SNAKE_CASE` consts, `is/has/should` booleans.

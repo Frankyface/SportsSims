@@ -2,11 +2,11 @@
 
 _The complete vision, written so a brand-new session with zero prior context can rebuild the whole project. Last updated 2026-07-08._
 
-> **Status: V1 shipped & LIVE** at frankyface.github.io/SportsSims (Soccer, the Crown League). Brand hierarchy: **ESSPN** is the fictional network (the broadcaster, wordmark E·SS·PN); the **Crown League** is the competition it shows. Post-V1 work (Rugby/Golf, star players, automation) lives in `staging/`.
+> **Status: V1 shipped & LIVE** at frankyface.github.io/SportsSims (Soccer, the Crown League). Brand hierarchy: **ESSPN** is the fictional network (the broadcaster, wordmark E·SS·PN); the **Crown League** is the competition it shows. **Post-V1, the Soccer match engine was substantially upgraded** — from a ~30s cut-based "highlight reel" to **square-race-style CONTINUOUS PLAY** (~55-70s clips: flowing passes, a counting clock, a storyline commentator, real rules incl. red-card send-offs + corners, a full-frame stadium with rotating crowds + goal nets, and rotating real crowd audio with broadcast ducking). Post-V1 work (Rugby/Golf, star players, automation) lives in `staging/`; **the active build is the Rugby match engine.**
 
 ## Pitch
 
-**ESSPN** — the *Elite Simulated Sports Programming Network* — is a fictional ESPN. A free web app simulates persistent, invented sports leagues and turns each match into a short (~25–40s), broadcast-styled replay video for a faceless Instagram account. The launch competition is the **Crown League** — six hand-authored Soccer clubs with real crests. Rugby, Golf, then American Football, Basketball, and Hockey follow on the same engine as further ESSPN competitions.
+**ESSPN** — the *Elite Simulated Sports Programming Network* — is a fictional ESPN. A free web app simulates persistent, invented sports leagues and turns each match into a short (~55–70s), broadcast-styled **continuous-play** replay video for a faceless Instagram account. The launch competition is the **Crown League** — six hand-authored Soccer clubs with real crests. Rugby, Golf, then American Football, Basketball, and Hockey follow on the same engine as further ESSPN competitions.
 
 ## Problem & Why
 
@@ -26,7 +26,7 @@ EliteSimSPN is built around that fandom engine from day one, and adds the one th
 
 ## v1 scope — SHIPPED (Soccer / Crown League, free, on GitHub Pages)
 
-- A **"Sim a Match" (Friendly) tab**: click → watch a stylized ~30s match → nothing is saved.
+- A **"Sim a Match" (Friendly) tab**: pick a matchup (or shuffle) → watch a stylized continuous-play match → nothing is saved. _(Post-V1: now a picker + a fresh result every run.)_
 - The **Crown League: 6 clubs**, double round-robin (10 matchdays, 30 games) + **top-4 playoffs**; a **champion crowned**, then an **offseason** rolls ratings into the next season.
 - **One click → an Instagram-ready MP4** — a big stylized pitch (recognizable match, ~8 players/side, goals emerge) with a broadcast overlay carrying the **real club crests + Crown League logo**, plus procedural audio.
 - **Sim a whole matchday at once** → every game's video + a standings-update PNG + captions. **"Download Season Content"** zips the *whole season* (a video + an as-of standings post per game) with a `POSTING_ORDER.txt`.
@@ -88,7 +88,7 @@ _Stages 1–4 (v1) are **shipped & live**. Stage 3 shrank from 10 teams to the 6
 | # | Stage | Goal | Headline / definition of done | v1? |
 |---|-------|------|------------------------------|-----|
 | 1 | Foundation & de-risking slice | Stand up the app + prove the riskiest path | App auto-deploys to Pages; a **hardcoded deterministic match renders on Canvas and exports a 1080×1920 MP4** you post to @EliteSimSPN successfully | ✅ |
-| 2 | Watchable soccer | Make the match genuinely fun to watch | Calibrated sim (drama, upsets, believable scores) + **broadcast overlay** + the **"Friendly" tab** → a dramatic, legible ~30s clip | ✅ |
+| 2 | Watchable soccer | Make the match genuinely fun to watch | Calibrated sim (drama, upsets, believable scores) + **broadcast overlay** + the **"Friendly" tab** → a dramatic, legible clip. _(Post-V1: upgraded to ~55-70s **continuous play** — see the status note at top.)_ | ✅ |
 | 3 | Leagues & standings | Persistent seasons | 10-team season + playoffs; standings **persist to `elitesim-data`** across reloads/devices; friendlies stay ephemeral | ✅ |
 | 4 | Matchday content drop | One click = a day's content | Batch-sim a matchday → all game videos + a **standings-update post + captions** on an **ESPN-style calendar** | ✅ **(v1 finish line)** |
 | 5 | Rugby & Golf | Multiply the engine | Rugby (team) + Golf (heats of 4, majors, season rankings) via the same pipeline. _In progress: Rugby **identity** (Bastion Championships — 6 clubs + crests + club-book) built; the **sim** is next._ | — |
