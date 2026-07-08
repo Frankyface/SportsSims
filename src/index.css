@@ -63,6 +63,8 @@ header {
 .sectionH { font-size: 13px; color: #9aa5b1; margin: 24px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
 .hint { font-size: 13px; color: #9aa5b1; margin: 0 0 16px; }
 .msg { font-size: 13px; color: #cdd6e0; margin-top: 12px; }
+.offseason { background: rgba(216, 27, 96, 0.12); border: 1px solid rgba(216, 27, 96, 0.38); color: #f2cdda; border-radius: 10px; padding: 10px 14px; margin: 14px 0 2px; font-size: 13px; }
+.offseason b { color: #fff; }
 
 /* Standings */
 .standings { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }

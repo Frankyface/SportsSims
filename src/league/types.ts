@@ -35,6 +35,7 @@ export interface LeagueState {
   results: Record<string, MatchScore> // fixtureId -> score
   history: SeasonRecord[]
   simVersion: number
+  offseasonBig?: string[] // clubs that had a big (high-volatility) offseason entering this season
 }
 
 export interface StandingRow {

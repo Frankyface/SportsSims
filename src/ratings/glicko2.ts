@@ -118,3 +118,23 @@ export function winProbability(a: Glicko, b: Glicko): number {
   const phi = Math.sqrt((a.rd * a.rd + b.rd * b.rd)) / SCALE
   return 1 / (1 + Math.exp(-g(phi) * (muA - muB)))
 }
+
+function clampN(x: number, lo: number, hi: number): number {
+  return x < lo ? lo : x > hi ? hi : x
+}
+
+/**
+ * Offseason carry-over: ratings persist year to year with only a SMALL drift —
+ * a gentle nudge from how the season went (formSignal: +1 champion .. -1 bottom)
+ * plus transfer-window noise. `activity` is how busy the window was; a "big
+ * offseason" raises the club's volatility so it swings more next season. There is
+ * deliberately NO regression to the mean, so a strong club stays strong.
+ */
+export function offseasonAdjust(g: Glicko, formSignal: number, rng: () => number): { glicko: Glicko; big: boolean } {
+  const activity = rng() // 0..1 — how much the club changed over the summer
+  const drift = Math.round(formSignal * 7 + (rng() * 2 - 1) * 11) // ~±18 max, mostly a few points
+  const big = activity > 0.7
+  const vol = clampN(0.045 + activity * 0.075, 0.04, 0.12)
+  const rd = clampN(48 + activity * 95, 45, 150)
+  return { glicko: { rating: g.rating + drift, rd, vol }, big }
+}

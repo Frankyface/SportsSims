@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { updateGlicko, decayGlicko, winProbability, type Glicko } from './glicko2'
+import { updateGlicko, decayGlicko, winProbability, offseasonAdjust, type Glicko } from './glicko2'
 
 describe('glicko2 — canonical worked example (Glickman 2013)', () => {
   it('reproduces the published result within tolerance', () => {
@@ -41,6 +41,25 @@ describe('glicko2 — behaviour', () => {
     expect(d.rating).toBeLessThan(1800)
     expect(d.rating).toBeGreaterThan(1500)
     expect(d.rd).toBeGreaterThan(60)
+  })
+
+  it('offseason carries ratings over with only a small drift, and flags big offseasons', () => {
+    const busy = [0.9, 0.5]
+    let i = 0
+    const rng = () => busy[i++ % busy.length]
+    const r = offseasonAdjust({ rating: 1600, rd: 60, vol: 0.05 }, 1, rng)
+    expect(Math.abs(r.glicko.rating - 1600)).toBeLessThanOrEqual(18)
+    expect(r.big).toBe(true)
+    expect(r.glicko.vol).toBeGreaterThan(0.05)
+  })
+
+  it('a quiet offseason keeps volatility low and is not flagged', () => {
+    const quiet = [0.1, 0.5]
+    let i = 0
+    const rng = () => quiet[i++ % quiet.length]
+    const r = offseasonAdjust({ rating: 1600, rd: 60, vol: 0.05 }, 0, rng)
+    expect(r.big).toBe(false)
+    expect(r.glicko.vol).toBeLessThan(0.07)
   })
 
   it('winProbability favours the stronger side but is never 0 or 1', () => {

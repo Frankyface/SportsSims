@@ -20,7 +20,7 @@ Legend: `[ ]` = to do · `[x]` = done
 - **How:** Go to <https://github.com/new> → **Repository name:** `elitesim-data` → **Public** (simplest; the data is meant to be seen) → tick **"Add a README file"** → **Create repository**.
 - **Unblocks:** Stage 3 (saving standings) — but make it now so it's ready.
 
-### [ ] 3. Create a "save key" (fine-grained token) for the app
+### [x] 3. Create a "save key" (fine-grained token) for the app
 - **What:** A password-like key that lets the app save your league to the `elitesim-data` repo.
 - **Why:** GitHub Pages apps can't save data on their own; this key is how the app writes your standings file. It's scoped so it can *only* edit that one data repo — nothing else.
 - **How (click-by-click):**

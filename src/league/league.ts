@@ -5,7 +5,8 @@
 // returns a new LeagueState so it serializes and re-simulates identically.
 
 import { generateLeague, type LeagueTeam } from '../ratings/teams'
-import { updateGlicko, decayGlicko, type GameResult } from '../ratings/glicko2'
+import { makeRng } from '../sim/prng'
+import { offseasonAdjust } from '../ratings/glicko2'
 import { toTeamRating } from '../ratings/strength'
 import { simulateMatch } from '../sim/simulateMatch'
 import { SIM_VERSION, type MatchResult } from '../sim/types'
@@ -178,21 +179,12 @@ export function seasonComplete(state: LeagueState): boolean {
   return state.phase === 'playoffs' && state.results['final'] !== undefined
 }
 
-function evolveRatings(state: LeagueState): LeagueTeam[] {
-  const startGlicko = new Map(state.teams.map((t) => [t.identity.id, t.glicko]))
-  const games = new Map<string, GameResult[]>()
-  for (const t of state.teams) games.set(t.identity.id, [])
-  for (const f of state.fixtures.filter((x) => x.stage === 'regular')) {
-    const sc = state.results[f.id]
-    if (!sc) continue
-    const hs = sc.home > sc.away ? 1 : sc.home < sc.away ? 0 : 0.5
-    games.get(f.home)?.push({ opponent: startGlicko.get(f.away)!, score: hs })
-    games.get(f.away)?.push({ opponent: startGlicko.get(f.home)!, score: 1 - hs })
-  }
-  return state.teams.map((t) => ({ ...t, glicko: updateGlicko(t.glicko, games.get(t.identity.id) ?? []) }))
-}
-
-/** Crown the champion, archive the season, evolve + decay ratings, and roll into the next season. */
+/**
+ * Offseason: crown the champion, archive the season, then carry every club's
+ * rating into next season with only a SMALL drift — a nudge from how the season
+ * went plus transfer-window noise. A "big offseason" raises a club's volatility
+ * so it swings more next year. No regression to the mean: strength persists.
+ */
 export function advanceSeason(state: LeagueState): LeagueState {
   if (!seasonComplete(state)) return state
   const table = computeStandings(state)
@@ -202,15 +194,28 @@ export function advanceSeason(state: LeagueState): LeagueState {
     shieldId: table[0].teamId,
     table: table.map((r) => ({ teamId: r.teamId, points: r.points, gd: r.gd })),
   }
-  const evolved = evolveRatings(state).map((t) => ({ ...t, glicko: decayGlicko(t.glicko) }))
-  const fixtures = generateFixtures(evolved.map((t) => t.identity.id))
+
+  const n = state.teams.length
+  const posById = new Map(table.map((r, i) => [r.teamId, i]))
+  const bigOffseason: string[] = []
+  const nextTeams: LeagueTeam[] = state.teams.map((t) => {
+    const pos = posById.get(t.identity.id) ?? Math.floor(n / 2)
+    const formSignal = n > 1 ? 1 - (2 * pos) / (n - 1) : 0
+    const rng = makeRng(`${state.seedKey}:offseason:s${state.season}:${t.identity.id}`)
+    const { glicko, big } = offseasonAdjust(t.glicko, formSignal, rng)
+    if (big) bigOffseason.push(t.identity.id)
+    return { ...t, glicko }
+  })
+
+  const fixtures = generateFixtures(nextTeams.map((t) => t.identity.id))
   return {
     ...state,
     season: state.season + 1,
     phase: 'regular',
-    teams: evolved,
+    teams: nextTeams,
     fixtures,
     results: {},
     history: [...state.history, record],
+    offseasonBig: bigOffseason,
   }
 }

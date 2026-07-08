@@ -127,6 +127,13 @@ export function LeagueTab({ state, setState }: { state: LeagueState; setState: (
         </span>
       </div>
 
+      {state.offseasonBig && state.offseasonBig.length > 0 && (
+        <div className="offseason">
+          🔁 <b>Big offseason:</b> {state.offseasonBig.map((id) => teamById(state, id).identity.name).join(', ')} — reshaped
+          squads, expect them to swing this season.
+        </div>
+      )}
+
       <div className="controls">
         {!seasonComplete(state) && (
           <button className="btn" onClick={simNext}>
