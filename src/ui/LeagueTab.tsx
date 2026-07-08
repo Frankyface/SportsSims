@@ -12,6 +12,7 @@ import {
   winnerOf,
 } from '../league/league'
 import { buildMatchdayPack, type MatchdayPack } from '../content/matchdayPack'
+import { leagueLogoUrl } from '../render/logos'
 import { StandingsTable } from './StandingsTable'
 import { MatchView } from './MatchView'
 import { PackPanel } from './PackPanel'
@@ -120,11 +121,14 @@ export function LeagueTab({ state, setState }: { state: LeagueState; setState: (
   return (
     <div>
       <div className="leagueHead">
-        <h2>{state.name}</h2>
-        <span className="sub">
-          Season {state.season} · {state.phase}
-          {champion ? ` · 🏆 ${champion.name}` : ''}
-        </span>
+        <img className="league-logo" src={leagueLogoUrl} alt="Crown League" />
+        <div>
+          <h2>{state.name}</h2>
+          <span className="sub">
+            Season {state.season} · {state.phase}
+            {champion ? ` · 🏆 ${champion.name}` : ''}
+          </span>
+        </div>
       </div>
 
       {state.offseasonBig && state.offseasonBig.length > 0 && (

@@ -93,7 +93,7 @@ export const CLUBS: ClubDef[] = [
     city: 'Meridian',
     nickname: 'The Nomads',
     archetype: 'Cosmopolitan flair',
-    color: '#d81b60',
+    color: '#c2185b',
     colorAlt: '#f5b301',
     styleTilt: 0.05,
     description:

@@ -8,6 +8,7 @@
 import type { MatchResult, TeamRating } from '../sim/types'
 import { buildRenderPlan, beatAt, type Beat, type RenderPlan } from './director'
 import { drawWordmark } from './wordmark'
+import { getLogo, getLeagueLogo, drawLogoCircle, drawLogoContain } from './logos'
 
 export interface RenderModel {
   plan: RenderPlan
@@ -174,12 +175,22 @@ function drawScorebug(ctx: Ctx, model: RenderModel, beat: Beat): void {
   roundRect(ctx, x, y, w, h, 16)
   ctx.stroke()
 
-  ctx.fillStyle = model.home.color
-  roundRect(ctx, x + 16, y + 24, 54, 54, 8)
-  ctx.fill()
-  ctx.fillStyle = model.away.color
-  roundRect(ctx, x + w - 70, y + 24, 54, 54, 8)
-  ctx.fill()
+  const homeCrest = getLogo(model.home.id)
+  const awayCrest = getLogo(model.away.id)
+  if (homeCrest) {
+    drawLogoCircle(ctx, homeCrest, x + 43, y + 51, 28)
+  } else {
+    ctx.fillStyle = model.home.color
+    roundRect(ctx, x + 16, y + 24, 54, 54, 8)
+    ctx.fill()
+  }
+  if (awayCrest) {
+    drawLogoCircle(ctx, awayCrest, x + w - 43, y + 51, 28)
+  } else {
+    ctx.fillStyle = model.away.color
+    roundRect(ctx, x + w - 70, y + 24, 54, 54, 8)
+    ctx.fill()
+  }
 
   ctx.textBaseline = 'middle'
   ctx.fillStyle = '#fff'
@@ -249,22 +260,29 @@ function drawIntro(ctx: Ctx, model: RenderModel, progress: number): void {
   const a = progress < 0.85 ? clamp01(progress * 3) : clamp01((1 - progress) / 0.15)
   ctx.save()
   ctx.globalAlpha = a
-  ctx.fillStyle = 'rgba(6,9,14,0.92)'
+  ctx.fillStyle = 'rgba(6,9,14,0.94)'
   ctx.fillRect(0, 0, model.width, model.height)
+  const cx = model.width / 2
+  const league = getLeagueLogo()
+  if (league) drawLogoContain(ctx, league, cx, 470, 320, 300)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = '#ff5566'
-  ctx.font = 'bold 40px system-ui, sans-serif'
-  ctx.fillText('MATCHDAY', model.width / 2, 660)
-  ctx.fillStyle = model.home.color
-  fitText(ctx, model.home.name, 940, 60)
-  ctx.fillText(model.home.name, model.width / 2, 820)
+  ctx.font = 'bold 34px system-ui, sans-serif'
+  ctx.fillText('MATCHDAY', cx, 690)
+  const hl = getLogo(model.home.id)
+  if (hl) drawLogoCircle(ctx, hl, cx, 890, 130)
+  ctx.fillStyle = '#e8edf4'
+  fitText(ctx, model.home.name, 940, 54)
+  ctx.fillText(model.home.name, cx, 1065)
   ctx.fillStyle = '#7b8794'
-  ctx.font = 'bold 44px system-ui, sans-serif'
-  ctx.fillText('vs', model.width / 2, 930)
-  ctx.fillStyle = model.away.color
-  fitText(ctx, model.away.name, 940, 60)
-  ctx.fillText(model.away.name, model.width / 2, 1040)
+  ctx.font = 'bold 40px system-ui, sans-serif'
+  ctx.fillText('vs', cx, 1140)
+  const al = getLogo(model.away.id)
+  if (al) drawLogoCircle(ctx, al, cx, 1290, 130)
+  ctx.fillStyle = '#e8edf4'
+  fitText(ctx, model.away.name, 940, 54)
+  ctx.fillText(model.away.name, cx, 1465)
   ctx.restore()
 }
 
@@ -275,25 +293,30 @@ function drawResult(ctx: Ctx, model: RenderModel, progress: number): void {
   ctx.fillRect(0, 0, model.width, model.height)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  const cx = model.width / 2
+  const hl = getLogo(model.home.id)
+  const al = getLogo(model.away.id)
+  if (hl) drawLogoCircle(ctx, hl, cx - 300, 560, 150)
+  if (al) drawLogoCircle(ctx, al, cx + 300, 560, 150)
   ctx.fillStyle = '#ff5566'
   ctx.font = 'bold 38px system-ui, sans-serif'
-  ctx.fillText('FULL-TIME', model.width / 2, 690)
+  ctx.fillText('FULL-TIME', cx, 770)
   ctx.fillStyle = '#fff'
   ctx.font = 'bold 150px system-ui, sans-serif'
-  ctx.fillText(`${model.finalScore[0]} - ${model.finalScore[1]}`, model.width / 2, 850)
-  ctx.font = 'bold 44px system-ui, sans-serif'
+  ctx.fillText(`${model.finalScore[0]} - ${model.finalScore[1]}`, cx, 900)
+  ctx.font = 'bold 40px system-ui, sans-serif'
   ctx.fillStyle = model.home.color
   ctx.textAlign = 'right'
-  ctx.fillText(model.home.abbr, model.width / 2 - 130, 1000)
+  ctx.fillText(model.home.abbr, cx - 120, 1030)
   ctx.fillStyle = model.away.color
   ctx.textAlign = 'left'
-  ctx.fillText(model.away.abbr, model.width / 2 + 130, 1000)
+  ctx.fillText(model.away.abbr, cx + 120, 1030)
   const [h, a] = model.finalScore
   const line = h > a ? `${model.home.name} win` : a > h ? `${model.away.name} win` : 'Honours even'
   ctx.textAlign = 'center'
   ctx.fillStyle = '#e8edf4'
   fitText(ctx, line, 960, 44)
-  ctx.fillText(line, model.width / 2, 1150)
+  ctx.fillText(line, cx, 1170)
   ctx.restore()
 }
 

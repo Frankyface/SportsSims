@@ -1,9 +1,9 @@
-// The "second post": a 1080x1920 league-table graphic exported as a PNG, in the
-// ESSPN broadcast style, for posting after each game.
+// The "second post": a 1080x1920 league-table graphic exported as a PNG, headed
+// by the Crown League crest with each club's real logo on its row.
 
 import type { LeagueState, StandingRow } from '../league/types'
 import { computeStandings, teamById } from '../league/league'
-import { drawWordmark } from './wordmark'
+import { getLogo, getLeagueLogo, drawLogoCircle, drawLogoContain, ensureLogosLoaded } from './logos'
 import { HANDLE } from '../brand'
 
 export const CARD_W = 1080
@@ -14,37 +14,37 @@ type Ctx = CanvasRenderingContext2D
 export function drawStandingsCard(ctx: Ctx, state: LeagueState, roundLabel: string, rowsOverride?: StandingRow[]): void {
   ctx.fillStyle = '#0a0e14'
   ctx.fillRect(0, 0, CARD_W, CARD_H)
-  drawWordmark(ctx, CARD_W / 2, 150, 40)
+  const cx = CARD_W / 2
+
+  const league = getLeagueLogo()
+  if (league) drawLogoContain(ctx, league, cx, 220, 320, 300)
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillStyle = '#ff5566'
-  ctx.font = 'bold 46px system-ui, sans-serif'
-  ctx.fillText('LEAGUE TABLE', CARD_W / 2, 300)
   ctx.fillStyle = '#e8edf4'
-  ctx.font = 'bold 34px system-ui, sans-serif'
-  ctx.fillText(state.name, CARD_W / 2, 358)
+  ctx.font = 'bold 44px system-ui, sans-serif'
+  ctx.fillText('LEAGUE TABLE', cx, 430)
   ctx.fillStyle = '#7b8794'
   ctx.font = '28px system-ui, sans-serif'
-  ctx.fillText(`${roundLabel} · Season ${state.season}`, CARD_W / 2, 408)
+  ctx.fillText(`${roundLabel} · Season ${state.season}`, cx, 478)
 
   const rows = rowsOverride ?? computeStandings(state)
-  const top = 500
+  const top = 580
   const rowH = 150
   const cols = { p: 560, w: 645, d: 730, l: 815, gd: 915, pts: 1010 }
 
   ctx.font = 'bold 26px system-ui, sans-serif'
   ctx.fillStyle = '#7b8794'
   ctx.textAlign = 'left'
-  ctx.fillText('#   TEAM', 90, top - 40)
+  ctx.fillText('#   TEAM', 90, top - 46)
   ctx.textAlign = 'center'
-  ctx.fillText('P', cols.p, top - 40)
-  ctx.fillText('W', cols.w, top - 40)
-  ctx.fillText('D', cols.d, top - 40)
-  ctx.fillText('L', cols.l, top - 40)
-  ctx.fillText('GD', cols.gd, top - 40)
+  ctx.fillText('P', cols.p, top - 46)
+  ctx.fillText('W', cols.w, top - 46)
+  ctx.fillText('D', cols.d, top - 46)
+  ctx.fillText('L', cols.l, top - 46)
+  ctx.fillText('GD', cols.gd, top - 46)
   ctx.textAlign = 'right'
-  ctx.fillText('PTS', cols.pts, top - 40)
+  ctx.fillText('PTS', cols.pts, top - 46)
 
   rows.forEach((r, i) => {
     const y = top + i * rowH
@@ -58,11 +58,16 @@ export function drawStandingsCard(ctx: Ctx, state: LeagueState, roundLabel: stri
     ctx.fillStyle = '#7b8794'
     ctx.font = 'bold 40px system-ui, sans-serif'
     ctx.fillText(String(i + 1), 96, y)
-    ctx.fillStyle = t.color
-    ctx.fillRect(150, y - 18, 36, 36)
+    const crest = getLogo(r.teamId)
+    if (crest) {
+      drawLogoCircle(ctx, crest, 180, y, 32)
+    } else {
+      ctx.fillStyle = t.color
+      ctx.fillRect(150, y - 18, 36, 36)
+    }
     ctx.fillStyle = '#e8edf4'
     ctx.font = 'bold 42px system-ui, sans-serif'
-    ctx.fillText(t.abbr, 210, y)
+    ctx.fillText(t.abbr, 232, y)
     ctx.textAlign = 'center'
     ctx.font = '38px system-ui, sans-serif'
     ctx.fillStyle = '#cdd6e0'
@@ -80,10 +85,11 @@ export function drawStandingsCard(ctx: Ctx, state: LeagueState, roundLabel: stri
   ctx.textAlign = 'center'
   ctx.fillStyle = '#7b8794'
   ctx.font = '26px system-ui, sans-serif'
-  ctx.fillText(`${HANDLE} · Top 4 make the playoffs`, CARD_W / 2, CARD_H - 70)
+  ctx.fillText(`${HANDLE} · Top 4 make the playoffs`, cx, CARD_H - 70)
 }
 
 export async function exportStandingsPng(state: LeagueState, roundLabel: string, rowsOverride?: StandingRow[]): Promise<Blob> {
+  await ensureLogosLoaded()
   const canvas = document.createElement('canvas')
   canvas.width = CARD_W
   canvas.height = CARD_H

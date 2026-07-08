@@ -1,5 +1,6 @@
 import type { LeagueState } from '../league/types'
 import { computeStandings, teamById } from '../league/league'
+import { logoUrl } from '../render/logos'
 
 export function StandingsTable({ state }: { state: LeagueState }) {
   const rows = computeStandings(state)
@@ -25,7 +26,7 @@ export function StandingsTable({ state }: { state: LeagueState }) {
             <tr key={r.teamId} className={i < 4 ? 'playoff' : ''}>
               <td>{i + 1}</td>
               <td className="teamCol">
-                <span className="chip" style={{ background: t.color }} />
+                <img className="crest-img" src={logoUrl(r.teamId)} alt="" style={{ background: t.color }} />
                 {t.abbr}
               </td>
               <td>{r.played}</td>

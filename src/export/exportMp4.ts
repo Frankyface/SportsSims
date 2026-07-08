@@ -9,6 +9,7 @@
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import type { MatchResult } from '../sim/types'
 import { buildRenderModel, drawFrame, RENDER_W, RENDER_H, type RenderModel } from '../render/renderMatch'
+import { ensureLogosLoaded } from '../render/logos'
 import { buildMatchAudio, AUDIO_SR } from './audio'
 
 const FPS = 30
@@ -70,6 +71,7 @@ export async function exportMatchMp4(match: MatchResult, onProgress?: (p: number
 
   const model = buildRenderModel(match, RENDER_W, RENDER_H)
   const totalFrames = Math.max(1, Math.ceil(model.plan.total * FPS))
+  await ensureLogosLoaded()
   const withAudio = typeof AudioEncoder !== 'undefined' && typeof AudioData !== 'undefined'
 
   const canvas = document.createElement('canvas')

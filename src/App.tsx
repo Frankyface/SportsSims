@@ -6,8 +6,8 @@ import { LeagueTab } from './ui/LeagueTab'
 import { FriendlyTab } from './ui/FriendlyTab'
 import { SettingsTab } from './ui/SettingsTab'
 
-const LEAGUE_ID = 'esspn-league'
-const LEAGUE_NAME = 'ESSPN Premier League'
+const LEAGUE_ID = 'crown-league'
+const LEAGUE_NAME = 'Crown League'
 type Tab = 'league' | 'friendly' | 'settings'
 
 export default function App() {
