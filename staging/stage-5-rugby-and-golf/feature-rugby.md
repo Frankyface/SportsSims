@@ -46,7 +46,7 @@ The soccer engine is the proven blueprint; the rugby build should follow the sam
 ## Acceptance criteria
 - [x] Deterministic rugby sim producing believable scores + an event timeline (tries, conversions, penalties, cards). _(rugbySim.ts, golden-frozen v1.)_
 - [x] Rugby overlay (scoreboard, event plates) in the network style. _(80' clock chip, try/conversion/pen lower thirds, TRY! flash, Bastion cards.)_
-- [~] Plugs into the existing league/season/standings/content-drop/calendar with no spine rewrite. _(Friendly flow live in the Rugby tab; the LEAGUE plug — rugby standings/points + season UI + packs — is the remaining item and the next build.)_
+- [x] Plugs into the existing league/season/standings/content-drop/calendar with no spine rewrite. _(DONE same-day v2: `league/rugbyLeague.ts` — union bonus-point standings (4/2/0, +1 four-try, +1 losing-within-7), top-4 playoffs, offseason, persistence; `RugbyLeagueTab` with round packs + tap-to-watch; tabs restructured to Soccer | Rugby | Settings. Season-zip download is the one deferred piece.)_
 - [x] Calibrated to realistic rugby scorelines. _(Monte-Carlo N=3000: ~50.5 pts, ~5.8 tries, 74.8% conversions, ~4.1 pen goals, 2.1% draws.)_
 
 ## Open Questions

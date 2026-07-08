@@ -201,6 +201,37 @@ describe('rugby choreographer — timeline & continuity invariants', () => {
     expect(mauls).toBeGreaterThan(0)
   })
 
+  it('plays the full rugby repertoire: offloads, attacking chips, visible backward passes', () => {
+    let offloads = 0
+    let chips = 0
+    let deepPasses = 0
+    let passes = 0
+    for (const seed of SEEDS) {
+      for (const p of buildRugbyPlayScript(match(seed)).passages) {
+        const ts = p.touches
+        for (let i = 0; i < ts.length; i++) {
+          const t = ts[i]
+          // an offload: a risky pass immediately followed by a same-team carry
+          if (t.kind === 'pass' && t.risky && ts[i + 1]?.kind === 'carry' && ts[i + 1].team === t.team) {
+            offloads++
+          }
+          // an attacking chip: a kick regathered by the KICKING team
+          if (t.kind === 'kick' && i > 0 && ts[i - 1].team === t.team) chips++
+          if (t.kind === 'pass') {
+            passes++
+            const back = t.team === 'home' ? t.to[1] - t.from[1] : t.from[1] - t.to[1]
+            if (back >= 0.025) deepPasses++
+          }
+        }
+      }
+    }
+    expect(offloads).toBeGreaterThan(25)
+    expect(chips).toBeGreaterThan(5)
+    // passes must LOOK backward, not just satisfy the law by a pixel:
+    // the majority travel a clearly visible distance behind the carrier
+    expect(deepPasses / passes).toBeGreaterThan(0.6)
+  })
+
   it('pacing: featured and bridge passages both present, bridges in band', () => {
     for (const seed of SEEDS) {
       const s = buildRugbyPlayScript(match(seed))
@@ -209,8 +240,8 @@ describe('rugby choreographer — timeline & continuity invariants', () => {
       expect(kinds.has('bridge')).toBe(true)
       for (const p of s.passages) {
         if (p.kind === 'bridge') {
-          expect(p.renderDur).toBeGreaterThanOrEqual(1.5)
-          expect(p.renderDur).toBeLessThanOrEqual(3.01)
+          expect(p.renderDur).toBeGreaterThanOrEqual(2.0)
+          expect(p.renderDur).toBeLessThanOrEqual(4.01)
         }
       }
     }

@@ -81,9 +81,10 @@ export interface RugbyRenderPlan {
 const INTRO_DUR = 2.6
 const RESULT_DUR = 3.4
 const FT_BEAT = 0.7
-// Same square-race band as soccer: play window 48-62s -> total 54.7-68.7s
-const PLAY_MIN = 48
-const PLAY_MAX = 62
+// Rugby breathes slower than soccer: play window 58-74s -> total 64.7-80.7s,
+// still safely under the 90s IG Reels cap
+const PLAY_MIN = 58
+const PLAY_MAX = 74
 const HALF_SEC = 40 * 60
 
 const MOMENT_DUR: Record<RugbyMomentKind, number> = {

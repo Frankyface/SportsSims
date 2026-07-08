@@ -3,14 +3,54 @@ import { generateRugbyLeague, RUGBY_CLUBS, RUGBY_LEAGUE } from '../ratings/rugby
 import { toTeamRating } from '../ratings/strength'
 import { simulateRugbyMatch } from '../sim/rugbySim'
 import { bastionLogoUrl, rugbyLogoUrl } from '../render/rugbyLogos'
+import type { RugbyLeagueState } from '../league/rugbyLeague'
+import { RugbyLeagueTab } from './RugbyLeagueTab'
 import { RugbyMatchView } from './RugbyMatchView'
 
-/**
- * The Bastion Championships tab: a live rugby friendly (pick the clubs, watch
- * the continuous-play broadcast, export the Reel) with the club book below.
- * Mirrors FriendlyTab (soccer) — a one-off match, nothing is saved.
- */
-export function RugbyTab() {
+type RugbyView = 'league' | 'friendly' | 'clubs'
+
+/** The Bastion Championships home: League season, one-off Friendlies, and the
+ * club book — mirroring the Soccer tab's League/Friendly split. */
+export function RugbyTab({
+  league,
+  setLeague,
+  onReset,
+}: {
+  league: RugbyLeagueState
+  setLeague: (s: RugbyLeagueState) => void
+  onReset: () => void
+}) {
+  const [view, setView] = useState<RugbyView>('league')
+
+  return (
+    <div>
+      <nav className="tabs sub">
+        <button className={view === 'league' ? 'on' : ''} onClick={() => setView('league')}>
+          League
+        </button>
+        <button className={view === 'friendly' ? 'on' : ''} onClick={() => setView('friendly')}>
+          Friendly
+        </button>
+        <button className={view === 'clubs' ? 'on' : ''} onClick={() => setView('clubs')}>
+          Clubs
+        </button>
+      </nav>
+
+      {view === 'league' && <RugbyLeagueTab state={league} setState={setLeague} />}
+      {view === 'friendly' && <RugbyFriendly />}
+      {view === 'clubs' && <RugbyClubBook />}
+
+      {view === 'league' && (
+        <button className="btn ghost small" onClick={onReset}>
+          Reset league
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** A one-off rugby match: pick the clubs, and every run is a fresh 80 minutes. */
+function RugbyFriendly() {
   const teams = useMemo(() => generateRugbyLeague('rugby-friendly-pool', 6), [])
   const [homeIdx, setHomeIdx] = useState(0)
   const [awayIdx, setAwayIdx] = useState(3)
@@ -54,14 +94,6 @@ export function RugbyTab() {
 
   return (
     <div>
-      <div className="leagueHead">
-        <img className="league-logo" src={bastionLogoUrl} alt={RUGBY_LEAGUE.name} />
-        <div>
-          <h2>{RUGBY_LEAGUE.name}</h2>
-          <span className="sub">{RUGBY_CLUBS.length} clubs · the ESSPN rugby competition</span>
-        </div>
-      </div>
-
       <p className="hint">
         Pick a matchup, or shuffle — every run is a fresh 80 minutes. Nothing is saved.
       </p>
@@ -111,8 +143,22 @@ export function RugbyTab() {
         <span style={{ color: away.identity.color }}>{away.identity.name}</span> (
         {Math.round(away.glicko.rating)}) · Final {match.score[0]}–{match.score[1]}
       </p>
+    </div>
+  )
+}
 
-      <h3 className="sectionTitle">The clubs</h3>
+/** Read-only club book: the Bastion Championships lineup. */
+function RugbyClubBook() {
+  return (
+    <div>
+      <div className="leagueHead">
+        <img className="league-logo" src={bastionLogoUrl} alt={RUGBY_LEAGUE.name} />
+        <div>
+          <h2>{RUGBY_LEAGUE.name}</h2>
+          <span className="sub">{RUGBY_CLUBS.length} clubs · the ESSPN rugby competition</span>
+        </div>
+      </div>
+
       <div className="clubGrid">
         {RUGBY_CLUBS.map((c) => {
           const crest = rugbyLogoUrl(c.id)

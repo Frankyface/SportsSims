@@ -187,6 +187,35 @@ describe('rugby scene — player motion', () => {
     expect(p1).toEqual(p2)
   })
 
+  it('ONSIDE LAW: while a kick is in flight, the kicking team stays behind the kicker', () => {
+    const m = match('ronside:0')
+    const plan = buildRugbyRenderPlan(m)
+    const seed = m.renderSeed >>> 0
+    let checked = 0
+    for (let i = 1; i < plan.segs.length; i++) {
+      const seg = plan.segs[i]
+      if (seg.kind !== 'kick' || seg.t1 - seg.t0 < 0.4) continue
+      const kickerTeam = plan.segs[i - 1].team
+      const t = seg.t0 + (seg.t1 - seg.t0) * 0.92 // late in the flight
+      const ball = rugbyBallStateAt(plan, t)
+      const shift = rugbyTeamShiftAt(plan, t)
+      const [, originPy] = rugbyToPx([seg.from[0], seg.from[1]])
+      for (let slot = 1; slot < RUGBY_SLOTS.length; slot++) {
+        if (kickerTeam === seg.team && slot === seg.slot) continue // the chaser may be ahead
+        const [, py] = rugbyPlayerPosAt(plan, seed, kickerTeam, slot, t, ball, shift)
+        if (kickerTeam === 'home') {
+          // home attacks the top: being AHEAD of the kick = smaller y
+          expect(py).toBeGreaterThan(originPy - 45)
+        } else {
+          expect(py).toBeLessThan(originPy + 45)
+        }
+      }
+      checked++
+      if (checked >= 10) break
+    }
+    expect(checked).toBeGreaterThan(3)
+  })
+
   it('defending gates never cliff: per-frame change stays smooth', () => {
     const plan = buildRugbyRenderPlan(match('rgate:0'))
     let prev = rugbyTeamShiftAt(plan, plan.playStart)

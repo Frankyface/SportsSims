@@ -2,33 +2,57 @@ import { useEffect, useState } from 'react'
 import type { LeagueState } from './league/types'
 import { createLeague } from './league/league'
 import { saveLocal, loadLocal } from './league/persistence'
-import { LeagueTab } from './ui/LeagueTab'
-import { FriendlyTab } from './ui/FriendlyTab'
+import {
+  createRugbyLeague,
+  loadRugbyLocal,
+  saveRugbyLocal,
+  type RugbyLeagueState,
+} from './league/rugbyLeague'
+import { RUGBY_LEAGUE } from './ratings/rugbyTeams'
+import { SoccerTab } from './ui/SoccerTab'
 import { RugbyTab } from './ui/RugbyTab'
 import { SettingsTab } from './ui/SettingsTab'
 
 const LEAGUE_ID = 'crown-league'
 const LEAGUE_NAME = 'Crown League'
-type Tab = 'league' | 'friendly' | 'rugby' | 'settings'
+const RUGBY_LEAGUE_ID = 'bastion-championships'
+type Tab = 'soccer' | 'rugby' | 'settings'
 
 // A fresh random seed each time a league is created, so every new league plays
 // out differently. (This is a UI action, not the deterministic sim — a saved
 // league stores its seed, so its matches still re-render identically.)
-function newSeed(): string {
-  return `crown-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`
+function newSeed(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('league')
-  const [league, setLeague] = useState<LeagueState>(() => loadLocal(LEAGUE_ID) ?? createLeague(newSeed(), LEAGUE_NAME, 6, LEAGUE_ID))
+  const [tab, setTab] = useState<Tab>('soccer')
+  const [league, setLeague] = useState<LeagueState>(
+    () => loadLocal(LEAGUE_ID) ?? createLeague(newSeed('crown'), LEAGUE_NAME, 6, LEAGUE_ID),
+  )
+  const [rugbyLeague, setRugbyLeague] = useState<RugbyLeagueState>(
+    () =>
+      loadRugbyLocal(RUGBY_LEAGUE_ID) ??
+      createRugbyLeague(newSeed('bastion'), RUGBY_LEAGUE.name, 6, RUGBY_LEAGUE_ID),
+  )
 
   useEffect(() => {
     saveLocal(league)
   }, [league])
 
+  useEffect(() => {
+    saveRugbyLocal(rugbyLeague)
+  }, [rugbyLeague])
+
   function resetLeague() {
     if (window.confirm('Start a brand-new league? This clears the current one on this device.')) {
-      setLeague(createLeague(newSeed(), LEAGUE_NAME, 6, LEAGUE_ID))
+      setLeague(createLeague(newSeed('crown'), LEAGUE_NAME, 6, LEAGUE_ID))
+    }
+  }
+
+  function resetRugbyLeague() {
+    if (window.confirm('Start a brand-new Bastion Championships? This clears the current one on this device.')) {
+      setRugbyLeague(createRugbyLeague(newSeed('bastion'), RUGBY_LEAGUE.name, 6, RUGBY_LEAGUE_ID))
     }
   }
 
@@ -42,30 +66,22 @@ export default function App() {
       </header>
 
       <nav className="tabs">
-        <button className={tab === 'league' ? 'on' : ''} onClick={() => setTab('league')}>
-          League
-        </button>
-        <button className={tab === 'friendly' ? 'on' : ''} onClick={() => setTab('friendly')}>
-          Friendly
+        <button className={tab === 'soccer' ? 'on' : ''} onClick={() => setTab('soccer')}>
+          ⚽ Soccer
         </button>
         <button className={tab === 'rugby' ? 'on' : ''} onClick={() => setTab('rugby')}>
-          Rugby
+          🏉 Rugby
         </button>
         <button className={tab === 'settings' ? 'on' : ''} onClick={() => setTab('settings')}>
           Settings
         </button>
       </nav>
 
-      {tab === 'league' && <LeagueTab state={league} setState={setLeague} />}
-      {tab === 'friendly' && <FriendlyTab />}
-      {tab === 'rugby' && <RugbyTab />}
-      {tab === 'settings' && <SettingsTab state={league} setState={setLeague} />}
-
-      {tab === 'league' && (
-        <button className="btn ghost small" onClick={resetLeague}>
-          Reset league
-        </button>
+      {tab === 'soccer' && <SoccerTab league={league} setLeague={setLeague} onReset={resetLeague} />}
+      {tab === 'rugby' && (
+        <RugbyTab league={rugbyLeague} setLeague={setRugbyLeague} onReset={resetRugbyLeague} />
       )}
+      {tab === 'settings' && <SettingsTab state={league} setState={setLeague} />}
     </main>
   )
 }

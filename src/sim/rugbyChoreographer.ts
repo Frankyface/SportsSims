@@ -84,25 +84,25 @@ export interface RugbyPlayScript {
 }
 
 // --- pacing constants (seconds of render time per featured moment) ---
-// Rugby packs far more scoring beats into a match than soccer (a try+conversion
-// alone is two strikes), so per-beat dwell is tighter and the budget higher;
-// the director's global scale still lands the play window at 48-62s.
+// Rugby is a slower, heavier watch than soccer: every beat gets more dwell,
+// the ball travels with real weight, and the director's play window is wider
+// (58-74s) so the extra time is genuinely there, not compressed away.
 const DUR: Record<Exclude<RugbyPassageOutcome, 'flow'>, number> = {
-  try: 6.0,
-  penGoal: 4.2,
-  penMiss: 3.6,
-  dropGoal: 3.4,
-  dropMiss: 3.2,
-  break: 3.0,
-  card: 3.4,
+  try: 7.2,
+  penGoal: 5.0,
+  penMiss: 4.2,
+  dropGoal: 4.0,
+  dropMiss: 3.8,
+  break: 3.6,
+  card: 3.8,
 }
-const CORNER_EXTRA = 1.6 // lineout-drive theatre earns extra dwell
-const FEATURE_BUDGET = 54 // musts (tries, kicked goals, reds) always fit regardless
-const MAX_FEATURED = 15
+const CORNER_EXTRA = 2.0 // lineout-drive theatre earns extra dwell
+const FEATURE_BUDGET = 58 // musts (tries, kicked goals, cards) always fit regardless
+const MAX_FEATURED = 13
 const HALF_SEC = 40 * 60
 const MAX_BRIDGE_SPAN = 500
 const ABSORB_GAP = 60
-const SPEED_FLOOR = 0.95 // render seconds per weight unit
+const SPEED_FLOOR = 1.15 // render seconds per weight unit — heavier = slower ball
 
 const PEN_MISS_LABELS = ['PUSHED WIDE!', 'NO GOOD', 'OFF THE TEE — WIDE'] as const
 const DROP_MISS_LABELS = ['DROP ATTEMPT — WIDE', 'FALLS SHORT!', 'JUST WIDE'] as const
@@ -358,9 +358,112 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
   }
 
   /**
-   * One-to-N rugby phases toward `target`: carry into contact, a beat of
-   * ruck, a backward pass out the back. The fundamental unit of rugby shape.
+   * One phase of possession rugby, drawn from a weighted menu of REAL shapes:
+   *   pod     — a forward crashes it up one-out off the ruck
+   *   sweep   — the backline swings it through the hands, each pass DEEPER
+   *   switch  — a scissors: carrier cuts one way, the switch runner the other
+   *   offload — kept alive through contact, funneled to support (no ruck)
+   *   chip    — a kick in behind for the winger to chase (needs room ahead)
+   * Every pass is strictly backward (rugby's law) and VISIBLY so — ground is
+   * gained by carries and kicks only.
    */
+  const playPhase = (
+    touches: RugbyTouch[],
+    team: Side,
+    simSec: number,
+    target: readonly [number, number],
+  ): void => {
+    const dir = attackDir(team)
+    const roomAhead = team === 'home' ? ballAt[1] : 1 - ballAt[1]
+    const roll = rng()
+    if (roll < 0.1 && roomAhead > 0.38) {
+      // chip/box kick to space — the winger chases it down from DEEP, so the
+      // chase is onside by construction (wings live behind the kick origin)
+      const wide = ballAt[0] < 0.5 ? 0.72 + rng() * 0.16 : 0.12 + rng() * 0.16
+      const to = clampPt([wide, ballAt[1] + dir * (0.2 + rng() * 0.12)])
+      const wing = to[0] > 0.5 ? 9 : 8
+      const off = offSlots(team, simSec)
+      const catcher = off.includes(wing)
+        ? rugbyNearestSlot(team, to[0], to[1], lastSlot, off)
+        : wing
+      touches.push({
+        kind: 'kick',
+        team,
+        from: ballAt,
+        to,
+        slot: catcher,
+        w: Math.max(0.7, manLen(ballAt, to) * 1.4),
+        arc: 1,
+        risky: true,
+      })
+      ballAt = to
+      lastSlot = catcher
+    } else if (roll < 0.28) {
+      // switch — a scissors change of direction
+      const sgn = ballAt[0] < 0.5 ? 1 : -1
+      carryTo(
+        touches,
+        team,
+        simSec,
+        clampPt([ballAt[0] + sgn * (0.08 + rng() * 0.05), ballAt[1] + dir * (0.05 + rng() * 0.03)]),
+      )
+      passTo(touches, team, simSec, -sgn * (0.06 + rng() * 0.05), 0.04 + rng() * 0.03)
+      carryTo(
+        touches,
+        team,
+        simSec,
+        clampPt([ballAt[0] - sgn * (0.1 + rng() * 0.06), ballAt[1] + dir * (0.07 + rng() * 0.04)]),
+      )
+      if (rng() < 0.6) holdBall(touches, team, 0.3 + rng() * 0.2, 'ruck')
+    } else if (roll < 0.48) {
+      // offload chain — kept alive through the tackle, funneled to support
+      carryTo(
+        touches,
+        team,
+        simSec,
+        clampPt([ballAt[0] + jit(rng, 0.05), ballAt[1] + dir * (0.05 + rng() * 0.03)]),
+      )
+      passTo(touches, team, simSec, (rng() < 0.5 ? 1 : -1) * (0.05 + rng() * 0.05), 0.03 + rng() * 0.02, true)
+      carryTo(
+        touches,
+        team,
+        simSec,
+        clampPt([ballAt[0] + jit(rng, 0.06), ballAt[1] + dir * (0.06 + rng() * 0.04)]),
+      )
+      if (rng() < 0.45) {
+        passTo(touches, team, simSec, (rng() < 0.5 ? 1 : -1) * (0.05 + rng() * 0.04), 0.03 + rng() * 0.02, true)
+        carryTo(
+          touches,
+          team,
+          simSec,
+          clampPt([ballAt[0] + jit(rng, 0.05), ballAt[1] + dir * (0.05 + rng() * 0.03)]),
+        )
+      }
+    } else if (roll < 0.72) {
+      // backline sweep toward the target lane — each pass sits DEEPER
+      const sgn = target[0] >= ballAt[0] ? 1 : -1
+      passTo(touches, team, simSec, sgn * (0.12 + rng() * 0.08), 0.06 + rng() * 0.04, false, 0.25)
+      passTo(touches, team, simSec, sgn * (0.14 + rng() * 0.1), 0.04 + rng() * 0.03, false, 0.35)
+      carryTo(
+        touches,
+        team,
+        simSec,
+        clampPt([ballAt[0] + sgn * (0.06 + rng() * 0.05), ballAt[1] + dir * (0.08 + rng() * 0.05)]),
+      )
+      if (rng() < 0.6) holdBall(touches, team, 0.3 + rng() * 0.15, 'ruck')
+    } else {
+      // pod crash — short ball off the ruck, a forward runs it up, recycle
+      passTo(touches, team, simSec, (ballAt[0] < 0.5 ? 1 : -1) * (0.07 + rng() * 0.05), 0.05 + rng() * 0.03)
+      carryTo(
+        touches,
+        team,
+        simSec,
+        clampPt([ballAt[0] + jit(rng, 0.04), ballAt[1] + dir * (0.06 + rng() * 0.05)]),
+      )
+      holdBall(touches, team, 0.3 + rng() * 0.25, 'ruck')
+    }
+  }
+
   const phasesTowards = (
     touches: RugbyTouch[],
     team: Side,
@@ -368,16 +471,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
     target: readonly [number, number],
     n: number,
   ): void => {
-    const dir = attackDir(team)
-    for (let i = 0; i < n; i++) {
-      const gain = 0.06 + rng() * 0.08
-      const cx = clamp(lerp(ballAt[0], target[0], 0.45) + jit(rng, 0.08), 0.06, 0.94)
-      const cy = clamp(ballAt[1] + dir * gain, 0.05, 0.95)
-      carryTo(touches, team, simSec, [cx, cy])
-      if (rng() < 0.7) holdBall(touches, team, 0.25 + rng() * 0.2, 'ruck')
-      const lat = (target[0] >= ballAt[0] ? 1 : -1) * (0.1 + rng() * 0.18)
-      passTo(touches, team, simSec, lat, 0.015 + rng() * 0.03)
-    }
+    for (let i = 0; i < n; i++) playPhase(touches, team, simSec, target)
   }
 
   /** Restart prefix demanded by how the previous passage ended. */
@@ -414,7 +508,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
         from: ballAt,
         to: catchAt,
         slot: FULLBACK_SLOT,
-        w: Math.max(0.5, manLen(ballAt, catchAt) * 1.05),
+        w: Math.max(0.7, manLen(ballAt, catchAt) * 1.4), // real hang time
         arc: 1,
         risky: false,
       })
@@ -445,7 +539,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
           from: ballAt,
           to: catchAt,
           slot: FULLBACK_SLOT,
-          w: Math.max(0.5, manLen(ballAt, catchAt) * 1.05),
+          w: Math.max(0.7, manLen(ballAt, catchAt) * 1.4),
           arc: 1,
           risky: false,
         })
@@ -484,7 +578,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
           from: ballAt,
           to: zone,
           slot: FULLBACK_SLOT,
-          w: Math.max(0.5, manLen(ballAt, zone) * 1.05),
+          w: Math.max(0.7, manLen(ballAt, zone) * 1.4),
           arc: 1,
           risky: false,
         })
@@ -516,7 +610,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
         team: nextTeam,
         kind: 'bridge',
         outcome: 'flow',
-        renderDur: clamp(wsum * SPEED_FLOOR, 1.5, 3.0),
+        renderDur: clamp(wsum * SPEED_FLOOR, 2.0, 4.0),
         touches,
         minute: Math.floor(b / 60),
       })
@@ -566,7 +660,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       const cornerX = X < 0.5 ? 0.07 : 0.93
       const cornerAt: [number, number] = [cornerX, clamp(0.5 + dir * 0.44, 0.05, 0.95)]
       const catcher = rugbyNearestSlot(team, cornerAt[0], cornerAt[1], -1, offSlots(team, simStart))
-      touches.push({ kind: 'kick', team, from: ballAt, to: cornerAt, slot: catcher, w: Math.max(0.5, manLen(ballAt, cornerAt) * 1.05), arc: 0.9, risky: false })
+      touches.push({ kind: 'kick', team, from: ballAt, to: cornerAt, slot: catcher, w: Math.max(0.5, manLen(ballAt, cornerAt) * 1.3), arc: 0.9, risky: false })
       ballAt = cornerAt
       lastSlot = catcher
       const lineoutAt: [number, number] = [cornerX < 0.5 ? cornerX + 0.05 : cornerX - 0.05, ballAt[1]]
@@ -581,10 +675,11 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       ballAt = G
       holdBall(touches, team, 1.15, 'celebrate')
     } else if (c.kind === 'try') {
-      // open play: phases upfield, then the backline sweep and the break
+      // open play: phases upfield, then the backline sweep and the break —
+      // the killer passes sit VISIBLY deep behind the carrier
       phasesTowards(touches, team, simStart, [X, 0.5 + dir * 0.16], 2)
-      passTo(touches, team, simStart, X >= ballAt[0] ? 0.12 : -0.12, 0.02, false, 0.2)
-      passTo(touches, team, simStart, X >= ballAt[0] ? 0.14 : -0.14, 0.015, true, 0.35)
+      passTo(touches, team, simStart, X >= ballAt[0] ? 0.12 : -0.12, 0.05 + rng() * 0.03, false, 0.2)
+      passTo(touches, team, simStart, X >= ballAt[0] ? 0.14 : -0.14, 0.04 + rng() * 0.02, true, 0.35)
       const breakAt = clampPt([lerp(ballAt[0], X, 0.8), 0.5 + dir * 0.42])
       carryTo(touches, team, simStart, breakAt, true)
       const G: [number, number] = [X, tryLineY(team, 0.025)]
@@ -623,7 +718,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       const cornerX = X < 0.5 ? 0.07 : 0.93
       const cornerAt: [number, number] = [cornerX, clamp(0.5 + dir * 0.44, 0.05, 0.95)]
       const catcher = rugbyNearestSlot(team, cornerAt[0], cornerAt[1], -1, offSlots(team, simStart))
-      touches.push({ kind: 'kick', team, from: ballAt, to: cornerAt, slot: catcher, w: Math.max(0.5, manLen(ballAt, cornerAt) * 1.05), arc: 0.9, risky: false })
+      touches.push({ kind: 'kick', team, from: ballAt, to: cornerAt, slot: catcher, w: Math.max(0.5, manLen(ballAt, cornerAt) * 1.3), arc: 0.9, risky: false })
       ballAt = cornerAt
       lastSlot = catcher
       holdBall(touches, team, 1.7, 'maul')
@@ -634,7 +729,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       // the line break — and the scrambling tackle that kills it
       const B = clampPt([X, evY])
       phasesTowards(touches, team, simStart, B, 1)
-      passTo(touches, team, simStart, B[0] >= ballAt[0] ? 0.14 : -0.14, 0.02, true, 0.35)
+      passTo(touches, team, simStart, B[0] >= ballAt[0] ? 0.14 : -0.14, 0.05 + rng() * 0.03, true, 0.35)
       carryTo(touches, team, simStart, B, true)
       const s = rugbyNearestSlot(opp(team), B[0], B[1], -1, offSlots(opp(team), simStart))
       touches.push({ kind: 'intercept', team: opp(team), from: ballAt, to: ballAt, slot: s, w: 0.5, arc: 0, risky: false })

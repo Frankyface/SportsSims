@@ -76,11 +76,11 @@ describe('rugby director — the clock counts up, continuously', () => {
     expect(plan.segs[plan.segs.length - 1].t1).toBeCloseTo(plan.playEnd, 6)
   })
 
-  it('every clip lands in the square-race runtime band (IG Reels-safe)', () => {
+  it('every clip lands in the runtime band (slower rugby pace, IG Reels-safe)', () => {
     for (let s = 0; s < 200; s++) {
       const plan = buildRugbyRenderPlan(match(`rband:${s}`))
-      expect(plan.total).toBeGreaterThanOrEqual(53)
-      expect(plan.total).toBeLessThanOrEqual(70)
+      expect(plan.total).toBeGreaterThanOrEqual(63)
+      expect(plan.total).toBeLessThanOrEqual(82)
     }
   })
 

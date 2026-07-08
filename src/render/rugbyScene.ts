@@ -85,7 +85,9 @@ export function rugbyBallStateAt(plan: RugbyRenderPlan, t: number): RugbyBallSta
   const ny = lerp(seg.from[1], seg.to[1], e)
   const [x, y] = rugbyToPx([nx, ny])
   const air = seg.arc > 0 ? seg.arc * 4 * p * (1 - p) : 0
-  return { x, y, scale: 1 + air * 1.1, seg, p }
+  // kicks and shots climb HIGH — the flight must never read as a flat pass
+  const airMul = seg.kind === 'kick' || seg.kind === 'shot' ? 1.9 : 1.1
+  return { x, y, scale: 1 + air * airMul, seg, p }
 }
 
 /**
@@ -265,7 +267,22 @@ export function rugbyPlayerPosAt(
     py += (ball.y - py) * 0.03 * (1 - gate)
   }
 
-  // 6) try celebration: the scorers swarm to the grounding
+  // 6) ONSIDE LAW — applied last, over every other urge: while a kick is in
+  // the air, the KICKING team stays behind the boot. Only the named chaser
+  // may be downfield; everyone else holds until the ball is played.
+  if (ball.seg.kind === 'kick' && slot !== FULLBACK_SLOT) {
+    const idx = rugbySegIndexAt(plan, t)
+    const kickerTeam: Side = idx > 0 ? plan.segs[idx - 1].team : ball.seg.team === 'home' ? 'away' : 'home'
+    const isCatcher = side === ball.seg.team && slot === ball.seg.slot
+    if (side === kickerTeam && !isCatcher) {
+      const [, originPy] = rugbyToPx([ball.seg.from[0], ball.seg.from[1]])
+      const ramp = Math.min(1, ball.p * 2.4)
+      const behindPy = side === 'home' ? Math.max(py, originPy + 14) : Math.min(py, originPy - 14)
+      py = lerp(py, behindPy, ramp)
+    }
+  }
+
+  // 7) try celebration: the scorers swarm to the grounding
   if (ball.seg.kind === 'held' && ball.seg.tag === 'celebrate' && side === ball.seg.team) {
     const swarm = easeInOut(clamp01(ball.p * 1.6)) * 0.3
     px = lerp(px, ball.x, swarm)
@@ -518,7 +535,7 @@ export function drawRugbyPlayers(
           const wx = lerp(sx, RUGBY_PITCH.x - 46, easeInOut(clamp01(q)))
           ctx.save()
           ctx.globalAlpha = 1 - q * 0.75
-          drawDisc(ctx, wx, sy, 27, color)
+          drawDisc(ctx, wx, sy, 21, color)
           ctx.restore()
           continue
         }
@@ -529,13 +546,13 @@ export function drawRugbyPlayers(
           const wx = lerp(RUGBY_PITCH.x - 46, tx, easeInOut(clamp01(q)))
           ctx.save()
           ctx.globalAlpha = 0.25 + q * 0.75
-          drawDisc(ctx, wx, ty, 27, color)
+          drawDisc(ctx, wx, ty, 21, color)
           ctx.restore()
           continue
         }
       }
       const [px, py] = rugbyPlayerPosAt(plan, seed, side, slot, t, ball, shift)
-      drawDisc(ctx, px, py, 27, color)
+      drawDisc(ctx, px, py, 21, color)
     }
   }
 }
@@ -548,8 +565,9 @@ export function drawRugbyBall(
 ): void {
   const { seg, p } = ball
 
-  // telegraph gamble balls and kicks at goal with a faint intent line
-  if ((seg.risky || seg.kind === 'shot') && p < 0.98 && seg.kind !== 'held') {
+  // telegraph gamble balls and ALL kicks with a faint intent line — a kick
+  // must never read as a flat forward pass
+  if ((seg.risky || seg.kind === 'shot' || seg.kind === 'kick') && p < 0.98 && seg.kind !== 'held') {
     const [tx, ty] = rugbyToPx(seg.to)
     ctx.save()
     ctx.globalAlpha = seg.kind === 'shot' ? 0.3 : 0.18
@@ -614,7 +632,7 @@ export function drawRugbyBall(
   ctx.translate(ball.x, ball.y - (ball.scale - 1) * 26)
   ctx.rotate(angle + spin)
   ctx.beginPath()
-  ctx.ellipse(0, 0, 19 * ball.scale, 12.5 * ball.scale, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, 0, 17 * ball.scale, 11 * ball.scale, 0, 0, Math.PI * 2)
   ctx.fillStyle = '#f4f0e6'
   ctx.fill()
   ctx.lineWidth = 2
@@ -622,8 +640,8 @@ export function drawRugbyBall(
   ctx.stroke()
   // lace stripe
   ctx.beginPath()
-  ctx.moveTo(-10 * ball.scale, 0)
-  ctx.lineTo(10 * ball.scale, 0)
+  ctx.moveTo(-9 * ball.scale, 0)
+  ctx.lineTo(9 * ball.scale, 0)
   ctx.strokeStyle = 'rgba(0,0,0,0.35)'
   ctx.stroke()
   ctx.restore()
