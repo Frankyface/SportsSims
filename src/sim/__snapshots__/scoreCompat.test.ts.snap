@@ -1,0 +1,36 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`simulateMatch — golden score compatibility with saved leagues > reproduces the frozen v2 scores/events for a spread of seeds 1`] = `
+[
+  "golden:even:0 1-0 [H84] shots:14/9 fnv:0680cebf",
+  "golden:even:1 2-0 [H1,H49] shots:15/12 fnv:1d80540e",
+  "golden:even:2 2-1 [H40,H43,A64] shots:7/11 fnv:5b0756b4",
+  "golden:even:3 0-1 [A46] shots:6/17 fnv:1762fe42",
+  "golden:even:4 5-0 [H12,H28,H42,H62,H69] shots:15/10 fnv:188b03cd",
+  "golden:even:5 1-0 [H41] shots:5/9 fnv:3cc0036f",
+  "golden:even:6 0-2 [A48,A49] shots:18/14 fnv:bcb244d2",
+  "golden:even:7 2-2 [H5,H47,A47,A88] shots:11/12 fnv:7518fc65",
+  "golden:even:8 0-1 [A89] shots:10/9 fnv:5c7dd9cb",
+  "golden:even:9 2-0 [H25,H35] shots:10/9 fnv:7d73da71",
+  "golden:mismatch:0 1-0 [H60] shots:25/8 fnv:036f18b1",
+  "golden:mismatch:1 1-1 [A31,H87] shots:16/6 fnv:ad949cf9",
+  "golden:mismatch:2 6-0 [H3,H3,H42,H62,H62,H76] shots:36/5 fnv:7d5c0343",
+  "golden:mismatch:3 1-1 [H7,A71] shots:11/10 fnv:4f6170a6",
+  "golden:mismatch:4 1-2 [A42,H85,A89] shots:7/7 fnv:0437e9aa",
+  "golden:mismatch:5 1-0 [H52] shots:10/11 fnv:725c8e54",
+  "golden:mismatch:6 4-2 [A25,H33,A36,H52,H54,H71] shots:24/8 fnv:beb706f4",
+  "golden:mismatch:7 5-1 [H6,H28,A45,H65,H70,H75] shots:34/16 fnv:2e3a5c0a",
+  "golden:mismatch:8 2-0 [H28,H62] shots:27/1 fnv:3cc45ad0",
+  "golden:mismatch:9 7-0 [H37,H43,H48,H52,H64,H67,H73] shots:36/5 fnv:7c02a85f",
+  "golden:wild:0 1-1 [A9,H56] shots:7/20 fnv:0daead4d",
+  "golden:wild:1 0-0 [] shots:17/3 fnv:eaefe16f",
+  "golden:wild:2 1-1 [A52,H61] shots:11/14 fnv:9288da3d",
+  "golden:wild:3 0-4 [A52,A59,A81,A85] shots:4/26 fnv:cfbce7e9",
+  "golden:wild:4 1-0 [H4] shots:18/6 fnv:fd2db584",
+  "golden:wild:5 0-0 [] shots:10/8 fnv:54ca14d0",
+  "golden:wild:6 2-4 [A16,A33,H52,A68,A68,H85] shots:6/21 fnv:ad004806",
+  "golden:wild:7 1-2 [A40,A73,H78] shots:19/10 fnv:7193f027",
+  "golden:wild:8 4-1 [H18,A33,H53,H68,H81] shots:19/11 fnv:14719246",
+  "golden:wild:9 2-5 [A3,H13,H14,A65,A66,A70,A89] shots:8/20 fnv:242a87f6",
+]
+`;

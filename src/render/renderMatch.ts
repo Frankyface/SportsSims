@@ -1,12 +1,23 @@
 // Pure Canvas renderer: draws a single frame of the match at render-time `t`.
 // A RenderModel is built once from a MatchResult; drawFrame(ctx, model, t) is a
-// pure function of (model, t), so the identical function powers the live preview
-// and the frame-stepped WebCodecs export.
+// pure function of (model, t), so the identical function powers the live
+// preview and the frame-stepped WebCodecs export.
 //
-// This is NOT the deterministic sim — cosmetic drawing may use Math.sin/cos/PI.
+// Continuous-play edition: no highlight cuts — the ball flows from kickoff to
+// full-time (scene in ./renderScene) while the scorebug clock counts up via
+// the director's clock map. This is NOT the deterministic sim — cosmetic
+// drawing may use Math.sin/cos/PI.
 
 import type { MatchResult, TeamRating } from '../sim/types'
-import { buildRenderPlan, beatAt, type Beat, type RenderPlan } from './director'
+import {
+  buildRenderPlan,
+  clockSecAt,
+  pickActiveMoment,
+  scoreAt,
+  type Moment,
+  type RenderPlan,
+} from './director'
+import { ballStateAt, drawBall, drawPitch, drawPlayers } from './renderScene'
 import { drawWordmark } from './wordmark'
 import { getLogo, getLeagueLogo, drawLogoCircle, drawLogoContain } from './logos'
 
@@ -36,15 +47,10 @@ export function buildRenderModel(m: MatchResult, width = RENDER_W, height = REND
 }
 
 // Portrait layout; keep key content inside the IG safe band (avoid top ~220, bottom ~470).
-// Big pitch — fills most of the frame; the scorebug + lower-thirds float over it.
-const PITCH = { x: 20, y: 300, w: 1040, h: 1440 }
 const BUG_Y = 240
 
 function ease(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) * (-2 * t + 2)) / 2
-}
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t
 }
 function clamp01(x: number): number {
   return x < 0 ? 0 : x > 1 ? 1 : x
@@ -62,110 +68,8 @@ function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: numb
   ctx.closePath()
 }
 
-function drawPitch(ctx: Ctx): void {
-  const { x, y, w, h } = PITCH
-  const stripes = 10
-  for (let i = 0; i < stripes; i++) {
-    ctx.fillStyle = i % 2 === 0 ? '#176b34' : '#12592b'
-    ctx.fillRect(x, y + (h / stripes) * i, w, h / stripes)
-  }
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-  ctx.lineWidth = 4
-  roundRect(ctx, x, y, w, h, 10)
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(x, y + h / 2)
-  ctx.lineTo(x + w, y + h / 2)
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.arc(x + w / 2, y + h / 2, 130, 0, Math.PI * 2)
-  ctx.stroke()
-  const gw = 340
-  ctx.strokeRect(x + w / 2 - gw / 2, y - 2, gw, 64)
-  ctx.strokeRect(x + w / 2 - gw / 2, y + h - 62, gw, 64)
-}
-
-function attackingGoalY(team: Beat['team']): number {
-  // home attacks the top goal, away attacks the bottom goal
-  return team === 'home' ? PITCH.y + 22 : PITCH.y + PITCH.h - 22
-}
-
-function ballPos(beat: Beat, progress: number): { x: number; y: number } {
-  const cx = PITCH.x + PITCH.w / 2
-  const cy = PITCH.y + PITCH.h / 2
-  if (beat.kind === 'intro' || beat.kind === 'result' || beat.kind === 'card') {
-    return { x: cx, y: cy }
-  }
-  const goalY = attackingGoalY(beat.team)
-  const lateral = PITCH.x + PITCH.w * (0.28 + ((beat.shotXY[1] - 0.2) / 0.6) * 0.44)
-  const p = ease(progress)
-  let x = lerp(cx, lateral, p)
-  let y = lerp(cy, goalY, p)
-  if (beat.kind === 'goal' && progress > 0.72) {
-    y = beat.team === 'home' ? PITCH.y - 14 : PITCH.y + PITCH.h + 14 // into the net
-  } else if (beat.kind === 'miss' && progress > 0.7) {
-    x += beat.team === 'home' ? 90 : -90 // drags wide
-  } else if (beat.kind === 'save' && progress > 0.72) {
-    y = lerp(goalY, cy, clamp01((progress - 0.72) / 0.28)) // pushed back out
-  }
-  return { x, y }
-}
-
-function drawDisc(ctx: Ctx, x: number, y: number, r: number, fill: string): void {
-  ctx.beginPath()
-  ctx.arc(x, y, r, 0, Math.PI * 2)
-  ctx.fillStyle = fill
-  ctx.fill()
-  ctx.lineWidth = 3
-  ctx.strokeStyle = 'rgba(0,0,0,0.45)'
-  ctx.stroke()
-}
-
-const FORM: Array<[number, number]> = [
-  [0.5, 0.95], // keeper
-  [0.18, 0.82],
-  [0.4, 0.86],
-  [0.6, 0.86],
-  [0.82, 0.82],
-  [0.3, 0.66],
-  [0.7, 0.66],
-  [0.5, 0.52], // striker
-]
-
-function drawPlayers(ctx: Ctx, model: RenderModel, beat: Beat, t: number, progress: number): void {
-  const ball = ballPos(beat, progress)
-  const action = beat.kind !== 'intro' && beat.kind !== 'result'
-  for (let side = 0; side < 2; side++) {
-    const team = side === 0 ? model.home : model.away
-    for (let i = 0; i < FORM.length; i++) {
-      const rx = FORM[i][0]
-      const ry = side === 0 ? FORM[i][1] : 1 - FORM[i][1]
-      let px = PITCH.x + rx * PITCH.w
-      let py = PITCH.y + ry * PITCH.h
-      const ph = model.seed * 0.0007 + i * 1.3 + side * 9
-      px += Math.sin(t * 1.5 + ph) * 10
-      py += Math.cos(t * 1.2 + ph) * 10
-      if (action) {
-        px += (ball.x - px) * 0.06
-        py += (ball.y - py) * 0.06
-      }
-      drawDisc(ctx, px, py, 27, team.color)
-    }
-  }
-}
-
-function drawBall(ctx: Ctx, beat: Beat, progress: number): void {
-  const b = ballPos(beat, progress)
-  ctx.beginPath()
-  ctx.arc(b.x, b.y, 17, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffffff'
-  ctx.fill()
-  ctx.lineWidth = 2
-  ctx.strokeStyle = '#111'
-  ctx.stroke()
-}
-
-function drawScorebug(ctx: Ctx, model: RenderModel, beat: Beat): void {
+function drawScorebug(ctx: Ctx, model: RenderModel, t: number): void {
+  const plan = model.plan
   const cx = model.width / 2
   const w = 640
   const h = 100
@@ -204,45 +108,69 @@ function drawScorebug(ctx: Ctx, model: RenderModel, beat: Beat): void {
   ctx.textAlign = 'right'
   ctx.fillText(model.away.abbr, x + w - 84, y + h / 2)
 
+  const score = scoreAt(plan, t)
   ctx.textAlign = 'center'
   ctx.font = 'bold 58px system-ui, sans-serif'
-  ctx.fillText(`${beat.score[0]} - ${beat.score[1]}`, cx, y + h / 2)
+  ctx.fillText(`${score[0]} - ${score[1]}`, cx, y + h / 2)
 
-  ctx.font = 'bold 24px system-ui, sans-serif'
+  // the clock counts up continuously for the whole match — its own chip beside
+  // the bug, clear of the top goal mouth below
+  const chipW = 128
+  const chipX = x - chipW - 16
+  roundRect(ctx, chipX, y + 20, chipW, h - 40, 12)
+  ctx.fillStyle = 'rgba(9,13,20,0.94)'
+  ctx.fill()
+  ctx.lineWidth = 3
+  ctx.strokeStyle = '#c8102e'
+  roundRect(ctx, chipX, y + 20, chipW, h - 40, 12)
+  ctx.stroke()
+  ctx.font = 'bold 34px system-ui, sans-serif'
   ctx.fillStyle = '#ff5566'
-  const clock = beat.kind === 'result' ? 'FT' : beat.kind === 'intro' ? "0'" : `${beat.minute}'`
-  ctx.fillText(clock, cx, y + h + 24)
+  const minute = Math.min(90, Math.floor(clockSecAt(plan, t) / 60))
+  const clock = t >= plan.playEnd ? 'FT' : `${minute}'`
+  ctx.fillText(clock, chipX + chipW / 2, y + h / 2)
 }
 
-function drawLowerThird(ctx: Ctx, model: RenderModel, beat: Beat, progress: number): void {
+function momentColor(model: RenderModel, m: Moment): string {
+  if (m.team === 'home') return model.home.color
+  if (m.team === 'away') return model.away.color
+  return '#c8102e'
+}
+
+function drawLowerThird(ctx: Ctx, model: RenderModel, m: Moment, prog: number): void {
   const w = 760
   const h = 78
   const x = model.width / 2 - w / 2
   const y = 1330
   ctx.save()
-  ctx.globalAlpha = ease(Math.min(1, progress * 3))
+  ctx.globalAlpha = Math.min(ease(clamp01(prog * 4)), ease(clamp01((1 - prog) * 4)))
   roundRect(ctx, x, y, w, h, 10)
-  ctx.fillStyle = 'rgba(9,13,20,0.95)'
+  ctx.fillStyle = 'rgba(9,13,20,0.82)' // translucent — a ball crossing behind stays readable
   ctx.fill()
-  const col = beat.team === 'home' ? model.home.color : beat.team === 'away' ? model.away.color : '#c8102e'
-  ctx.fillStyle = col
+  ctx.fillStyle = momentColor(model, m)
   ctx.fillRect(x, y, 12, h)
+
+  let textX = x + 32
+  if (m.cardType) {
+    ctx.fillStyle = m.cardType === 'red' ? '#e5322e' : '#ffd24a'
+    roundRect(ctx, textX, y + 20, 26, 38, 4)
+    ctx.fill()
+    textX += 44
+  }
   ctx.fillStyle = '#fff'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
   ctx.font = 'bold 34px system-ui, sans-serif'
-  ctx.fillText(`${beat.minute}'  ${beat.label}`, x + 32, y + h / 2)
+  ctx.fillText(`${m.minute}'  ${m.label}`, textX, y + h / 2)
   ctx.restore()
 }
 
-function drawGoalFlash(ctx: Ctx, model: RenderModel, progress: number): void {
-  if (progress < 0.72) return
-  const p = clamp01((progress - 0.72) / 0.28)
+function drawGoalFlash(ctx: Ctx, model: RenderModel, prog: number): void {
   ctx.save()
-  ctx.globalAlpha = 0.55 * (1 - p)
+  ctx.globalAlpha = 0.55 * (1 - clamp01(prog * 1.4))
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, model.width, model.height)
-  ctx.globalAlpha = clamp01(p * 2) * (1 - clamp01((p - 0.6) / 0.4))
+  ctx.globalAlpha = clamp01(prog * 3) * (1 - clamp01((prog - 0.55) / 0.45))
   ctx.fillStyle = '#ffffff'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
@@ -260,6 +188,34 @@ function fitText(ctx: Ctx, text: string, max: number, startPx: number): void {
   }
 }
 
+/** Pick black/white text for legibility on an arbitrary brand colour. */
+function readableOn(hex: string): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return lum > 0.6 ? '#0a0e14' : '#ffffff'
+}
+
+/** Fallback crest for clubs without a real logo yet (e.g. rugby): a colour badge with the abbreviation. */
+function drawCrestChip(ctx: Ctx, cx: number, cy: number, r: number, color: string, abbr: string): void {
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fillStyle = color
+  ctx.fill()
+  ctx.lineWidth = Math.max(2, r * 0.05)
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)'
+  ctx.stroke()
+  ctx.fillStyle = readableOn(color)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = `bold ${Math.round(r * 0.72)}px system-ui, sans-serif`
+  ctx.fillText(abbr, cx, cy + 2)
+  ctx.restore()
+}
+
 function drawIntro(ctx: Ctx, model: RenderModel, progress: number): void {
   const a = progress < 0.85 ? clamp01(progress * 3) : clamp01((1 - progress) / 0.15)
   ctx.save()
@@ -267,26 +223,33 @@ function drawIntro(ctx: Ctx, model: RenderModel, progress: number): void {
   ctx.fillStyle = 'rgba(6,9,14,0.94)'
   ctx.fillRect(0, 0, model.width, model.height)
   const cx = model.width / 2
-  const league = getLeagueLogo()
-  if (league) drawLogoContain(ctx, league, cx, 470, 320, 300)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+
+  // Kicker
   ctx.fillStyle = '#ff5566'
-  ctx.font = 'bold 34px system-ui, sans-serif'
-  ctx.fillText('MATCHDAY', cx, 690)
+  ctx.font = 'bold 36px system-ui, sans-serif'
+  ctx.fillText('MATCHDAY', cx, 300)
+
+  // Home team (top)
   const hl = getLogo(model.home.id)
-  if (hl) drawLogoCircle(ctx, hl, cx, 890, 130)
+  if (hl) drawLogoCircle(ctx, hl, cx, 468, 110)
+  else drawCrestChip(ctx, cx, 468, 110, model.home.color, model.home.abbr)
   ctx.fillStyle = '#e8edf4'
-  fitText(ctx, model.home.name, 940, 54)
-  ctx.fillText(model.home.name, cx, 1065)
-  ctx.fillStyle = '#7b8794'
-  ctx.font = 'bold 40px system-ui, sans-serif'
-  ctx.fillText('vs', cx, 1140)
+  fitText(ctx, model.home.name, 900, 54)
+  ctx.fillText(model.home.name, cx, 648)
+
+  // Crown League logo — the centrepiece divider between the two clubs
+  const league = getLeagueLogo()
+  if (league) drawLogoContain(ctx, league, cx, 950, 320, 270)
+
+  // Away team (bottom)
   const al = getLogo(model.away.id)
-  if (al) drawLogoCircle(ctx, al, cx, 1290, 130)
+  if (al) drawLogoCircle(ctx, al, cx, 1242, 110)
+  else drawCrestChip(ctx, cx, 1242, 110, model.away.color, model.away.abbr)
   ctx.fillStyle = '#e8edf4'
-  fitText(ctx, model.away.name, 940, 54)
-  ctx.fillText(model.away.name, cx, 1465)
+  fitText(ctx, model.away.name, 900, 54)
+  ctx.fillText(model.away.name, cx, 1422)
   ctx.restore()
 }
 
@@ -324,22 +287,34 @@ function drawResult(ctx: Ctx, model: RenderModel, progress: number): void {
   ctx.restore()
 }
 
-// (ESSPN wordmark is shared from ./wordmark)
-
 /** Draw one frame of the match at render-time `t` seconds. Pure function of (model, t). */
 export function drawFrame(ctx: Ctx, model: RenderModel, t: number): void {
-  const { beat, progress } = beatAt(model.plan, t)
+  const plan = model.plan
   ctx.fillStyle = '#0a0e14'
   ctx.fillRect(0, 0, model.width, model.height)
   drawPitch(ctx)
-  drawPlayers(ctx, model, beat, t, progress)
-  drawBall(ctx, beat, progress)
-  drawScorebug(ctx, model, beat)
-  if (beat.kind === 'goal' || beat.kind === 'bigChance' || beat.kind === 'card') {
-    drawLowerThird(ctx, model, beat, progress)
+
+  // the scene freezes on the final whistle while the result card comes in
+  const tPlay = Math.min(t, plan.playEnd)
+  const ball = ballStateAt(plan, tPlay)
+  drawPlayers(ctx, plan, model.seed, model.home.color, model.away.color, tPlay, ball)
+  drawBall(ctx, ball, model.home.color, model.away.color)
+
+  drawScorebug(ctx, model, t)
+
+  // exactly ONE lower third at a time — the highest-drama active moment wins
+  const active = pickActiveMoment(plan, t)
+  if (active) {
+    drawLowerThird(ctx, model, active, clamp01((t - active.t) / active.dur))
   }
-  if (beat.kind === 'goal') drawGoalFlash(ctx, model, progress)
-  if (beat.kind === 'intro') drawIntro(ctx, model, progress)
-  if (beat.kind === 'result') drawResult(ctx, model, progress)
+  // the flash belongs to the goal moment itself (goal always outranks the third anyway)
+  for (const m of plan.moments) {
+    if (m.kind === 'goal' && t >= m.t && t <= m.t + m.dur) {
+      drawGoalFlash(ctx, model, clamp01((t - m.t) / m.dur))
+    }
+  }
+
+  if (t < plan.introDur) drawIntro(ctx, model, t / plan.introDur)
+  if (t >= plan.resultStart) drawResult(ctx, model, clamp01((t - plan.resultStart) / plan.resultDur))
   drawWordmark(ctx, model.width / 2, 180, 32)
 }

@@ -11,8 +11,11 @@ const banned: RegExp[] = [
   /\bMath\.random\b/,
   /\bDate\.now\b/,
   /\bperformance\.now\b/,
-  /\bMath\.(exp|log|pow|sin|cos|tan|atan|asin|acos)\b/,
+  /\bMath\.(exp|log|pow|sin|cos|tan|atan|asin|acos|cbrt|hypot|sinh|cosh|tanh|expm1|log1p|log2|log10)\b/,
   /\brequestAnimationFrame\b/,
+  // the exponentiation operator compiles to Math.pow — same cross-engine drift.
+  // (comments are stripped before matching, so JSDoc /** never false-positives)
+  /\*\*/,
 ]
 
 /** Strip comments so a banned API merely *named* in a doc-comment isn't a false positive. */

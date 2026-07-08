@@ -5,6 +5,7 @@ import {
   type MatchEvent,
   type MatchResult,
   type MatchStats,
+  type PossessionSpan,
   type Side,
 } from './types'
 
@@ -55,14 +56,16 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   const push = (
     minute: number,
     e: Partial<MatchEvent> & { type: MatchEvent['type']; team: Side | null },
-  ): void => {
+  ): number => {
+    const id = eventId++
     events.push({
-      id: eventId++,
+      id,
       minute,
       scoreAfter: [score[0], score[1]],
       momentumAfter: momentum,
       ...e,
     } as MatchEvent)
+    return id
   }
 
   push(0, { type: 'kickoff', team: null, label: 'Kick-off' })
@@ -71,8 +74,12 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   let halftimeDone = false
   let possHome = 0
   let possAway = 0
+  // Contiguous possession spans, recorded purely from values the sim already
+  // draws — adding them costs ZERO calls on the frozen score-deciding stream.
+  const possessions: PossessionSpan[] = []
 
   while (clock < MATCH_SECONDS) {
+    const spanStart = clock
     clock += POSSESSION_MIN + Math.floor(rng() * POSSESSION_VAR)
     const minute = clamp(Math.floor(clock / 60), 0, 90)
 
@@ -98,7 +105,8 @@ export function simulateMatch(config: MatchConfig): MatchResult {
     // 2) foul (and the occasional card)
     if (rng() < FOUL_RATE) {
       stats.fouls[idx]++
-      push(minute, { type: 'foul', team: side })
+      const foulId = push(minute, { type: 'foul', team: side })
+      possessions.push({ team: side, start: spanStart, end: clock, outcome: 'foul', eventId: foulId })
       const cardRoll = rng()
       if (cardRoll < 0.18 / def.discipline) {
         const oppIdx = isHome ? 1 : 0
@@ -122,6 +130,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
     )
     if (rng() >= pShot) {
       momentum = clamp(momentum * 0.9 + (isHome ? 0.03 : -0.03), -1, 1)
+      possessions.push({ team: side, start: spanStart, end: clock, outcome: 'turnover' })
       continue
     }
 
@@ -140,17 +149,19 @@ export function simulateMatch(config: MatchConfig): MatchResult {
       0.2 + rng() * 0.6,
     ]
 
+    let shotEventId: number
     if (goal) {
       score[idx]++
       momentum = clamp((isHome ? 0.6 : -0.6) + momentum * 0.3, -1, 1)
-      push(minute, { type: 'goal', team: side, xg, onTarget: true, shotXY, label: `GOAL — ${atk.name}` })
+      shotEventId = push(minute, { type: 'goal', team: side, xg, onTarget: true, shotXY, label: `GOAL — ${atk.name}` })
     } else if (xg > 0.35) {
       momentum = clamp(momentum * 0.85 + (isHome ? 0.05 : -0.05), -1, 1)
-      push(minute, { type: 'bigChance', team: side, xg, onTarget, shotXY, label: 'Big chance!' })
+      shotEventId = push(minute, { type: 'bigChance', team: side, xg, onTarget, shotXY, label: 'Big chance!' })
     } else {
       momentum = clamp(momentum * 0.85 + (isHome ? 0.04 : -0.04), -1, 1)
-      push(minute, { type: onTarget ? 'save' : 'miss', team: side, xg, onTarget, shotXY })
+      shotEventId = push(minute, { type: onTarget ? 'save' : 'miss', team: side, xg, onTarget, shotXY })
     }
+    possessions.push({ team: side, start: spanStart, end: clock, outcome: 'shot', eventId: shotEventId })
 
     // rubber-band toward the trailing team -> manufactures comebacks / late drama
     const lead = score[0] - score[1]
@@ -171,6 +182,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
     score,
     events,
     stats,
+    possessions,
     renderSeed: seedFromKey(config.seedKey) ^ 0x9e3779b9,
   }
 }

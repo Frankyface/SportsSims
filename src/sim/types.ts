@@ -1,8 +1,13 @@
 // Data model for a single simulated match.
 // Keep this pure & serializable — a MatchResult is what gets saved and re-rendered.
 
-/** Bump when the sim math changes so old saved matches re-render on the version that produced them. */
-export const SIM_VERSION = 2
+/**
+ * Bump when the sim math changes so old saved matches re-render on the version that produced them.
+ * v3: records possession spans for the continuous-play renderer. The score-deciding RNG stream is
+ * call-for-call identical to v2 (guarded by scoreCompat.test.ts), so saved league scores still re-sim
+ * byte-identically — v3 is additive, not a replay break.
+ */
+export const SIM_VERSION = 3
 
 export interface TeamRating {
   id: string          // immutable — never renumber (fandom depends on stable identity)
@@ -53,6 +58,19 @@ export interface MatchEvent {
   label?: string
 }
 
+/**
+ * One sim possession: the ball with one team for a span of match-clock seconds,
+ * ending in a shot, a foul, or a turnover. Recorded from values the sim already
+ * computes (no extra randomness) so the choreographer can stage continuous play.
+ */
+export interface PossessionSpan {
+  team: Side
+  start: number // match-clock seconds at possession start
+  end: number   // match-clock seconds when the possession resolves (next span starts here)
+  outcome: 'shot' | 'foul' | 'turnover'
+  eventId?: number // the shot-outcome or foul event this possession produced
+}
+
 export interface MatchStats {
   possession: [number, number]
   shots: [number, number]
@@ -69,5 +87,6 @@ export interface MatchResult {
   score: [number, number]
   events: MatchEvent[]
   stats: MatchStats
+  possessions: PossessionSpan[] // contiguous spans covering the whole match
   renderSeed: number  // separate stream for cosmetic-only render randomness
 }
