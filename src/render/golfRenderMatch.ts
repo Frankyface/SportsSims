@@ -129,21 +129,17 @@ function visualTarget(l: GolfHoleLayout, shot: GolfShot): [number, number] {
   return holeToScreen(l, shot.to)
 }
 
-function drawGolferChip(ctx: Ctx, x: number, y: number, r: number, color: string, abbr: string, dim = false): void {
+/** A golfer's on-course marker: a clean colour dot, no lettering. */
+function drawGolferChip(ctx: Ctx, x: number, y: number, r: number, color: string, dim = false): void {
   ctx.save()
-  if (dim) ctx.globalAlpha = 0.75
+  if (dim) ctx.globalAlpha = 0.78
   ctx.beginPath()
   ctx.arc(x, y, r, 0, Math.PI * 2)
   ctx.fillStyle = color
   ctx.fill()
-  ctx.lineWidth = Math.max(2, r * 0.12)
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+  ctx.lineWidth = Math.max(2, r * 0.16)
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)'
   ctx.stroke()
-  ctx.fillStyle = readableOn(color)
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.font = `bold ${Math.round(r * 0.74)}px system-ui, sans-serif`
-  ctx.fillText(abbr, x, y + 1)
   ctx.restore()
 }
 
@@ -169,7 +165,7 @@ function drawWaitingGolfers(
     ctx.beginPath()
     ctx.arc(x, y, 6, 0, Math.PI * 2)
     ctx.fill()
-    drawGolferChip(ctx, x, y - 24, 15, g.color, g.abbr, true)
+    drawGolferChip(ctx, x, y - 19, 11, g.color, true)
   })
 }
 
@@ -207,11 +203,11 @@ function drawActiveShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, seg
   }
 
   // the player, highlighted
-  drawGolferChip(ctx, from[0], from[1] + 2, 24, g.color, g.abbr)
+  drawGolferChip(ctx, from[0], from[1] + 2, 16, g.color)
   ctx.strokeStyle = 'rgba(255,255,255,0.5)'
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.arc(from[0], from[1] + 2, 31 + Math.sin(t * 6) * 2, 0, Math.PI * 2)
+  ctx.arc(from[0], from[1] + 2, 23 + Math.sin(t * 6) * 2, 0, Math.PI * 2)
   ctx.stroke()
 
   if (fp < 1) {
@@ -592,12 +588,31 @@ export function drawGolfFrame(ctx: Ctx, model: GolfRenderModel, t: number): void
   const hole = golfHoleAt(plan, t)
   const layout = model.layouts[hole.hole]
 
+  // Green zoom: once the whole group is putting, push in on the green.
+  let zoomP = 0
+  if (hole.greenT !== undefined && t >= hole.greenT && t < hole.t1 + 0.2) {
+    zoomP = ease(clamp01((t - hole.greenT) / 0.7))
+  }
+  const scale = 1 + 0.85 * zoomP
+  ctx.save()
+  if (zoomP > 0) {
+    const anchorX = GOLF_ART.x + GOLF_ART.w / 2 - 60
+    const anchorY = GOLF_ART.y + 620
+    ctx.translate(
+      anchorX * zoomP + layout.greenC[0] * (1 - zoomP),
+      anchorY * zoomP + layout.greenC[1] * (1 - zoomP),
+    )
+    ctx.scale(scale, scale)
+    ctx.translate(-layout.greenC[0], -layout.greenC[1])
+  }
+
   drawGolfHole(ctx, layout)
 
   const active = golfActiveSegAt(plan, Math.min(t, plan.playEnd - 0.001))
   const activeGolfer = active && active.shot.hole === hole.hole ? active.shot.golfer : null
   drawWaitingGolfers(ctx, model, layout, hole.hole, t, activeGolfer)
   if (active && active.shot.hole === hole.hole) drawActiveShot(ctx, model, layout, active, t)
+  ctx.restore()
 
   const cardProg = (t - hole.t0) / 1.1
   if (cardProg >= 0 && cardProg < 1) drawHoleCard(ctx, model, hole.hole, cardProg)

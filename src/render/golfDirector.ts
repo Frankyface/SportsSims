@@ -23,6 +23,12 @@ export interface GolfHoleSpan {
   hole: number
   t0: number
   t1: number
+  /**
+   * The moment the LAST ball reaches the green (everyone on or holed) —
+   * the renderer zooms into the green from here for the putting finale.
+   * Absent when the hole never gets a shared putting phase.
+   */
+  greenT?: number
 }
 
 export type GolfMomentKind =
@@ -237,13 +243,20 @@ export function buildGolfGroupPlan(m: GolfRoundResult, group: 0 | 1): GolfGroupP
   for (let holeIdx = 0; holeIdx < HOLES_PER_ROUND; holeIdx++) {
     const h0 = t
     const lastShotEnd = new Map<number, number>() // golfer -> t1 of their final shot this hole
+    const lies = new Map<number, string>(golfers.map((gi) => [gi, 'tee']))
+    let greenT: number | undefined
     for (const shot of holeShots[holeIdx]) {
       const dur = shotWeight(shot, holeIdx) * k
       segs.push({ t0: t, t1: t + dur, shot })
       lastShotEnd.set(shot.golfer, t + dur)
       t += dur
+      lies.set(shot.golfer, shot.toLie)
+      if (greenT === undefined && golfers.every((gi) => lies.get(gi) === 'green' || lies.get(gi) === 'holed')) {
+        // the last ball just found the green — but only zoom if putts remain
+        if (golfers.some((gi) => lies.get(gi) === 'green')) greenT = t
+      }
     }
-    holes.push({ hole: holeIdx, t0: h0, t1: t })
+    holes.push({ hole: holeIdx, t0: h0, t1: t, greenT })
 
     // group moments land as the golfer holes out
     for (const e of m.events.filter(

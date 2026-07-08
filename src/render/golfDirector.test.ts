@@ -143,6 +143,28 @@ describe('golf group director — every shot, all nine holes', () => {
     expect(bannersSeen).toBe(1)
   })
 
+  it('greenT marks the shared putting phase: inside the hole span, only putts after it', () => {
+    let seen = 0
+    for (const i of seeds.slice(0, 20)) {
+      const m = simulateGolfRound(cfg(`green-${i}`, 'gorsewood', (i % 4) + 1))
+      for (const g of [0, 1] as const) {
+        const plan = buildGolfGroupPlan(m, g)
+        for (const h of plan.holes) {
+          if (h.greenT === undefined) continue
+          seen++
+          expect(h.greenT).toBeGreaterThan(h.t0)
+          expect(h.greenT).toBeLessThanOrEqual(h.t1)
+          for (const s of plan.segs) {
+            if (s.shot.hole === h.hole && s.t0 >= h.greenT - 1e-9) {
+              expect(s.shot.kind).toBe('putt')
+            }
+          }
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(50) // the zoom phase is common, not exotic
+  })
+
   it('holeAt/boardAt/momentAt never throw across the whole clip', () => {
     const m = simulateGolfRound(cfg('sweep', 'palmshade', 1))
     const plan = buildGolfGroupPlan(m, 0)

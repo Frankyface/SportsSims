@@ -15,7 +15,7 @@ import {
   type GolfSeasonState,
 } from './league/golfSeason'
 import { RUGBY_LEAGUE } from './ratings/rugbyTeams'
-import { GOLF_TOUR } from './ratings/golfers'
+import { GOLFERS, GOLF_TOUR } from './ratings/golfers'
 import { SoccerTab } from './ui/SoccerTab'
 import { RugbyTab } from './ui/RugbyTab'
 import { GolfTab } from './ui/GolfTab'
@@ -44,9 +44,15 @@ export default function App() {
       loadRugbyLocal(RUGBY_LEAGUE_ID) ??
       createRugbyLeague(newSeed('bastion'), RUGBY_LEAGUE.name, 6, RUGBY_LEAGUE_ID),
   )
-  const [golfSeason, setGolfSeason] = useState<GolfSeasonState>(
-    () => loadGolfLocal(GOLF_TOUR_ID) ?? createGolfSeason(newSeed('apex'), GOLF_TOUR.name, GOLF_TOUR_ID),
-  )
+  const [golfSeason, setGolfSeason] = useState<GolfSeasonState>(() => {
+    // A saved tour from an older roster (renamed golfers) starts fresh.
+    const saved = loadGolfLocal(GOLF_TOUR_ID)
+    const rosterCurrent =
+      saved?.golfers.every((g) => GOLFERS.some((d) => d.id === g.identity.id)) ?? false
+    return rosterCurrent && saved
+      ? saved
+      : createGolfSeason(newSeed('apex'), GOLF_TOUR.name, GOLF_TOUR_ID)
+  })
 
   useEffect(() => {
     saveLocal(league)
