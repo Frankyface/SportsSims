@@ -1,5 +1,7 @@
 # Stage 3 — Leagues & standings
 
+> ✅ **Complete & shipped (V1).** Built as the **6-club Crown League** (not 10 teams): double round-robin (10 matchdays), top-4 playoffs, champion, **offseason carry-over** rollover. Persists to localStorage + optional `elitesim-data` repo.
+
 ## Goal
 Make the world persistent: a real 10-team Soccer league with a season, playoffs, a standings table, and history that **saves to the `elitesim-data` repo** and survives reloads and different devices. Friendlies stay ephemeral.
 

@@ -1,10 +1,10 @@
-# CLAUDE.md — Constant rules for every EliteSimSPN session
+# CLAUDE.md — Constant rules for every ESSPN / Crown League session
 
 > Read this first, then **read `handoff.md`** (the single source of truth for where we are), then open the active feature file the handoff points to. Do not start work until you've done that.
 
 ## What this is
 
-**EliteSimSPN** ("Elite Simulated Sports Programming Network") is a free web app on GitHub Pages that simulates persistent fictional sports leagues (Soccer → Rugby → Golf → more) and exports short (~30s) broadcast-styled replay videos for the faceless Instagram account **@EliteSimSPN**. The persistent-league standings race is the point — it's what turns one-off clips into fandom.
+**ESSPN** ("Elite Simulated Sports Programming Network", wordmark **E·SS·PN**) is a fictional sports network — a free web app on GitHub Pages that simulates persistent fictional leagues and exports short (~30s) broadcast-styled replay videos for a faceless Instagram account. The launch competition is the **Crown League** (6 Soccer clubs with real crests); Rugby, Golf & more follow. The persistent standings race is the point — it's what turns one-off clips into fandom. **V1 is shipped & live** at frankyface.github.io/SportsSims.
 
 ## The person I'm working for (read this every time)
 
@@ -22,6 +22,10 @@
 | **Deterministic seeded sim** (pure functions + one PRNG: `xmur3`→`mulberry32`) | Same seed → byte-identical match → identical video. This is the bet that makes later server-side auto-rendering (Rung 4) possible. **Do not break it.** |
 | **WebCodecs** (`VideoEncoder` + `mp4-muxer`) for export | Produces true Instagram-ready H.264/AAC MP4 in-browser, needs no COOP/COEP headers (which Pages can't set). `ffmpeg.wasm` single-thread is the fallback only. |
 | **League data = JSON in a *separate* `elitesim-data` repo** via GitHub Contents API | Free versioned "database"; separate repo keeps the save-token's blast radius tiny and avoids rebuilding the site on every save. |
+| **Elo/Glicko-2 ratings, decoupled from archetype + offseason carry-over** (`src/ratings/`) | Random starting ratings per league (each reset differs); ratings persist season-to-season with a small offseason drift; a "big offseason" raises volatility; no regression to the mean. |
+| **Real crests + Crown League logo** (`src/assets/logos/`, via `src/render/logos.ts`) | Drawn into videos + standings as circular badges; downscaled to ~512px and preloaded before render/export so nothing blocks. |
+
+**Brand:** ESSPN is the network (broadcaster); the **Crown League** is the competition. Use "Crown League" for the competition/table, "ESSPN" for the network wordmark.
 
 Full rationale and the evidence behind these: [`docs/research-findings.md`](docs/research-findings.md).
 

@@ -1,5 +1,7 @@
 # Stage 1 — Foundation & de-risking slice
 
+> ✅ **Complete & shipped (V1).** App live on GitHub Pages; deterministic sim + Canvas render + WebCodecs MP4 export all verified.
+
 ## Goal
 Stand up the app and prove the single riskiest path end-to-end, on ONE hardcoded soccer match, before building anything else. By the end of this stage the whole pipeline — **deterministic sim → Canvas render → Instagram-ready MP4** — works on the live GitHub Pages site.
 

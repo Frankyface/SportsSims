@@ -1,5 +1,7 @@
 # Feature — League & season model
 
+> ✅ **Built.** Shipped as the 6-club **Crown League** (double round-robin, 10 matchdays, top-4 playoffs). Ratings are **decoupled from archetype** (random draw per league) and evolve via an **offseason carry-over** (small drift + a "big offseason" volatility bump), replacing the earlier "Glicko-update + decay-to-mean" plan. Immutable club IDs; real crests in `src/assets/logos/`.
+
 ## What
 The data model and logic for a league: teams (immutable IDs, name, colors, crest, ratings), a generated fixture list (home-and-away, 18 matchdays for 10 teams), season state, standings calculation, and end-of-season playoffs + champion + history archive.
 

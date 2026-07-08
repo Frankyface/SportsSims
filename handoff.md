@@ -1,41 +1,44 @@
-# Handoff — EliteSimSPN
-_Last updated: 2026-07-07 · **V1 COMPLETE + LIVE** (ESSPN branding, 6 clubs). Next: post-V1 (Rugby/Golf, star players, automation)._
+# Handoff — ESSPN / Crown League
+_Last updated: 2026-07-08 · **V1 shipped & LIVE**, plus branding / real-crest / offseason polish. Next: post-V1 (Rugby/Golf, star players, automation)._
 
 ## 🎯 Goals
-V1 is done: Soccer end-to-end — deterministic **Elo/Glicko-2** sim → animated video (with audio) → Instagram-ready MP4 → persistent league / standings / playoffs → **one-click matchday content pack**. All committed & pushed. Remaining work is post-V1.
+V1 is done and live. **ESSPN** (the network) broadcasts the **Crown League** (the 6-club competition). The app sims a season and produces post-ready videos + standings posts with the real club crests. Remaining work is all post-V1.
 
-## 📍 Current State — V1 shipped & verified
-- **Rating model:** Elo/Glicko-2 with randomized starting ratings/RD/volatility, per-season evolution + decay. Verified — Glicko matches the published example; season sim: correlation **0.67**, upset rate **28%**, top-seed title rate **45%** (clear good/bad teams, real upsets, not a coin flip).
-- **Match sim:** deterministic possession/xG/momentum model; calibrated (~2.9 goals, ~26 shots, ~23% draws).
-- **Video:** Canvas highlight animation (pitch/tokens/ball/scorebug/lower-thirds/cards/intro/result) + procedural audio → **WebCodecs MP4 (avc1 + mp4a, 1080×1920)**; verified valid & ~6× real-time.
-- **League:** 10-team double round-robin (90 matches), standings, top-4 playoffs, champion, season rollover with evolved ratings. Persists to **localStorage + a GitHub repo** (Contents API).
-- **UI:** tabs — **League** (standings, sim round/season, results→video, matchday content pack), **Friendly**, **Settings** (cloud save/load).
-- **Content pack:** one click → a video per game + a standings PNG + prediction-hook captions. Verified end-to-end in the browser.
-- **Tests: 21 passing.** Build clean (51 modules). No console errors.
+## 📍 Current State — LIVE at frankyface.github.io/SportsSims
+- **Live on GitHub Pages** (Pages Source = "GitHub Actions"; deploys on every push).
+- **Brand:** ESSPN network wordmark **E·SS·PN** "presents" the **Crown League**. Real club crests + the Crown League logo live in `src/assets/logos/` (downscaled to ~512px; loaded via `src/render/logos.ts`).
+- **Rating model (Elo/Glicko-2, `src/ratings/`):** starting ratings are a **random draw — NOT tied to a club's archetype**; every new league uses a **random seed** (different pecking order each reset). Ratings **carry over season-to-season with a small offseason drift** (a nudge from the season + transfer-window noise); a **"big offseason" raises a club's volatility**. No regression to the mean. See `offseasonAdjust` in `glicko2.ts` + `advanceSeason` in `league.ts`.
+- **Match sim (`src/sim/`):** deterministic possession/xG/momentum, calibrated (~2.9 goals, ~26 shots, ~23% draws). Determinism hygiene enforced (no transcendental math / `Math.random` in the sim).
+- **Video (`src/render/`, `src/export/`):** big pitch (~75% of the frame), **8 players/side**, broadcast overlay (scorebug / lower-thirds / intro / result) carrying the **real crests + Crown League logo**, procedural audio → WebCodecs MP4 (1080×1920 H.264/AAC).
+- **League (`src/league/`):** 6-team double round-robin (30 games, 10 matchdays), **top-4 playoffs**, champion, offseason rollover. Persists to localStorage + optional GitHub repo (Contents API, token in Settings).
+- **Content (`src/content/`):** one-click **matchday content pack** + **Download Season Content** (every game + an as-of standings post, in posting order, one `.zip` + `POSTING_ORDER.txt`).
+- **UI (`src/ui/`):** scaled-up tabbed app (League / Friendly / Settings), Crown League logo header, crest per standings row.
+- **Tests: 24 passing. Build clean (`npm run build`).**
 
 ## 📂 Files
-- `src/sim` (sim + PRNG), `src/ratings` (Glicko-2, team gen, strength), `src/render` (director, renderer, standings card), `src/export` (WebCodecs video + audio), `src/league` (engine + persistence), `src/content` (captions, matchday pack), `src/ui` (tabs + components), `src/App.tsx`.
+`src/sim` · `src/ratings` (glicko2, teams, strength) · `src/render` (director, renderMatch, standingsCard, wordmark, logos) · `src/export` (webcodecs video + audio) · `src/league` (engine + persistence) · `src/content` (captions, matchdayPack, seasonContent) · `src/ui` · `src/App.tsx` · `src/assets/logos`.
 
 ## ✅ Things I've Changed (newest first)
-- **Post-V1 tweaks (all live):** rebranded to **ESSPN** (wordmark E·SS·PN, captions, filenames); replaced the roster with **6 characterful clubs** (archetypes + personalities + logo briefs in `src/ratings/teams.ts` + `docs/brand-bible.html`); shrank the league to **6 teams** (top-4 playoffs retained); added **Download Season Content** (every game + as-of standings post, posting order, one zip). Commits `7c7b350`, `feedcbc`.
-- **App is LIVE** at frankyface.github.io/SportsSims (Pages on; deploys on push). `elitesim-data` repo ready for cloud save (needs the token — help.md #3).
-- **Stage 4 — matchday content pack** (videos + standings PNG + captions). `8b0d9d7`. **V1 complete.**
-- Stage 3 — persistent league + standings + playoffs + persistence + tabbed UI. `dbe4340`.
-- Stage 2 — procedural match audio. `366dc9d`.
-- Stage 1 — Canvas renderer + WebCodecs export. `e9573e3`.
-- Elo/Glicko-2 rating model. `6f8a484`. · Stage 1 core `f9ae6d2`. · Docs scaffold `47395e5`.
+- Club book now uses the real embedded crests + Crown League branding.
+- Bigger field (~75%) + 8 players/side; scaled-up UI; **random seed per league** (fixes same-winner-on-reset); corrected Meridian crest; logos downscaled (11 MB → 1.4 MB).
+- **Real club crests + Crown League logo** in videos, standings, and the club book; league renamed **Crown League**.
+- **Decoupled ratings from archetype + offseason carry-over model** (replaced decay-to-mean); swapped Blackwater Wanderers → **Meridian FC**.
+- Rebrand to **ESSPN** + 6 characterful clubs; shrank league to 6 teams (top-4 playoffs).
+- **Download Season Content** (zip). Stage 4 matchday pack. Stage 3 persistent league. Stage 2 audio. Stage 1 renderer + WebCodecs export. Elo/Glicko-2 model. Docs scaffold + research.
 
-## ❌ Tried But Failed / Deferred
-- ffmpeg.wasm export fallback for non-WebCodecs browsers (operator uses Chrome) — deferred.
+## ❌ Deferred / Open questions
+- ffmpeg.wasm export fallback for non-WebCodecs browsers (operator uses Chrome — deferred).
 - Audio is basic procedural synthesis — valid track, worth an ear-check.
-- **Live GitHub Pages deploy is blocked on the user enabling Pages (`help.md` #1).**
+- **Playoffs are top-4 of 6** — could trim to **top-2 → a one-match Grand Final** (user's call, still open).
+- **Cobalt Bay logo is a horizontal wordmark** (others are crests) — the circle-crop shows its centre; fine, but could be regenerated as a round crest.
 
 ## ➡️ Next Up (post-V1)
-1. **User tasks:** enable GitHub Pages (`help.md` #1) to see it live; optionally create the data repo + token (`help.md` #2–3) to use cloud save/load.
-2. **Stage 5:** Rugby & Golf (reuse the engine).
-3. **Stage 6:** star players & richer drama; public standings page.
-4. **Stage 7:** automation ladder (GitHub Actions + Instagram API).
+1. Optional polish the user floated: top-2 Grand Final, field to a full 80%+, richer player movement.
+2. **Stage 5** — Rugby & Golf (reuse the engine).
+3. **Stage 6** — star players & richer drama; public standings page.
+4. **Stage 7** — automation ladder (GitHub Actions + Instagram API).
+- Human tasks: `help.md` #3 (save token) to turn on cloud save; #4–6 for eventual auto-posting.
 
 ## 🔗 Pointer
-→ V1 shipped. Next stage folder: `staging/stage-5-rugby-and-golf/`
+→ Next stage folder: `staging/stage-5-rugby-and-golf/`
 → Active feature file: `staging/stage-5-rugby-and-golf/feature-rugby.md`

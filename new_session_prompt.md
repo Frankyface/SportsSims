@@ -1,10 +1,10 @@
-# New Session Prompt — paste this to resume EliteSimSPN
+# New Session Prompt — paste this to resume ESSPN / Crown League
 
 Copy everything below into a fresh Claude Code session (opened in the `SportsSims` project folder).
 
 ---
 
-We're continuing my project **EliteSimSPN** — a free GitHub Pages web app that simulates fictional sports leagues and exports short broadcast-style replay videos for the Instagram account @EliteSimSPN. I'm a **non-coder**, so you do all code, terminal, and git work; anything only I can do goes in `help.md`.
+We're continuing my project **ESSPN** (a fictional sports network) and its launch competition the **Crown League** — a free GitHub Pages web app that sims fictional leagues and exports short broadcast-style replay videos for a faceless Instagram account. **V1 is shipped & live.** I'm a **non-coder**, so you do all code, terminal, and git work; anything only I can do goes in `help.md`.
 
 Before doing anything:
 

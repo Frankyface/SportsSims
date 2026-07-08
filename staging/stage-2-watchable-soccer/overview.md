@@ -1,5 +1,7 @@
 # Stage 2 — Watchable soccer
 
+> ✅ **Complete & shipped (V1).** Calibrated sim, broadcast overlay (now with real crests + Crown League logo), procedural audio, Friendly tab. ffmpeg fallback deferred (operator uses Chrome).
+
 ## Goal
 Turn the working-but-basic slice into something **genuinely fun to watch**: a calibrated, dramatic soccer sim wrapped in a broadcast package, plus the "Sim a Match" (friendly) tab so the user can play with it freely.
 

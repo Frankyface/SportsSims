@@ -1,5 +1,7 @@
 # Stage 4 — Matchday content drop (v1 finish line)
 
+> ✅ **Complete & shipped (V1 finish line).** One-click matchday pack (videos + standings PNG + captions) **plus** "Download Season Content" (whole season zipped in posting order with `POSTING_ORDER.txt`).
+
 ## Goal
 One click on a calendar day → a whole matchday simulated at once → **every game's video + a standings-update post + written captions**, all organized and ready to post. This completes v1 (Rung 1: you tap "post").
 

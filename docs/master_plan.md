@@ -1,10 +1,12 @@
-# EliteSimSPN — Master Plan
+# ESSPN / Crown League — Master Plan
 
-_The complete vision, written so a brand-new session with zero prior context can rebuild the whole project. Last updated 2026-07-07._
+_The complete vision, written so a brand-new session with zero prior context can rebuild the whole project. Last updated 2026-07-08._
+
+> **Status: V1 shipped & LIVE** at frankyface.github.io/SportsSims (Soccer, the Crown League). Brand hierarchy: **ESSPN** is the fictional network (the broadcaster, wordmark E·SS·PN); the **Crown League** is the competition it shows. Post-V1 work (Rugby/Golf, star players, automation) lives in `staging/`.
 
 ## Pitch
 
-**EliteSimSPN** — the *Elite Simulated Sports Programming Network* — is a fictional ESPN. A free web app simulates persistent, invented sports leagues and turns each match into a short (~25–40s), broadcast-styled replay video posted to the faceless Instagram account **@EliteSimSPN**. Soccer launches first; Rugby, Golf, then American Football, Basketball, and Hockey follow on the same engine.
+**ESSPN** — the *Elite Simulated Sports Programming Network* — is a fictional ESPN. A free web app simulates persistent, invented sports leagues and turns each match into a short (~25–40s), broadcast-styled replay video for a faceless Instagram account. The launch competition is the **Crown League** — six hand-authored Soccer clubs with real crests. Rugby, Golf, then American Football, Basketball, and Hockey follow on the same engine as further ESSPN competitions.
 
 ## Problem & Why
 
@@ -22,13 +24,13 @@ EliteSimSPN is built around that fandom engine from day one, and adds the one th
   3. **Keep the world going** — standings, results, and history persist across sessions so the season race is real and editable.
 - **Secondary users = the Instagram audience.** They never touch the app; they consume the videos and (later) a public standings page. Their job: pick a team, follow the race, argue in the comments.
 
-## v1 scope (Soccer, free, on GitHub Pages)
+## v1 scope — SHIPPED (Soccer / Crown League, free, on GitHub Pages)
 
-- A **"Sim a Match" (friendly) tab**: click → watch a stylized ~30s match → nothing is saved. The "see how it works" sandbox (can use generic teams).
-- A **10-team Soccer league**, home-and-away (18 matchdays) + end-of-season **playoffs**; a **champion crowned**, then the season archives to history and standings reset.
-- **One click → an Instagram-ready MP4** auto-generated (stylized ② look: recognizably a match — pitch, ball, tokens, goals emerge — but clean, not a graphics arms race).
-- **Sim a whole matchday at once** → all game videos + a standings-update graphic + written captions (with a prediction hook), organized for posting.
-- **Standings persist** to a separate `elitesim-data` repo; **friendlies stay ephemeral** (never saved).
+- A **"Sim a Match" (Friendly) tab**: click → watch a stylized ~30s match → nothing is saved.
+- The **Crown League: 6 clubs**, double round-robin (10 matchdays, 30 games) + **top-4 playoffs**; a **champion crowned**, then an **offseason** rolls ratings into the next season.
+- **One click → an Instagram-ready MP4** — a big stylized pitch (recognizable match, ~8 players/side, goals emerge) with a broadcast overlay carrying the **real club crests + Crown League logo**, plus procedural audio.
+- **Sim a whole matchday at once** → every game's video + a standings-update PNG + captions. **"Download Season Content"** zips the *whole season* (a video + an as-of standings post per game) with a `POSTING_ORDER.txt`.
+- **Standings persist** to localStorage + an optional `elitesim-data` repo; **friendlies stay ephemeral**.
 - Runs entirely on **GitHub Pages, for free.** You post by tapping "share" yourself (Rung 1).
 
 ### Explicit v1 non-goals
@@ -45,7 +47,9 @@ Rugby & Golf (fast-follows), named star players (data model keeps the slot; UI s
 
 - **React + Vite + TypeScript**, static build → **GitHub Pages.** Free; the most AI-supported stack (matters because Claude maintains it on ~1hr/week of the user's time); TypeScript keeps it safe across sessions.
 - **HTML5 Canvas** for the match — simple 2D tokens-on-a-pitch, easy to render deterministically and capture.
-- **Deterministic seeded simulation** — a pure `simulateMatch(config) → MatchResult{score, events[]}` with a single PRNG (`xmur3`→`mulberry32`) as its only source of randomness. Same seed → identical match → identical video. This unlocks later server-side auto-rendering (Rung 4). **Non-negotiable; see determinism rules in `CLAUDE.md`.**
+- **Deterministic seeded simulation** — a pure `simulateMatch(config) → MatchResult{score, events[]}` with a single PRNG (`xmur3`→`mulberry32`) as its only source of randomness. Same seed → identical match → identical video. This unlocks later server-side auto-rendering (Rung 4). **Non-negotiable; see determinism rules in `CLAUDE.md`.** Each new league uses a **random seed**, so every reset plays out differently.
+- **Elo/Glicko-2 rating model** (`src/ratings/`) — starting ratings are a random draw (NOT tied to a club's archetype). Ratings **carry over season-to-season with a small offseason drift**; a "big offseason" raises a club's volatility. No regression to the mean — strength persists as a storyline.
+- **Real club crests + the Crown League logo** (`src/assets/logos/`) render into the videos (scorebug/intro/result) and standings (table + PNG post) as circular badges; downscaled to ~512px and preloaded before render/export.
 - **WebCodecs** (`VideoEncoder` + `mp4-muxer`) for in-browser export — produces a real Instagram-ready H.264/AAC MP4 with the moov atom up front, and needs **no** cross-origin-isolation headers (which GitHub Pages can't set). Frame-stepped (not real-time recorded) → exact 30fps. `ffmpeg.wasm` single-thread is the fallback only.
 - **Persistence = JSON in a separate `elitesim-data` repo** via the GitHub Contents API, with a fine-grained single-repo token. localStorage is the instant working cache; the repo file is the durable, versioned source of truth. Separate repo = tiny token blast radius + saves don't rebuild the site.
 - **Automation spine (later) = GitHub Actions** (free/unlimited on public repos, ffmpeg preinstalled) that re-renders the deterministic sim headlessly and posts via the Instagram API. Own-account posting stays in Meta "Standard Access" → **no App Review**.
@@ -79,6 +83,8 @@ The **same sim + renderer** power the in-browser preview, the WebCodecs export, 
 
 ## Staged roadmap
 
+_Stages 1–4 (v1) are **shipped & live**. Stage 3 shrank from 10 teams to the 6-club Crown League; the rating "reset" became the offseason carry-over model. Stages 5–7 are post-V1._
+
 | # | Stage | Goal | Headline / definition of done | v1? |
 |---|-------|------|------------------------------|-----|
 | 1 | Foundation & de-risking slice | Stand up the app + prove the riskiest path | App auto-deploys to Pages; a **hardcoded deterministic match renders on Canvas and exports a 1080×1920 MP4** you post to @EliteSimSPN successfully | ✅ |
@@ -104,6 +110,8 @@ The **same sim + renderer** power the in-browser preview, the WebCodecs export, 
 
 ## Glossary
 
+- **ESSPN** — the fictional network/broadcaster brand (wordmark E·SS·PN). **Crown League** — the competition ESSPN shows (the 6-club Soccer league).
+- **Offseason** — between seasons, each club's rating drifts a little (form + transfer-window noise); a "big offseason" raises its volatility. Ratings persist year to year (no reset to the mean).
 - **Matchday / round** — one slate of league fixtures; the unit of a "content drop."
 - **Friendly** — a one-off sim, not part of any league; produces a video but is never saved.
 - **Deterministic sim** — same input seed always yields the same match and video.
