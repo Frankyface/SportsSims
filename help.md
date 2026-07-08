@@ -59,11 +59,9 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 
 ## 🎨 Optional (cosmetic, any time)
 
-### [ ] Drop in crowd + music sounds for the match videos
-- **What:** Real audio files — background music, crowd cheers, crowd boos — mixed into every exported video.
-- **Why:** Real crowd sound makes the clips feel like a broadcast; the current audio is synthesized.
-- **How:** Get royalty-free files (WAV preferred; MP3/OGG fine) and name them by role: `music-1.wav` (a 20s+ loopable bed), `cheer-1.wav`, `cheer-2.wav` (1-4s crowd roars), `boo-1.wav` (1-3s jeers). Put them in `src/assets/audio/` (there's a README in that folder with the details) and tell Claude — nothing else to wire; the exporter finds them by name. Cheers play on goals/big saves, boos on cards, music loops quietly under everything.
-- **Unblocks:** nothing — the procedural crowd keeps working until these exist.
+### [x] Drop in crowd + music sounds for the match videos ✅ DONE
+- **Done:** Your crowd recordings are wired in and live — 2 cheers (`cheer-1/2`), 3 boos (`boo-1/2/3`), and an ambient bed (`music-1`), trimmed to 5-7s and converted to deterministic 48kHz mono WAV. Cheers play on goals/big saves, boos on cards + away goals, the bed loops quietly under everything (all side-aware: louder for the home crowd).
+- **To add or swap sounds later:** get royalty-free files (WAV preferred; MP3/OGG fine), name them by role — `music-*` (loopable bed), `cheer-*` (crowd roars), `boo-*` (jeers) — drop them in `src/assets/audio/` and tell Claude. The exporter finds them by name automatically.
 
 ### [ ] Regenerate the Highmoor "Stags" rugby crest on a transparent background
 - **What:** Re-export the Highmoor RFC crest with a transparent (or dark) background instead of the grey one.
