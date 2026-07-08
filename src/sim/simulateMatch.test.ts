@@ -59,6 +59,41 @@ describe('simulateMatch — shape & consistency', () => {
   })
 })
 
+describe('simulateMatch — a red card is a real disadvantage (v4)', () => {
+  it('teams sent off before the hour lose measurably more often', () => {
+    const N = 6000
+    let redMatches = 0
+    let redLosses = 0
+    let cleanMatches = 0
+    let cleanLosses = 0
+    for (let i = 0; i < N; i++) {
+      // perfectly equal teams so the only systematic edge is home advantage
+      const r = simulateMatch({
+        seedKey: `redmc:${i}`,
+        homeAdvantage: 1.1,
+        home: team('EQA', 'Equals A'),
+        away: team('EQB', 'Equals B'),
+      })
+      const homeRedEarly = r.events.some((e) => e.type === 'red' && e.team === 'home' && e.minute <= 60)
+      const awayRedAny = r.events.some((e) => e.type === 'red' && e.team === 'away')
+      const anyRed = r.events.some((e) => e.type === 'red')
+      if (homeRedEarly && !awayRedAny) {
+        redMatches++
+        if (r.score[0] < r.score[1]) redLosses++
+      } else if (!anyRed) {
+        cleanMatches++
+        if (r.score[0] < r.score[1]) cleanLosses++
+      }
+    }
+    const redLossRate = redLosses / Math.max(1, redMatches)
+    const cleanLossRate = cleanLosses / Math.max(1, cleanMatches)
+    console.log('[red-card]', { redMatches, redLossRate, cleanMatches, cleanLossRate })
+    expect(redMatches).toBeGreaterThan(100) // enough samples to trust the rates
+    // being a man down before the hour must cost at least 10 points of loss rate
+    expect(redLossRate).toBeGreaterThan(cleanLossRate + 0.1)
+  })
+})
+
 describe('simulateMatch — Monte-Carlo calibration', () => {
   it('resembles real football across many matches', () => {
     const N = 3000

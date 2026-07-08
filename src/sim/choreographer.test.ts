@@ -82,6 +82,51 @@ describe('choreographer — timeline & continuity invariants', () => {
   })
 })
 
+describe('choreographer — real rules: send-offs & corners', () => {
+  it('a sent-off player never touches the ball again', () => {
+    let checked = 0
+    for (let s = 0; s < 80; s++) {
+      const m = mk(`sendoff:${s}`)
+      const script = buildPlayScript(m)
+      const reds = m.events.filter((e) => e.type === 'red').length
+      expect(script.sendOffs.length).toBe(reds)
+      if (reds === 0) continue
+      checked++
+      for (const so of script.sendOffs) {
+        expect(so.slot).toBeGreaterThanOrEqual(1) // never the keeper
+        expect(so.slot).toBeLessThanOrEqual(7)
+        for (const p of script.passages) {
+          if (p.simStart < so.simSec) continue // the containing passage may pre-date the card
+          for (const tch of p.touches) {
+            if (tch.team === so.team) {
+              expect(tch.slot, `sent-off ${so.team}#${so.slot} touched at ${p.simStart}s`).not.toBe(so.slot)
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(5)
+  })
+
+  it('stages corners: ball behind, taken from the arc, swung in with risk', () => {
+    let corners = 0
+    for (let s = 0; s < 60; s++) {
+      const script = buildPlayScript(mk(`corner:${s}`))
+      for (const p of script.passages) {
+        if (!p.corner) continue
+        corners++
+        const restart = p.touches.find(
+          (t) => t.kind === 'restart' && (t.to[0] <= 0.06 || t.to[0] >= 0.94),
+        )
+        expect(restart, 'corner passage has a corner-arc restart').toBeDefined()
+        const cross = p.touches.find((t) => t.kind === 'pass' && t.arc >= 0.9 && t.risky)
+        expect(cross, 'corner passage has a lofted risky cross').toBeDefined()
+      }
+    }
+    expect(corners).toBeGreaterThan(10)
+  })
+})
+
 describe('choreographer — story requirements', () => {
   it('features every goal, staged as a shot into the net + celebration', () => {
     for (const seed of SAMPLE_SEEDS) {

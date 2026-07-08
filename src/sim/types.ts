@@ -3,11 +3,14 @@
 
 /**
  * Bump when the sim math changes so old saved matches re-render on the version that produced them.
- * v3: records possession spans for the continuous-play renderer. The score-deciding RNG stream is
- * call-for-call identical to v2 (guarded by scoreCompat.test.ts), so saved league scores still re-sim
- * byte-identically — v3 is additive, not a replay break.
+ * v3: records possession spans for the continuous-play renderer (RNG stream identical to v2).
+ * v4: red cards handicap the shorthanded team (possession/chance-creation/defense multipliers).
+ *     No rng() calls added or reordered, so matches WITHOUT a red card re-sim byte-identically
+ *     to v3; matches WITH a red play out differently from the card onward. Stored league scores
+ *     are unaffected (standings read saved results), but RE-VIEWING an old red-card fixture
+ *     renders the v4 outcome.
  */
-export const SIM_VERSION = 3
+export const SIM_VERSION = 4
 
 export interface TeamRating {
   id: string          // immutable — never renumber (fandom depends on stable identity)

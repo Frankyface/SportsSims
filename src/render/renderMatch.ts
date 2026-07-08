@@ -167,11 +167,35 @@ function drawLowerThird(ctx: Ctx, model: RenderModel, m: Moment, prog: number): 
   ctx.restore()
 }
 
-function drawGoalFlash(ctx: Ctx, model: RenderModel, prog: number): void {
+function drawGoalFlash(ctx: Ctx, model: RenderModel, m: Moment, prog: number): void {
   ctx.save()
   ctx.globalAlpha = 0.55 * (1 - clamp01(prog * 1.4))
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, model.width, model.height)
+
+  // confetti burst from the goal end in the scorer's colours (pure fn of prog)
+  const scorer = m.team === 'away' ? model.away : model.home
+  const originY = m.team === 'home' ? 390 : 1720
+  const colors = [scorer.color, '#ffffff', scorer.colorAlt]
+  const tau = prog * 2.2
+  ctx.globalAlpha = 1 - clamp01(prog * 1.1)
+  for (let i = 0; i < 42; i++) {
+    const h = (model.seed ^ Math.imul(i + 1, 2654435761)) >>> 0
+    const a = (h % 1000) / 1000
+    const b = ((h >> 10) % 1000) / 1000
+    const vx = (a - 0.5) * 950
+    const vy = (m.team === 'home' ? 1 : -1) * (140 + b * 480)
+    const x = model.width / 2 + vx * tau
+    const y = originY + vy * tau + 0.5 * 700 * tau * tau * (m.team === 'home' ? 1 : -0.4)
+    const size = 7 + ((h >> 20) % 8)
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate(tau * (2 + a * 6))
+    ctx.fillStyle = colors[i % 3]
+    ctx.fillRect(-size / 2, -size / 2, size, size * 0.62)
+    ctx.restore()
+  }
+
   ctx.globalAlpha = clamp01(prog * 3) * (1 - clamp01((prog - 0.55) / 0.45))
   ctx.fillStyle = '#ffffff'
   ctx.textAlign = 'center'
@@ -218,6 +242,14 @@ function drawCrestChip(ctx: Ctx, cx: number, cy: number, r: number, color: strin
   ctx.restore()
 }
 
+/** Overshoot pop — the scroll-stopper punch on the intro card. */
+function easeOutBack(p: number): number {
+  const c1 = 1.70158
+  const c3 = c1 + 1
+  const q = p - 1
+  return 1 + c3 * q * q * q + c1 * q * q
+}
+
 function drawIntro(ctx: Ctx, model: RenderModel, progress: number): void {
   const a = progress < 0.85 ? clamp01(progress * 3) : clamp01((1 - progress) / 0.15)
   ctx.save()
@@ -228,30 +260,42 @@ function drawIntro(ctx: Ctx, model: RenderModel, progress: number): void {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  // Kicker
+  // staged pops: crests SLAM in, then the league mark, then the names
+  const popHome = Math.max(0.01, easeOutBack(clamp01(progress * 3.2)))
+  const popAway = Math.max(0.01, easeOutBack(clamp01(progress * 3.2 - 0.35)))
+  const popLeague = Math.max(0.01, easeOutBack(clamp01(progress * 3.2 - 0.7)))
+  const nameA = clamp01(progress * 4 - 1)
+
+  // Kicker slides down into place
   ctx.fillStyle = '#ff5566'
   ctx.font = 'bold 36px system-ui, sans-serif'
-  ctx.fillText('MATCHDAY', cx, 300)
+  ctx.fillText('MATCHDAY', cx, 260 + 40 * clamp01(progress * 3))
 
   // Home team (top)
   const hl = getLogo(model.home.id)
-  if (hl) drawLogoCircle(ctx, hl, cx, 468, 110)
-  else drawCrestChip(ctx, cx, 468, 110, model.home.color, model.home.abbr)
+  if (hl) drawLogoCircle(ctx, hl, cx, 468, 110 * popHome)
+  else drawCrestChip(ctx, cx, 468, 110 * popHome, model.home.color, model.home.abbr)
+  ctx.save()
+  ctx.globalAlpha = a * nameA
   ctx.fillStyle = '#e8edf4'
   fitText(ctx, model.home.name, 900, 54)
   ctx.fillText(model.home.name, cx, 648)
+  ctx.restore()
 
   // Crown League logo — the centrepiece divider between the two clubs
   const league = getLeagueLogo()
-  if (league) drawLogoContain(ctx, league, cx, 950, 320, 270)
+  if (league) drawLogoContain(ctx, league, cx, 950, 320 * popLeague, 270 * popLeague)
 
   // Away team (bottom)
   const al = getLogo(model.away.id)
-  if (al) drawLogoCircle(ctx, al, cx, 1242, 110)
-  else drawCrestChip(ctx, cx, 1242, 110, model.away.color, model.away.abbr)
+  if (al) drawLogoCircle(ctx, al, cx, 1242, 110 * popAway)
+  else drawCrestChip(ctx, cx, 1242, 110 * popAway, model.away.color, model.away.abbr)
+  ctx.save()
+  ctx.globalAlpha = a * nameA
   ctx.fillStyle = '#e8edf4'
   fitText(ctx, model.away.name, 900, 54)
   ctx.fillText(model.away.name, cx, 1422)
+  ctx.restore()
   ctx.restore()
 }
 
@@ -294,13 +338,28 @@ export function drawFrame(ctx: Ctx, model: RenderModel, t: number): void {
   const plan = model.plan
   ctx.fillStyle = '#0a0e14'
   ctx.fillRect(0, 0, model.width, model.height)
-  drawPitch(ctx)
 
   // the scene freezes on the final whistle while the result card comes in
   const tPlay = Math.min(t, plan.playEnd)
   const ball = ballStateAt(plan, tPlay)
+
+  // goal impact: a decaying screen shake on the scene (never the scorebug)
+  let shakeX = 0
+  let shakeY = 0
+  for (const mo of plan.moments) {
+    if (mo.kind !== 'goal') continue
+    const q = (t - mo.t) / 0.5
+    if (q >= 0 && q < 1) {
+      shakeX = Math.sin(t * 91) * 7 * (1 - q)
+      shakeY = Math.cos(t * 83) * 5 * (1 - q)
+    }
+  }
+  ctx.save()
+  ctx.translate(shakeX, shakeY)
+  drawPitch(ctx)
   drawPlayers(ctx, plan, model.seed, model.home.color, model.away.color, tPlay, ball)
   drawBall(ctx, ball, model.home.color, model.away.color)
+  ctx.restore()
 
   drawScorebug(ctx, model, t)
 
@@ -312,7 +371,7 @@ export function drawFrame(ctx: Ctx, model: RenderModel, t: number): void {
   // the flash belongs to the goal moment itself (goal always outranks the third anyway)
   for (const m of plan.moments) {
     if (m.kind === 'goal' && t >= m.t && t <= m.t + m.dur) {
-      drawGoalFlash(ctx, model, clamp01((t - m.t) / m.dur))
+      drawGoalFlash(ctx, model, m, clamp01((t - m.t) / m.dur))
     }
   }
 

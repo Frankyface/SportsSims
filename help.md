@@ -59,6 +59,12 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 
 ## 🎨 Optional (cosmetic, any time)
 
+### [ ] Drop in crowd + music sounds for the match videos
+- **What:** Real audio files — background music, crowd cheers, crowd boos — mixed into every exported video.
+- **Why:** Real crowd sound makes the clips feel like a broadcast; the current audio is synthesized.
+- **How:** Get royalty-free files (WAV preferred; MP3/OGG fine) and name them by role: `music-1.wav` (a 20s+ loopable bed), `cheer-1.wav`, `cheer-2.wav` (1-4s crowd roars), `boo-1.wav` (1-3s jeers). Put them in `src/assets/audio/` (there's a README in that folder with the details) and tell Claude — nothing else to wire; the exporter finds them by name. Cheers play on goals/big saves, boos on cards, music loops quietly under everything.
+- **Unblocks:** nothing — the procedural crowd keeps working until these exist.
+
 ### [ ] Regenerate the Highmoor "Stags" rugby crest on a transparent background
 - **What:** Re-export the Highmoor RFC crest with a transparent (or dark) background instead of the grey one.
 - **Why:** Its grey background shows as a grey square on the app's dark club cards. (The other five rugby crests blend fine; the Bastion league logo's *flat-white* background Claude can knock out automatically.)

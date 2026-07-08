@@ -30,6 +30,7 @@ export type MomentKind =
   | 'save'
   | 'miss'
   | 'card'
+  | 'corner'
   | 'halftime'
   | 'fulltime'
   | 'story'
@@ -54,6 +55,12 @@ export interface ScorePt {
   score: [number, number]
 }
 
+export interface SendOffAt {
+  team: Side
+  slot: number
+  t: number // render seconds the player starts walking
+}
+
 export interface RenderPlan {
   total: number
   introDur: number
@@ -65,6 +72,7 @@ export interface RenderPlan {
   clockPts: ClockPt[]
   scorePts: ScorePt[]
   moments: Moment[]
+  sendOffs: SendOffAt[]
 }
 
 const INTRO_DUR = 2.6
@@ -82,6 +90,7 @@ const MOMENT_DUR: Record<MomentKind, number> = {
   save: 2.1,
   miss: 2.0,
   card: 2.4,
+  corner: 1.6,
   halftime: 2.0,
   fulltime: 1.2,
   story: 2.4,
@@ -158,6 +167,7 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
   let t = INTRO_DUR
   let halftimeDone = false
   const bridgeSlots: BridgeSlot[] = []
+  const sendOffs: SendOffAt[] = []
 
   for (const p of script.passages) {
     const dur = p.renderDur * scale
@@ -179,6 +189,7 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
 
     let tt = t
     let strikeT = -1 // when the shot lands / the stoppage begins
+    let cornerT = -1 // when the ball reaches the corner arc
     for (const touch of p.touches) {
       const d = (touch.w / wsum) * dur
       segs.push({
@@ -196,6 +207,22 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
       if (touch.kind === 'shot' || (touch.kind === 'held' && p.outcome === 'card')) {
         strikeT = touch.kind === 'shot' ? tt : tt - d // shots land at seg end; stoppages start at seg start
       }
+      if (touch.kind === 'restart' && (touch.to[0] <= 0.06 || touch.to[0] >= 0.94)) {
+        cornerT = tt // the taker is standing over the corner
+      }
+    }
+
+    if (p.corner && cornerT >= 0) {
+      const abbr = p.team === 'home' ? m.config.home.abbr : m.config.away.abbr
+      const f = Math.max(0, Math.min(1, (cornerT - t) / dur))
+      moments.push({
+        t: Math.max(t, cornerT - 0.3),
+        dur: MOMENT_DUR.corner,
+        kind: 'corner',
+        team: p.team,
+        minute: minuteAt(p.simStart + f * simSpan),
+        label: `CORNER — ${abbr}`,
+      })
     }
 
     if (p.kind === 'featured' && strikeT >= 0) {
@@ -247,6 +274,13 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
       bridgeSlots.push({ t, dur, simStart: p.simStart, simEnd: p.simEnd })
     }
 
+    // map each red card's send-off from sim time onto the render clock
+    for (const so of script.sendOffs) {
+      if (so.simSec >= p.simStart && so.simSec <= p.simEnd && !sendOffs.some((x) => x.team === so.team && x.slot === so.slot)) {
+        sendOffs.push({ team: so.team, slot: so.slot, t: t + dur * ((so.simSec - p.simStart) / simSpan) })
+      }
+    }
+
     t += dur
     clockPts.push({ t, sec: p.simEnd })
   }
@@ -281,6 +315,7 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
     clockPts,
     scorePts,
     moments,
+    sendOffs,
   }
 }
 
@@ -293,6 +328,7 @@ const THIRD_PRIORITY: Record<MomentKind, number> = {
   bigChance: 4,
   save: 3,
   miss: 3,
+  corner: 2,
   halftime: 2,
   story: 1, // commentator colour — only ever shows in genuinely quiet play
   kickoff: 0,

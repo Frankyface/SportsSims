@@ -51,11 +51,19 @@ export interface Passage {
   xg?: number
   cardType?: 'yellow' | 'red'
   label?: string
+  corner?: boolean // staged as a corner-kick sequence
+}
+
+export interface SendOff {
+  team: Side
+  slot: number // the player who walks (never the keeper)
+  simSec: number
 }
 
 export interface PlayScript {
   passages: Passage[] // ordered; sim windows tile [0, matchEnd] exactly
   matchEnd: number // final sim clock in seconds (>= 5400)
+  sendOffs: SendOff[] // red cards — this player is OFF from simSec onward
 }
 
 // --- pacing constants (seconds of render time per featured moment) ---
@@ -143,6 +151,16 @@ export function buildPlayScript(m: MatchResult): PlayScript {
   const poss = m.possessions
   const matchEnd = poss.length ? poss[poss.length - 1].end : 90 * 60
 
+  // Red cards send a player OFF. Picked first so the ':pbp' draw order is
+  // stable; from simSec onward that slot never touches the ball again.
+  const sendOffs: SendOff[] = m.events
+    .filter((e) => e.type === 'red' && e.team)
+    .map((e) => ({ team: e.team as Side, slot: 1 + Math.floor(rng() * 7), simSec: e.minute * 60 }))
+  const redSlotFor = (team: Side, simSec: number): number => {
+    const so = sendOffs.find((s) => s.team === team && simSec >= s.simSec)
+    return so ? so.slot : -1
+  }
+
   // ---- 1) pick which possessions get the featured treatment ----
   const cands: Cand[] = []
   poss.forEach((p, pi) => {
@@ -201,7 +219,7 @@ export function buildPlayScript(m: MatchResult): PlayScript {
   let lastShooter: Side = 'home'
 
   /** Restart prefix demanded by how the previous passage ended (keeps continuity). */
-  const openTouches = (team: Side): Touch[] => {
+  const openTouches = (team: Side, simSec: number): Touch[] => {
     const prefix: Touch[] = []
     if (lastOutcome === 'goal' || lastOutcome === 'kickoff') {
       // retrieve to the centre spot and kick off
@@ -212,7 +230,7 @@ export function buildPlayScript(m: MatchResult): PlayScript {
           team,
           from: ballAt,
           to,
-          slot: nearestSlot(team, CENTER[0], CENTER[1], -1),
+          slot: nearestSlot(team, CENTER[0], CENTER[1], -1, redSlotFor(team, simSec)),
           w: Math.max(0.4, manLen(ballAt, to) * 1.1),
           arc: 0,
           risky: false,
@@ -267,7 +285,7 @@ export function buildPlayScript(m: MatchResult): PlayScript {
       const b = s1 - a > MAX_BRIDGE_SPAN ? a + MAX_BRIDGE_SPAN : s1
       const steal = rng() < 0.45
       const passerTeam = steal ? opp(nextTeam) : nextTeam
-      const touches = openTouches(passerTeam)
+      const touches = openTouches(passerTeam, a)
       // build zone: the next attacking team's own half, where moves begin
       const zone = clampPt([
         0.28 + rng() * 0.44,
@@ -284,10 +302,10 @@ export function buildPlayScript(m: MatchResult): PlayScript {
         const isLast = i === wps.length - 1
         if (steal && isLast) {
           if (touches.length) touches[touches.length - 1].risky = true
-          const s = nearestSlot(nextTeam, wp[0], wp[1], -1)
+          const s = nearestSlot(nextTeam, wp[0], wp[1], -1, redSlotFor(nextTeam, a))
           touches.push({ kind: 'intercept', team: nextTeam, from, to: wp, slot: s, w: Math.max(0.4, manLen(from, wp)), arc: 0, risky: false })
         } else {
-          slot = nearestSlot(passerTeam, wp[0], wp[1], slot)
+          slot = nearestSlot(passerTeam, wp[0], wp[1], slot, redSlotFor(passerTeam, a))
           const arc = manLen(from, wp) > 0.34 ? 0.35 : 0
           touches.push({ kind: 'pass', team: passerTeam, from, to: wp, slot, w: passW(from, wp), arc, risky: false })
         }
@@ -313,9 +331,11 @@ export function buildPlayScript(m: MatchResult): PlayScript {
   const buildFeatured = (c: Cand, simStart: number, simEnd: number): void => {
     const p = poss[c.pi]
     const team = p.team
-    const touches = openTouches(team)
+    const redMine = redSlotFor(team, simStart)
+    const touches = openTouches(team, simStart)
     const ev = c.ev
     let label: string | undefined
+    let corner = false
     let xg = ev.xg
 
     if (c.kind === 'card') {
@@ -328,7 +348,7 @@ export function buildPlayScript(m: MatchResult): PlayScript {
       let slot = -1
       let from = ballAt
       for (const wp of walk(ballAt, spot, 2)) {
-        slot = nearestSlot(team, wp[0], wp[1], slot)
+        slot = nearestSlot(team, wp[0], wp[1], slot, redMine)
         touches.push({ kind: 'pass', team, from, to: wp, slot, w: passW(from, wp), arc: 0, risky: false })
         from = wp
       }
@@ -341,28 +361,54 @@ export function buildPlayScript(m: MatchResult): PlayScript {
       const sx = ev.shotXY ? ev.shotXY[1] : 0.5
       const sy = ev.shotXY ? 1 - ev.shotXY[0] : team === 'home' ? 0.2 : 0.8
       const S = clampPt([sx, sy])
-      const nBuild = c.kind === 'goal' ? 3 : 2
       let slot = -1
       let from = ballAt
-      const wps = walk(ballAt, S, nBuild)
-      wps.forEach((wp, i) => {
-        const isLast = i === wps.length - 1
-        slot = nearestSlot(team, wp[0], wp[1], slot)
-        const long = manLen(from, wp) > 0.34
-        // a big chance arrives on the end of a risky through-ball
-        const risky = (isLast && (c.kind === 'bigChanceSaved' || c.kind === 'bigChanceMiss')) || long
-        touches.push({
-          kind: 'pass',
-          team,
-          from,
-          to: wp,
-          slot,
-          w: passW(from, wp),
-          arc: risky ? 0.5 : 0,
-          risky,
+
+      // Goals struck from right on the byline can be staged as CORNER headers:
+      // attack forced out by a defender, corner swung in, scorer meets it.
+      const nearByline = team === 'home' ? S[1] < 0.14 : S[1] > 0.86
+      const cornerGoal = c.kind === 'goal' && nearByline && rng() < 0.6
+      if (cornerGoal) {
+        corner = true
+        const wp = clampPt([
+          lerp(from[0], S[0], 0.5) + jit(rng, 0.1),
+          lerp(from[1], S[1], 0.55) + jit(rng, 0.06),
+        ])
+        slot = nearestSlot(team, wp[0], wp[1], -1, redMine)
+        touches.push({ kind: 'pass', team, from, to: wp, slot, w: passW(from, wp), arc: 0, risky: false })
+        // a defender gets a toe on it — out for a corner
+        const outPt: [number, number] = [clamp(S[0] + jit(rng, 0.18), 0.12, 0.88), goalLineY(team, 0.012)]
+        const defSlot = nearestSlot(opp(team), outPt[0], outPt[1], -1, redSlotFor(opp(team), simStart))
+        touches.push({ kind: 'intercept', team: opp(team), from: wp, to: outPt, slot: defSlot, w: passW(wp, outPt), arc: 0.3, risky: false })
+        const cornerSpot: [number, number] = [outPt[0] < 0.5 ? 0.035 : 0.965, goalLineY(team, -0.005)]
+        const taker = nearestSlot(team, cornerSpot[0], cornerSpot[1], -1, redMine)
+        touches.push({ kind: 'restart', team, from: outPt, to: cornerSpot, slot: taker, w: Math.max(0.4, manLen(outPt, cornerSpot) * 1.1), arc: 0, risky: false })
+        // the cross, swung in under the bar for the scorer
+        slot = nearestSlot(team, S[0], S[1], taker, redMine)
+        touches.push({ kind: 'pass', team, from: cornerSpot, to: S, slot, w: passW(cornerSpot, S), arc: 0.9, risky: true })
+        from = S
+      } else {
+        const nBuild = c.kind === 'goal' ? 3 : 2
+        const wps = walk(ballAt, S, nBuild)
+        wps.forEach((wp, i) => {
+          const isLast = i === wps.length - 1
+          slot = nearestSlot(team, wp[0], wp[1], slot, redMine)
+          const long = manLen(from, wp) > 0.34
+          // a big chance arrives on the end of a risky through-ball
+          const risky = (isLast && (c.kind === 'bigChanceSaved' || c.kind === 'bigChanceMiss')) || long
+          touches.push({
+            kind: 'pass',
+            team,
+            from,
+            to: wp,
+            slot,
+            w: passW(from, wp),
+            arc: risky ? 0.5 : 0,
+            risky,
+          })
+          from = wp
         })
-        from = wp
-      })
+      }
 
       const gx = 0.42 + rng() * 0.16
       if (c.kind === 'goal') {
@@ -375,12 +421,30 @@ export function buildPlayScript(m: MatchResult): PlayScript {
       } else if (c.kind === 'save' || c.kind === 'bigChanceSaved') {
         const GT: [number, number] = [gx, goalLineY(team, -0.01)]
         touches.push({ kind: 'shot', team, from: S, to: GT, slot: -1, w: 0.28, arc: 0, risky: false })
-        const parry: [number, number] = [
-          clamp(gx + jit(rng, 0.14), 0.2, 0.8),
-          team === 'home' ? 0.055 + rng() * 0.04 : 0.945 - rng() * 0.04,
-        ]
-        touches.push({ kind: 'save', team: opp(team), from: GT, to: parry, slot: KEEPER_SLOT, w: 0.4, arc: 0, risky: false })
-        ballAt = parry
+        // some saves are tipped BEHIND — corner to the attacking team
+        if (rng() < 0.38) {
+          corner = true
+          const outPt: [number, number] = [clamp(gx + jit(rng, 0.2), 0.15, 0.85), goalLineY(team, 0.012)]
+          touches.push({ kind: 'save', team: opp(team), from: GT, to: outPt, slot: KEEPER_SLOT, w: 0.4, arc: 0.3, risky: false })
+          const cornerSpot: [number, number] = [outPt[0] < 0.5 ? 0.035 : 0.965, goalLineY(team, -0.005)]
+          const taker = nearestSlot(team, cornerSpot[0], cornerSpot[1], -1, redMine)
+          touches.push({ kind: 'restart', team, from: outPt, to: cornerSpot, slot: taker, w: Math.max(0.4, manLen(outPt, cornerSpot) * 1.1), arc: 0, risky: false })
+          const target: [number, number] = [0.42 + rng() * 0.16, team === 'home' ? 0.07 + rng() * 0.06 : 0.93 - rng() * 0.06]
+          const header = nearestSlot(team, target[0], target[1], taker, redMine)
+          touches.push({ kind: 'pass', team, from: cornerSpot, to: target, slot: header, w: passW(cornerSpot, target), arc: 0.9, risky: true })
+          // headed clear by the defence
+          const clearPt = clampPt([0.25 + rng() * 0.5, team === 'home' ? 0.3 + rng() * 0.12 : 0.58 + rng() * 0.12])
+          const clearer = nearestSlot(opp(team), target[0], target[1], -1, redSlotFor(opp(team), simStart))
+          touches.push({ kind: 'intercept', team: opp(team), from: target, to: clearPt, slot: clearer, w: passW(target, clearPt), arc: 0.4, risky: false })
+          ballAt = clearPt
+        } else {
+          const parry: [number, number] = [
+            clamp(gx + jit(rng, 0.14), 0.2, 0.8),
+            team === 'home' ? 0.055 + rng() * 0.04 : 0.945 - rng() * 0.04,
+          ]
+          touches.push({ kind: 'save', team: opp(team), from: GT, to: parry, slot: KEEPER_SLOT, w: 0.4, arc: 0, risky: false })
+          ballAt = parry
+        }
         lastOutcome = c.kind
         label = c.kind === 'bigChanceSaved' ? pick(rng, SAVE_LABELS) : pick(rng, PLAIN_SAVE_LABELS)
       } else {
@@ -404,14 +468,16 @@ export function buildPlayScript(m: MatchResult): PlayScript {
       team,
       kind: 'featured',
       outcome: c.kind,
-      // floored by travel distance so a long build-up never gets squeezed into a blur
-      renderDur: Math.max(DUR[c.kind], wsum * SPEED_FLOOR),
+      // floored by travel distance so a long build-up never gets squeezed into
+      // a blur; corner sequences earn extra dwell for the set-piece theatre
+      renderDur: Math.max(DUR[c.kind] + (corner ? 2.3 : 0), wsum * SPEED_FLOOR),
       touches,
       minute: ev.minute,
       eventId: ev.id,
       xg,
       cardType: c.cardType,
       label,
+      corner: corner || undefined,
     })
   }
 
@@ -431,5 +497,5 @@ export function buildPlayScript(m: MatchResult): PlayScript {
     pushBridge(cursor, matchEnd, rng() < 0.5 ? 'home' : 'away')
   }
 
-  return { passages, matchEnd }
+  return { passages, matchEnd, sendOffs }
 }

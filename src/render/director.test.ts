@@ -187,6 +187,30 @@ describe('director — the clock counts up, continuously', () => {
     }
   })
 
+  it('maps send-offs to the render clock and labels corners', () => {
+    let sendOffs = 0
+    let corners = 0
+    for (let s = 0; s < 60; s++) {
+      const m = mk(`rules:${s}`)
+      const plan = buildRenderPlan(m)
+      const reds = m.events.filter((e) => e.type === 'red').length
+      expect(plan.sendOffs.length).toBe(reds)
+      for (const so of plan.sendOffs) {
+        sendOffs++
+        expect(so.t).toBeGreaterThanOrEqual(plan.playStart)
+        expect(so.t).toBeLessThanOrEqual(plan.playEnd)
+      }
+      for (const mo of plan.moments) {
+        if (mo.kind === 'corner') {
+          corners++
+          expect(mo.label).toMatch(/^CORNER — /)
+        }
+      }
+    }
+    expect(sendOffs).toBeGreaterThan(3)
+    expect(corners).toBeGreaterThan(10)
+  })
+
   it('is deterministic: same match -> identical plan', () => {
     const m = mk('dir:same')
     expect(JSON.stringify(buildRenderPlan(m))).toEqual(JSON.stringify(buildRenderPlan(m)))

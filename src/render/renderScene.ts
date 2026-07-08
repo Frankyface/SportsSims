@@ -285,6 +285,8 @@ function drawDisc(ctx: Ctx, x: number, y: number, r: number, fill: string): void
   ctx.stroke()
 }
 
+const WALK_OFF_SECS = 1.6
+
 export function drawPlayers(
   ctx: Ctx,
   plan: RenderPlan,
@@ -298,6 +300,22 @@ export function drawPlayers(
   for (const side of ['home', 'away'] as const) {
     const color = side === 'home' ? homeColor : awayColor
     for (let slot = 0; slot < SLOTS.length; slot++) {
+      // red card: the sent-off player trudges to the touchline and is GONE —
+      // the team genuinely plays on with seven dots
+      const so = plan.sendOffs.find((x) => x.team === side && x.slot === slot)
+      if (so && t >= so.t) {
+        const q = (t - so.t) / WALK_OFF_SECS
+        if (q >= 1) continue
+        const ballThen = ballStateAt(plan, so.t)
+        const shiftThen = teamShiftAt(plan, so.t)
+        const [sx, sy] = playerPosAt(plan, seed, side, slot, so.t, ballThen, shiftThen)
+        const wx = lerp(sx, PITCH.x - 46, easeInOut(clamp01(q)))
+        ctx.save()
+        ctx.globalAlpha = 1 - q * 0.75
+        drawDisc(ctx, wx, sy, 27, color)
+        ctx.restore()
+        continue
+      }
       const [px, py] = playerPosAt(plan, seed, side, slot, t, ball, shift)
       drawDisc(ctx, px, py, 27, color)
     }

@@ -62,7 +62,7 @@ export function buildMatchAudio(model: RenderModel, bank: AudioAssetBank = EMPTY
   for (const m of plan.moments) {
     if (m.kind === 'goal') applyGain(out, m.t - 0.6, m.t + 2.0, 1.5)
     else if (m.kind === 'bigChance') applyGain(out, m.t - 0.5, m.t + 1.4, 1.35)
-    else if (m.kind === 'save' || m.kind === 'miss') applyGain(out, m.t - 0.4, m.t + 1.0, 1.2)
+    else if (m.kind === 'save' || m.kind === 'miss' || m.kind === 'corner') applyGain(out, m.t - 0.4, m.t + 1.0, 1.2)
     else if (m.kind === 'card') applyGain(out, m.t, m.t + 1.2, 0.7)
   }
 

@@ -33,13 +33,14 @@ export function slotBase(side: Side, slot: number): [number, number] {
 /**
  * Nearest outfield slot of `side` to a point (squared distance — no sqrt
  * needed to compare). `exclude` avoids handing consecutive touches to the
- * same dot; pass -1 to allow any.
+ * same dot; `exclude2` keeps a sent-off player out of the game. Pass -1 to
+ * allow any.
  */
-export function nearestSlot(side: Side, x: number, y: number, exclude: number): number {
+export function nearestSlot(side: Side, x: number, y: number, exclude: number, exclude2 = -1): number {
   let best = -1
   let bestD = Infinity
   for (let i = 1; i < SLOTS.length; i++) {
-    if (i === exclude) continue
+    if (i === exclude || i === exclude2) continue
     const b = slotBase(side, i)
     const dx = b[0] - x
     const dy = b[1] - y

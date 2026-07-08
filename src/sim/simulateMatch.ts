@@ -17,6 +17,14 @@ const BASE_SHOT = 0.11 // base P(a possession becomes a shot) — tuned for ~13 
 const FOUL_RATE = 0.055
 const MOMENTUM_GAIN = 0.35 // how strongly momentum tilts shot odds
 const COMEBACK = 0.7 // trailing-team rubber-band strength
+// A red card hurts (v4): the ten men keep less of the ball, create less, and
+// resist less — roughly the real-world ~1.4-goal swing for an early red.
+// Multipliers only — no rng() calls are added, so matches WITHOUT a red stay
+// byte-identical to v3 (guarded by scoreCompat.test.ts).
+const SHORT_POSSESSION = 0.85
+const SHORT_ATTACK = 0.82
+const SHORT_DEFENSE = 0.86
+const SHORT_XG_BOOST = 1.1 // chances against ten men are better chances
 
 function clamp(x: number, lo: number, hi: number): number {
   return x < lo ? lo : x > hi ? hi : x
@@ -74,6 +82,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   let halftimeDone = false
   let possHome = 0
   let possAway = 0
+  const shorthanded: [boolean, boolean] = [false, false] // sent a man off?
   // Contiguous possession spans, recorded purely from values the sim already
   // draws — adding them costs ZERO calls on the frozen score-deciding stream.
   const possessions: PossessionSpan[] = []
@@ -88,9 +97,12 @@ export function simulateMatch(config: MatchConfig): MatchResult {
       halftimeDone = true
     }
 
-    // 1) who has this possession — attack-weighted, home tilt, momentum
-    const wHome = home.attack * homeAdvantage * formHome * (1 + 0.15 * momentum)
-    const wAway = away.attack * formAway * (1 - 0.15 * momentum)
+    // 1) who has this possession — attack-weighted, home tilt, momentum;
+    // ten men see less of the ball
+    const wHome =
+      home.attack * homeAdvantage * formHome * (1 + 0.15 * momentum) * (shorthanded[0] ? SHORT_POSSESSION : 1)
+    const wAway =
+      away.attack * formAway * (1 - 0.15 * momentum) * (shorthanded[1] ? SHORT_POSSESSION : 1)
     const isHome = rng() < wHome / (wHome + wAway)
     const side: Side = isHome ? 'home' : 'away'
     const idx = isHome ? 0 : 1
@@ -113,6 +125,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
         const oppSide: Side = isHome ? 'away' : 'home'
         if (cardRoll < 0.02 / def.discipline) {
           stats.red[oppIdx]++
+          shorthanded[oppIdx] = true
           push(minute, { type: 'red', team: oppSide, label: 'Red card' })
         } else {
           stats.yellow[oppIdx]++
@@ -122,9 +135,11 @@ export function simulateMatch(config: MatchConfig): MatchResult {
       continue
     }
 
-    // 3) does the possession create a shot?
+    // 3) does the possession create a shot? (ten men create less, concede more)
+    const atkFac = shorthanded[idx] ? SHORT_ATTACK : 1
+    const defFac = shorthanded[isHome ? 1 : 0] ? SHORT_DEFENSE : 1
     const pShot = clamp(
-      BASE_SHOT * (atk.attack / def.defense) * form * (1 + MOMENTUM_GAIN * momForSide),
+      BASE_SHOT * ((atk.attack * atkFac) / (def.defense * defFac)) * form * (1 + MOMENTUM_GAIN * momForSide),
       0.03,
       0.3,
     )
@@ -137,7 +152,8 @@ export function simulateMatch(config: MatchConfig): MatchResult {
     // 4) chance quality -> TRUE expected-goals value (mean ~0.11/shot, so summed xG tracks goals).
     // q is a bell-ish 0..1 quality (avg of 3 uniforms); cubed skews most chances low, a few high.
     const q = (rng() + rng() + rng()) / 3
-    const xg = clamp(0.02 + q * q * q * 0.55 * atk.finishing, 0.02, 0.9)
+    const xgBoost = shorthanded[isHome ? 1 : 0] ? SHORT_XG_BOOST : 1
+    const xg = clamp(0.02 + q * q * q * 0.55 * atk.finishing * xgBoost, 0.02, 0.9)
     const goal = rng() < xg
     const onTarget = goal || rng() < 0.28 + 0.5 * xg
     stats.shots[idx]++

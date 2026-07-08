@@ -9,10 +9,19 @@ import type { MatchConfig, TeamRating } from './types'
 // RNG stream is frozen: any change that adds, removes, or reorders an rng()
 // call on that stream silently rewrites every saved league's history.
 //
-// The snapshot below was captured from SIM_VERSION 2 (the shipped v1 engine).
-// It digests only the frozen surface — score, stats, events — so additive
-// fields (e.g. possession spans for the continuous-play renderer) don't trip
-// it, but ANY drift in the score-deciding math does.
+// The snapshot below was captured from SIM_VERSION 4. It digests only the
+// frozen surface — score, stats, events — so additive fields (e.g. possession
+// spans for the continuous-play renderer) don't trip it, but ANY drift in the
+// score-deciding math does.
+//
+// Snapshot history:
+// - v2 (shipped v1 engine): original capture.
+// - v3: byte-identical to v2 (possession spans are recorded, not drawn).
+// - v4 (red-card handicap): deliberately regenerated. Verified before
+//   regeneration: exactly 5/30 seeds changed and ALL 5 contain a red card;
+//   every no-red seed stayed byte-identical (the handicap is multiplier-only,
+//   zero rng() calls added). Stored league scores are unaffected; re-viewing
+//   an old red-card fixture renders the v4 outcome.
 //
 // If this test fails you have broken replay identity for existing leagues.
 // Do not update the snapshot unless that is an explicit, understood decision.
