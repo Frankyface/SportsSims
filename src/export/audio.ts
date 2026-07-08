@@ -72,13 +72,21 @@ export function buildMatchAudio(model: RenderModel, bank: AudioAssetBank = EMPTY
     else if (m.kind === 'card') applyGain(out, m.t, m.t + 1.2, 0.7)
   }
 
-  // Background music bed: loop the (deterministically picked) track quietly
-  // under the whole clip.
+  // Background ambience bed. When the track is long enough to cover the whole
+  // clip (it is — the bed is ~72s vs a max ~69s clip), play it ONCE from a
+  // seeded start offset: it never loops back, so a distinctive sound can't
+  // recur mid-clip, and different matches start at different points. Only a
+  // bed shorter than the clip falls back to looping.
   const music = pick(bank.music, seed, 1)
   if (music) {
-    for (let start = 0; start < n; start += music.length) {
-      const len = Math.min(music.length, n - start)
-      for (let i = 0; i < len; i++) out[start + i] += music[i] * 0.16
+    if (music.length > n) {
+      const off = seed % (music.length - n + 1) // guaranteed off + n <= length
+      for (let i = 0; i < n; i++) out[i] += music[off + i] * 0.16
+    } else {
+      for (let start = 0; start < n; start += music.length) {
+        const len = Math.min(music.length, n - start)
+        for (let i = 0; i < len; i++) out[start + i] += music[i] * 0.16
+      }
     }
     // duck the music slightly under the result card so the whistle reads
     applyGain(out, plan.playEnd, plan.total, 0.85)
