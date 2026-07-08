@@ -172,9 +172,62 @@ describe('scene — players move with the game', () => {
       const dy = p[1] - target[1]
       return Math.sqrt(dx * dx + dy * dy)
     }
-    // at arrival the receiver is basically on the ball; well before, they weren't
-    expect(dist(tArrive)).toBeLessThan(60)
+    // at arrival the receiver is ON the ball (pull reaches 1.0 — no more
+    // "almost met it" gaps deep in the attacking zone); well before, they weren't
+    expect(dist(tArrive)).toBeLessThan(5)
     expect(dist(tBefore)).toBeGreaterThan(dist(tArrive))
+  })
+
+  it('the defence reacts: closes down and collapses goal-side on a box attack', () => {
+    const m = mk('players:defence')
+    const plan = buildRenderPlan(m)
+    const seed = m.renderSeed >>> 0
+    // a home shot attacks the TOP goal, which AWAY defends
+    const shot = plan.segs.find((x) => x.kind === 'shot' && x.team === 'home')
+    expect(shot).toBeDefined()
+    if (!shot) return
+    const t = shot.t0
+    const b = ballStateAt(plan, t)
+    const sh = teamShiftAt(plan, t)
+    let minD = Infinity
+    let baseMinD = Infinity
+    let backLineY = 0
+    let baseBackLineY = 0
+    for (let slot = 1; slot < SLOTS.length; slot++) {
+      const p = playerPosAt(plan, seed, 'away', slot, t, b, sh)
+      const dx = p[0] - b.x
+      const dy = p[1] - b.y
+      minD = Math.min(minD, Math.sqrt(dx * dx + dy * dy))
+      const base = SLOTS[slot]
+      const basePx = PITCH.x + base[0] * PITCH.w
+      const basePy = PITCH.y + (1 - base[1]) * PITCH.h // away side is mirrored
+      const bdx = basePx - b.x
+      const bdy = basePy - b.y
+      baseMinD = Math.min(baseMinD, Math.sqrt(bdx * bdx + bdy * bdy))
+      if (slot <= 4) {
+        backLineY += p[1] / 4
+        baseBackLineY += basePy / 4
+      }
+    }
+    // somebody stepped to the ball — meaningfully closer than any static slot
+    expect(minD).toBeLessThan(baseMinD * 0.75)
+    // and the back line dropped toward its own (top) goal to protect the box
+    expect(backLineY).toBeLessThan(baseBackLineY - 40)
+  })
+
+  it('the defending gate is cliff-free: no boolean pop at possession flips', () => {
+    // fuzz-found regression: a boolean defending flag teleported the back line
+    // at every turnover/goal boundary; the smoothed gate must ramp, never jump
+    for (let s = 0; s < 5; s++) {
+      const plan = buildRenderPlan(mk(`gate:${s}`))
+      let prev = teamShiftAt(plan, plan.playStart)
+      for (let t = plan.playStart; t <= plan.playEnd; t += 1 / FPS) {
+        const sh = teamShiftAt(plan, t)
+        expect(Math.abs(sh.defendHome - prev.defendHome)).toBeLessThan(0.08)
+        expect(Math.abs(sh.defendAway - prev.defendAway)).toBeLessThan(0.08)
+        prev = sh
+      }
+    }
   })
 
   it('is a pure function of (plan, t): repeated calls agree exactly', () => {

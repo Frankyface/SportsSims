@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { simulateMatch } from '../sim/simulateMatch'
 import type { MatchConfig, MatchResult, TeamRating } from '../sim/types'
-import { buildRenderPlan, clockSecAt, pickActiveMoment, scoreAt } from './director'
+import { buildRenderPlan, clockSecAt, momentAlpha, pickActiveMoment, scoreAt } from './director'
 
 function team(id: string, over: Partial<TeamRating> = {}): TeamRating {
   return {
@@ -57,7 +57,7 @@ describe('director — the clock counts up, continuously', () => {
     }
   })
 
-  it('total runtime stays inside the Instagram band across many matches', () => {
+  it('total runtime stays inside the square-race band across many matches', () => {
     let min = Infinity
     let max = 0
     for (let s = 0; s < 200; s++) {
@@ -65,9 +65,86 @@ describe('director — the clock counts up, continuously', () => {
       min = Math.min(min, plan.total)
       max = Math.max(max, plan.total)
     }
-    // intro 2.6 + play 22..34 + whistle beat 0.7 + result 3.4
-    expect(min).toBeGreaterThanOrEqual(26)
-    expect(max).toBeLessThanOrEqual(42)
+    // intro 2.6 + play 48..62 + whistle beat 0.7 + result 3.4 (IG Reels cap: 90s)
+    expect(min).toBeGreaterThanOrEqual(53)
+    expect(max).toBeLessThanOrEqual(70)
+  })
+
+  it('storyline captions: at most 4, in-window, filled labels, goal always outranks', () => {
+    let total = 0
+    for (let s = 0; s < 60; s++) {
+      const plan = buildRenderPlan(mk(`story:${s}`))
+      const stories = plan.moments.filter((x) => x.kind === 'story')
+      total += stories.length
+      expect(stories.length).toBeLessThanOrEqual(4)
+      for (const st of stories) {
+        expect(st.t).toBeGreaterThanOrEqual(plan.playStart)
+        expect(st.t).toBeLessThanOrEqual(plan.playEnd)
+        expect(st.label.length).toBeGreaterThan(0)
+        expect(st.label.length).toBeLessThanOrEqual(30)
+        expect(st.label).not.toContain('{ABBR}')
+        // a story caption never beats a goal that is showing at the same time
+        const goalOver = plan.moments.find(
+          (g) => g.kind === 'goal' && st.t >= g.t && st.t <= g.t + g.dur,
+        )
+        if (goalOver) {
+          expect(pickActiveMoment(plan, st.t + 0.05)?.kind).toBe('goal')
+        }
+      }
+    }
+    // across many matches the commentator does speak sometimes
+    expect(total).toBeGreaterThan(10)
+  })
+
+  it('story captions never contradict the scorebug (fuzz-found regressions)', () => {
+    // HIGH findings: 'ONE GOAL IN IT' after an equaliser made it level, and
+    // 'ALL SQUARE' after a next-minute go-ahead goal (minute-quantised
+    // deadline off-by-one). Premises must hold for the caption's whole window.
+    for (let s = 0; s < 150; s++) {
+      const plan = buildRenderPlan(mk(`probe:${s}`))
+      for (const st of plan.moments) {
+        if (st.kind !== 'story') continue
+        for (let t = st.t; t <= st.t + st.dur; t += 0.1) {
+          const sc = scoreAt(plan, t)
+          const diff = Math.abs(sc[0] - sc[1])
+          if (/ONE GOAL IN IT/.test(st.label)) {
+            expect(diff, `"${st.label}" at diff ${diff}`).toBe(1)
+          }
+          if (/ALL SQUARE|BACK LEVEL|BACK FROM THE DEAD|REFUSE TO GO AWAY/.test(st.label)) {
+            expect(diff, `"${st.label}" at diff ${diff}`).toBe(0)
+          }
+        }
+      }
+    }
+  })
+
+  it('goal labels react to context (equalisers, openers, late winners)', () => {
+    const KNOWN = [
+      /WIN IT LATE$/,
+      /LEVEL IT$/,
+      /STRIKE FIRST$/,
+      /IN FRONT$/,
+      /RUNNING RIOT$/,
+      /STRIKE AGAIN$/,
+      /^A CONSOLATION FOR /,
+      /PULL ONE BACK$/,
+      /^GOAL — /,
+    ]
+    let openers = 0
+    let contextual = 0
+    for (let s = 0; s < 40; s++) {
+      const m = mk(`glabel:${s}`)
+      const plan = buildRenderPlan(m)
+      const goalMoments = plan.moments.filter((x) => x.kind === 'goal')
+      goalMoments.forEach((g, i) => {
+        expect(KNOWN.some((re) => re.test(g.label)), `unknown label: ${g.label}`).toBe(true)
+        expect(g.label.length).toBeLessThanOrEqual(30)
+        if (i === 0 && /STRIKE FIRST$/.test(g.label)) openers++
+        if (!/^GOAL — /.test(g.label)) contextual++
+      })
+    }
+    expect(openers).toBeGreaterThan(10) // first goals read as openers
+    expect(contextual).toBeGreaterThan(20) // the voice is doing real work
   })
 
   it('the scorebug score steps exactly on goals and lands on the final score', () => {
@@ -129,7 +206,8 @@ describe('director — the clock counts up, continuously', () => {
           expect(picked?.kind).toBe('goal')
         }
       }
-      // sampled sweep: the picker returns a renderable moment or null, never kickoff/fulltime
+      // sampled sweep: the picker returns a renderable, actually-VISIBLE moment
+      // or null — an already-faded banner never blocks a visible one
       for (let t = 0; t <= plan.total; t += 0.25) {
         const picked = pickActiveMoment(plan, t)
         if (picked) {
@@ -137,6 +215,7 @@ describe('director — the clock counts up, continuously', () => {
           expect(picked.kind).not.toBe('fulltime')
           expect(t).toBeGreaterThanOrEqual(picked.t)
           expect(t).toBeLessThanOrEqual(picked.t + picked.dur)
+          expect(momentAlpha(picked, t)).toBeGreaterThanOrEqual(0.15)
         }
       }
     }

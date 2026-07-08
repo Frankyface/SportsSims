@@ -63,22 +63,6 @@ export function ballStateAt(plan: RenderPlan, t: number): BallState {
   return { x, y, scale: 1 + air * 1.1, seg, p }
 }
 
-/** Fraction of the surrounding ~0.9s in which `side` has the ball (0..1). */
-function possessionFrac(plan: RenderPlan, side: Side, t: number): number {
-  const idx = segIndexAt(plan, t)
-  const w0 = t - 0.45
-  const w1 = t + 0.45
-  let mine = 0
-  let all = 0
-  for (let i = Math.max(0, idx - 8); i < Math.min(plan.segs.length, idx + 8); i++) {
-    const s = plan.segs[i]
-    const o = Math.min(w1, s.t1) - Math.max(w0, s.t0)
-    if (o <= 0) continue
-    all += o
-    if (s.team === side) mine += o
-  }
-  return all > 0 ? mine / all : 0.5
-}
 
 /**
  * Involvement of (side, slot) in nearby ball segments: players run to meet
@@ -91,8 +75,8 @@ function involvementAt(
   slot: number,
   t: number,
 ): { k: number; tx: number; ty: number } {
-  const PRE = 0.85
-  const POST = 0.7
+  const PRE = 1.05
+  const POST = 0.8
   const idx = segIndexAt(plan, t)
   let k = 0
   let tx = 0
@@ -115,18 +99,59 @@ function involvementAt(
 export interface TeamShift {
   home: number
   away: number
+  /** Smoothed 0..1 "this side is defending LIVE play" gates — computed over a
+   * ±0.45s window so pressing/box-collapse offsets ramp instead of popping at
+   * segment boundaries (a boolean gate here teleported the whole back line). */
+  defendHome: number
+  defendAway: number
 }
 
-/** Per-frame tactical shift: possession pushes a team up the pitch, defending compresses. */
+/** Per-frame tactical state: possession shift + smoothed defending gates. */
 export function teamShiftAt(plan: RenderPlan, t: number): TeamShift {
-  const fh = possessionFrac(plan, 'home', t)
+  const idx = segIndexAt(plan, t)
+  const w0 = t - 0.45
+  const w1 = t + 0.45
+  let all = 0
+  let homePoss = 0
+  let liveHome = 0
+  let liveAway = 0
+  for (let i = Math.max(0, idx - 10); i < Math.min(plan.segs.length, idx + 10); i++) {
+    const s = plan.segs[i]
+    const o = Math.min(w1, s.t1) - Math.max(w0, s.t0)
+    if (o <= 0) continue
+    all += o
+    if (s.team === 'home') homePoss += o
+    if (s.kind !== 'held' && s.kind !== 'restart') {
+      if (s.team === 'home') liveHome += o
+      else liveAway += o
+    }
+  }
+  const fh = all > 0 ? homePoss / all : 0.5
   return {
-    home: lerp(-0.03, 0.05, fh),
-    away: lerp(-0.03, 0.05, 1 - fh),
+    home: lerp(-0.05, 0.08, fh),
+    away: lerp(-0.05, 0.08, 1 - fh),
+    defendHome: all > 0 ? liveAway / all : 0,
+    defendAway: all > 0 ? liveHome / all : 0,
   }
 }
 
-/** Canvas position of one player dot at render-time t. Pure. */
+function clampN(x: number, lo: number, hi: number): number {
+  return x < lo ? lo : x > hi ? hi : x
+}
+
+/**
+ * Canvas position of one player dot at render-time t. Pure.
+ *
+ * Off-ball life is layered in this order (each layer is a pure function of
+ * (plan, t), so preview and export stay identical):
+ *   1. formation base + possession push/drop
+ *   2. whole-team lean toward the ball's depth and lane (lines move together)
+ *   3. defenders: box collapse goal-side + distance-based closing-down press
+ *      attackers: forward support runs into the final third
+ *   4. idle wobble (seeded)
+ *   5. involvement runs — receivers arrive EXACTLY on their pass at arrival
+ *   6. goal-celebration swarm
+ */
 export function playerPosAt(
   plan: RenderPlan,
   seed: number,
@@ -137,40 +162,81 @@ export function playerPosAt(
   shift: TeamShift,
 ): [number, number] {
   const base = slotBase(side, slot)
+  const ballNx = clampN((ball.x - PITCH.x) / PITCH.w, 0, 1)
+  const ballNy = clampN((ball.y - PITCH.y) / PITCH.h, 0, 1)
+  const ownGoalY = side === 'home' ? 1 : 0
+  const oppGoalY = 1 - ownGoalY
+  // how deep the ball is in our defensive end / their end (0..1 over the last third)
+  const d3def = clamp01((0.34 - Math.abs(ballNy - ownGoalY)) / 0.34)
+  const d3att = clamp01((0.34 - Math.abs(ballNy - oppGoalY)) / 0.34)
+  // smoothed "we are defending live play" gate — replaces the old boolean,
+  // whose instant flips teleported the back line at every possession change.
+  // Dead-ball spans (celebrations, stoppages, retrievals) drain it naturally.
+  const gate = side === 'home' ? shift.defendHome : shift.defendAway
+
   let nx = base[0]
   let ny = base[1]
 
   if (slot === KEEPER_SLOT) {
-    // keepers hold the line and shadow the ball laterally
-    const ballNx = (ball.x - PITCH.x) / PITCH.w
-    nx = base[0] + Math.max(-0.13, Math.min(0.13, (ballNx - 0.5) * 0.5))
+    // keepers shadow the ball laterally and edge off the line as danger nears
+    nx = base[0] + clampN((ballNx - 0.5) * 0.6, -0.16, 0.16)
+    ny = base[1] + (ownGoalY === 1 ? -1 : 1) * d3def * 0.025
   } else {
     const amt = side === 'home' ? shift.home : shift.away
-    ny = base[1] + (side === 'home' ? -amt : amt)
+    ny += side === 'home' ? -amt : amt
+
+    // 2) the whole team leans with the ball — depth together, lane together
+    ny += clampN((ballNy - 0.5) * 0.16, -0.09, 0.09)
+    nx += (ballNx - 0.5) * (slot >= 5 ? 0.2 : 0.12)
+
+    if (slot <= 4) {
+      // 3a) back line collapses goal-side of the ball, spread across its lane
+      const wallX = clampN(ballNx + (slot - 2.5) * 0.11, 0.08, 0.92)
+      const wallY = clampN(lerp(ballNy, ownGoalY, 0.45), 0.04, 0.96)
+      const k = d3def * 0.55 * gate
+      nx = lerp(nx, wallX, k)
+      ny = lerp(ny, wallY, k)
+    } else {
+      // 3c) attackers make forward runs as the move enters the final third
+      ny += (oppGoalY === 0 ? -1 : 1) * d3att * (slot === 7 ? 0.11 : 0.07) * (1 - gate)
+    }
   }
 
   let [px, py] = toPx([nx, ny])
 
-  // cosmetic idle wobble (render-only; seeded so it re-renders identically)
+  // 3b) closing down: defenders converge on the ball, hardest near their box.
+  // Rational falloff — the nearest defender presses hard, the cover shuffles.
+  if (slot !== KEEPER_SLOT && gate > 0.02) {
+    const dx = ball.x - px
+    const dy = ball.y - py
+    const d = Math.sqrt(dx * dx + dy * dy)
+    const urgency = 0.4 + 0.6 * d3def
+    const k = gate * (urgency * 0.5) / (1 + (d / 240) * (d / 240))
+    px += dx * k
+    py += dy * k
+  }
+
+  // 4) cosmetic idle wobble (render-only; seeded so it re-renders identically)
   const ph = seed * 0.0007 + slot * 1.3 + (side === 'home' ? 0 : 9)
   px += Math.sin(t * 1.6 + ph) * 6
   py += Math.cos(t * 1.3 + ph) * 6
 
-  // run to meet your pass / interception / save
+  // 5) run to meet your pass / interception / save — and actually MEET it:
+  // at arrival the pull is 1.0, so receiver and ball touch exactly
   const inv = involvementAt(plan, side, slot, t)
   if (inv.k > 0) {
     const [tx, ty] = toPx([inv.tx, inv.ty])
-    const pull = easeInOut(inv.k) * 0.85
+    const pull = easeInOut(inv.k)
     px = lerp(px, tx, pull)
     py = lerp(py, ty, pull)
-  } else if (slot !== KEEPER_SLOT) {
-    // gentle drift toward the ball keeps the shape alive without bunching
-    px += (ball.x - px) * 0.04
-    py += (ball.y - py) * 0.04
+  } else if (gate < 0.5 && slot !== KEEPER_SLOT) {
+    // gentle drift toward the ball keeps the attacking shape alive
+    px += (ball.x - px) * 0.035 * (1 - gate)
+    py += (ball.y - py) * 0.035 * (1 - gate)
   }
 
-  // goal celebration: scorers' teammates swarm toward the ball in the net
-  if (ball.seg.kind === 'held' && ball.seg.arc === 0 && isCelebration(plan, ball) && side === ball.seg.team) {
+  // 6) goal celebration: scorers' teammates swarm toward the ball in the net
+  if (ball.seg.kind === 'held' && isCelebration(plan, ball) && side === ball.seg.team) {
     const swarm = easeInOut(clamp01(ball.p * 1.6)) * 0.3
     px = lerp(px, ball.x, swarm)
     py = lerp(py, ball.y, swarm)

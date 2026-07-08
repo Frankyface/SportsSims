@@ -146,8 +146,8 @@ describe('choreographer — story requirements', () => {
       expect(featured.length).toBeGreaterThan(0)
       expect(bridges.length).toBeGreaterThan(0)
       for (const b of bridges) {
-        expect(b.renderDur).toBeGreaterThanOrEqual(0.8)
-        expect(b.renderDur).toBeLessThanOrEqual(1.81)
+        expect(b.renderDur).toBeGreaterThanOrEqual(1.5)
+        expect(b.renderDur).toBeLessThanOrEqual(2.61)
       }
       const featT = featured.reduce((x, p) => x + p.renderDur, 0)
       const briT = bridges.reduce((x, p) => x + p.renderDur, 0)

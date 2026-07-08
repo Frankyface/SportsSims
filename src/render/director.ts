@@ -7,8 +7,9 @@
 // overlay "moments". Pure and deterministic — the same plan drives the live
 // preview and the MP4 export.
 
-import type { MatchResult, Side } from '../sim/types'
+import type { MatchEvent, MatchResult, Side } from '../sim/types'
 import { buildPlayScript, type TouchKind } from '../sim/choreographer'
+import { buildStoryMoments, type BridgeSlot } from './storyline'
 
 export interface BallSeg {
   t0: number // render seconds
@@ -31,6 +32,7 @@ export type MomentKind =
   | 'card'
   | 'halftime'
   | 'fulltime'
+  | 'story'
 
 export interface Moment {
   t: number // render seconds the overlay/audio fires
@@ -68,19 +70,73 @@ export interface RenderPlan {
 const INTRO_DUR = 2.6
 const RESULT_DUR = 3.4
 const FT_BEAT = 0.7 // hold on the pitch at the final whistle before the result card
-const PLAY_MIN = 22 // normalize play time into a watchable band (seconds)
-const PLAY_MAX = 34
+// Square-race length: play window 48-62s -> total video 54.7-68.7s by construction
+const PLAY_MIN = 48 // normalize play time into a watchable band (seconds)
+const PLAY_MAX = 62
 const HALF_SEC = 45 * 60
 
 const MOMENT_DUR: Record<MomentKind, number> = {
-  kickoff: 1.0,
-  goal: 2.4,
-  bigChance: 1.8,
-  save: 1.5,
-  miss: 1.4,
-  card: 1.7,
-  halftime: 1.4,
+  kickoff: 1.2,
+  goal: 3.4,
+  bigChance: 2.5,
+  save: 2.1,
+  miss: 2.0,
+  card: 2.4,
+  halftime: 2.0,
   fulltime: 1.2,
+  story: 2.4,
+}
+
+/**
+ * Context-aware goal labels — the broadcast voice reacts to the match state,
+ * not just the fact of a goal. Precedence: late winner > equaliser > opener >
+ * go-ahead > third-in-a-run > brace > consolation > pull-one-back > default.
+ * Deterministic (planned from the full event list); {TEAM} falls back to the
+ * abbreviation when the full name would overflow the lower third (~30 chars).
+ */
+function goalLabelFor(m: MatchResult, ev: MatchEvent): string {
+  const goals = m.events.filter((e) => e.type === 'goal')
+  const idx = goals.findIndex((g) => g.id === ev.id)
+  const scorer: Side = ev.team === 'away' ? 'away' : 'home'
+  const teamDef = scorer === 'home' ? m.config.home : m.config.away
+  const name = teamDef.name.toUpperCase()
+  const abbr = teamDef.abbr
+  const fit = (pattern: string): string => {
+    const full = pattern.replace('{T}', name)
+    return full.length <= 30 ? full : pattern.replace('{T}', abbr)
+  }
+
+  const own = scorer === 'home' ? ev.scoreAfter[0] : ev.scoreAfter[1]
+  const oth = scorer === 'home' ? ev.scoreAfter[1] : ev.scoreAfter[0]
+  const beforeDiff = own - 1 - oth
+  const later = goals.slice(idx + 1)
+  const staysAhead =
+    own > oth &&
+    later.every((g) => {
+      const so = scorer === 'home' ? g.scoreAfter[0] : g.scoreAfter[1]
+      const oo = scorer === 'home' ? g.scoreAfter[1] : g.scoreAfter[0]
+      return so > oo
+    })
+
+  if (ev.minute >= 85 && beforeDiff === 0 && staysAhead) return fit('{T} WIN IT LATE')
+  if (own === oth) return fit('{T} LEVEL IT')
+  if (idx === 0) return fit('{T} STRIKE FIRST')
+  if (beforeDiff === 0) return fit('{T} IN FRONT')
+
+  let run = 1
+  for (let i = idx - 1; i >= 0 && goals[i].team === ev.team; i--) run++
+  if (own > oth) {
+    if (run >= 3) return `${abbr} RUNNING RIOT`
+    if (run >= 2) return fit('{T} STRIKE AGAIN')
+    return fit('GOAL — {T}')
+  }
+
+  // scorer still trails
+  const neverLevel = later.every((g) => g.scoreAfter[0] !== g.scoreAfter[1])
+  const finalOwn = scorer === 'home' ? m.score[0] : m.score[1]
+  const finalOth = scorer === 'home' ? m.score[1] : m.score[0]
+  if (ev.minute >= 70 && neverLevel && finalOwn < finalOth) return `A CONSOLATION FOR ${abbr}`
+  return fit('{T} PULL ONE BACK')
 }
 
 export function buildRenderPlan(m: MatchResult): RenderPlan {
@@ -101,6 +157,7 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
 
   let t = INTRO_DUR
   let halftimeDone = false
+  const bridgeSlots: BridgeSlot[] = []
 
   for (const p of script.passages) {
     const dur = p.renderDur * scale
@@ -153,7 +210,7 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
           kind: 'goal',
           team: p.team,
           minute,
-          label: p.label ?? 'GOAL',
+          label: goalLabelFor(m, ev),
         })
       } else if (p.outcome === 'bigChanceSaved' || p.outcome === 'bigChanceMiss') {
         moments.push({
@@ -186,6 +243,10 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
       }
     }
 
+    if (p.kind === 'bridge') {
+      bridgeSlots.push({ t, dur, simStart: p.simStart, simEnd: p.simEnd })
+    }
+
     t += dur
     clockPts.push({ t, sec: p.simEnd })
   }
@@ -199,6 +260,14 @@ export function buildRenderPlan(m: MatchResult): RenderPlan {
     minute: 90,
     label: 'FULL-TIME',
   })
+
+  // plant the commentator's storyline captions into quiet bridge play,
+  // steering clear of every already-scheduled overlay window (no stub captions)
+  const blocked = moments
+    .filter((x) => x.kind !== 'kickoff' && x.kind !== 'fulltime')
+    .map((x) => ({ t: x.t, dur: x.dur }))
+  moments.push(...buildStoryMoments(m, bridgeSlots, blocked))
+  moments.sort((a, b) => a.t - b.t)
 
   const resultStart = playEnd + FT_BEAT
   return {
@@ -225,15 +294,30 @@ const THIRD_PRIORITY: Record<MomentKind, number> = {
   save: 3,
   miss: 3,
   halftime: 2,
+  story: 1, // commentator colour — only ever shows in genuinely quiet play
   kickoff: 0,
   fulltime: 0,
 }
 
-/** The single overlay moment to show at render-time t — no stacked banners. */
+/** Raw fade envelope of a moment's overlay at render-time t (0..1). */
+export function momentAlpha(m: Moment, t: number): number {
+  const prog = (t - m.t) / m.dur
+  if (prog < 0 || prog > 1) return 0
+  const up = Math.min(1, prog * 4)
+  const down = Math.min(1, (1 - prog) * 4)
+  return Math.min(up, down)
+}
+
+/**
+ * The single overlay moment to show at render-time t — no stacked banners.
+ * A moment that has already faded out (or barely faded in) doesn't get to
+ * block a fully-visible lower-priority one.
+ */
 export function pickActiveMoment(plan: RenderPlan, t: number): Moment | null {
   let best: Moment | null = null
   for (const m of plan.moments) {
     if (t < m.t || t > m.t + m.dur) continue
+    if (momentAlpha(m, t) < 0.15) continue
     const p = THIRD_PRIORITY[m.kind]
     if (p <= 0) continue
     if (!best || p > THIRD_PRIORITY[best.kind] || (p === THIRD_PRIORITY[best.kind] && m.t > best.t)) {

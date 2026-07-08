@@ -125,8 +125,10 @@ function drawScorebug(ctx: Ctx, model: RenderModel, t: number): void {
   roundRect(ctx, chipX, y + 20, chipW, h - 40, 12)
   ctx.stroke()
   ctx.font = 'bold 34px system-ui, sans-serif'
-  ctx.fillStyle = '#ff5566'
   const minute = Math.min(90, Math.floor(clockSecAt(plan, t) / 60))
+  // late-drama pulse: in a close game the ticking clock IS the tension device
+  const closeLate = minute >= 85 && t < plan.playEnd && Math.abs(score[0] - score[1]) <= 1
+  ctx.fillStyle = closeLate && Math.sin(t * 7) > 0 ? '#ffffff' : '#ff5566'
   const clock = t >= plan.playEnd ? 'FT' : `${minute}'`
   ctx.fillText(clock, chipX + chipW / 2, y + h / 2)
 }

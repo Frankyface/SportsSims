@@ -59,18 +59,22 @@ export interface PlayScript {
 }
 
 // --- pacing constants (seconds of render time per featured moment) ---
+// Square-race pacing: ~1.4x dwell on every featured beat, slower ball travel,
+// and many more visible bridge passes — audited across 600 seeds to land the
+// play window at 48-62s (total video ~55-69s) with the anti-teleport gate at
+// ~38% margin (worst measured 98.7px/frame vs the 160 limit).
 const DUR: Record<Exclude<PassageOutcome, 'flow'>, number> = {
-  goal: 4.2,
-  bigChanceSaved: 2.6,
-  bigChanceMiss: 2.4,
-  save: 2.2,
-  miss: 2.0,
-  card: 2.4,
+  goal: 5.9,
+  bigChanceSaved: 3.6,
+  bigChanceMiss: 3.4,
+  save: 3.1,
+  miss: 2.8,
+  card: 3.4,
 }
-const FEATURE_BUDGET = 19 // seconds of featured render time (musts always fit)
+const FEATURE_BUDGET = 27 // seconds of featured render time (musts always fit)
 const MAX_FEATURED = 11
 const HALF_SEC = 45 * 60
-const MAX_BRIDGE_SPAN = 1200 // split featureless stretches longer than this (sim seconds)
+const MAX_BRIDGE_SPAN = 500 // split featureless stretches longer than this (sim seconds)
 const ABSORB_GAP = 60 // gaps shorter than this merge into the next featured window
 
 // goal mouth geometry (normalized pitch space; matches the renderer's boxes)
@@ -107,7 +111,7 @@ function pick<T>(rng: () => number, arr: readonly T[]): T {
 function passW(a: readonly [number, number], b: readonly [number, number]): number {
   return Math.max(0.35, manLen(a, b))
 }
-const SPEED_FLOOR = 0.6 // render seconds per weight unit — floors passage duration by distance
+const SPEED_FLOOR = 0.95 // render seconds per weight unit — floors passage duration by distance
 /** Goal-line y for the goal `team` attacks (just past the line = in the net). */
 function goalLineY(team: Side, depth: number): number {
   return team === 'home' ? -depth : 1 + depth
@@ -269,7 +273,7 @@ export function buildPlayScript(m: MatchResult): PlayScript {
         0.28 + rng() * 0.44,
         nextTeam === 'home' ? 0.62 + rng() * 0.16 : 0.22 + rng() * 0.16,
       ])
-      let wps = walk(ballAt, zone, 2 + (rng() < 0.5 ? 1 : 0))
+      let wps = walk(ballAt, zone, 3 + (rng() < 0.5 ? 1 : 0))
       // route through the centre circle when this stretch crosses half-time
       if (a < HALF_SEC && b >= HALF_SEC) {
         wps = [clampPt([0.5 + jit(rng, 0.04), 0.5 + jit(rng, 0.04)]), ...wps]
@@ -298,7 +302,7 @@ export function buildPlayScript(m: MatchResult): PlayScript {
         kind: 'bridge',
         outcome: 'flow',
         // floored by total travel distance so the ball keeps a watchable pace
-        renderDur: clamp(wsum * SPEED_FLOOR, 0.8, 1.8),
+        renderDur: clamp(wsum * SPEED_FLOOR, 1.5, 2.6),
         touches,
         minute: Math.floor(b / 60),
       })
