@@ -11,6 +11,7 @@ import type { MatchResult } from '../sim/types'
 import { buildRenderModel, drawFrame, RENDER_W, RENDER_H, type RenderModel } from '../render/renderMatch'
 import { ensureLogosLoaded } from '../render/logos'
 import { buildMatchAudio, AUDIO_SR } from './audio'
+import { loadAudioAssets } from './audioAssets'
 
 const FPS = 30
 const BITRATE = 10_000_000
@@ -35,7 +36,9 @@ async function pickCodec(): Promise<string | null> {
 }
 
 async function encodeAudio(muxer: Muxer<ArrayBufferTarget>, model: RenderModel, onError: (e: unknown) => void): Promise<void> {
-  const pcm = buildMatchAudio(model)
+  // drop-in cheers/boos/music decode once and cache; empty bank = procedural
+  const bank = await loadAudioAssets()
+  const pcm = buildMatchAudio(model, bank)
   const encoder = new AudioEncoder({
     output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
     error: onError,
