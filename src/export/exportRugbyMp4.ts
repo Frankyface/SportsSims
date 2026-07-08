@@ -14,7 +14,7 @@ import {
   type RugbyRenderModel,
 } from '../render/rugbyRenderMatch'
 import { ensureRugbyLogosLoaded } from '../render/rugbyLogos'
-import type { MomentKind } from '../render/director'
+import type { Moment, MomentKind, RenderPlan } from '../render/director'
 import type { RenderModel } from '../render/renderMatch'
 import { buildMatchAudio, AUDIO_SR } from './audio'
 import { loadAudioAssets } from './audioAssets'
@@ -35,9 +35,8 @@ function audioKindFor(m: RugbyMoment): MomentKind {
     case 'penaltyGoal':
     case 'dropGoal':
       return 'bigChance'
-    case 'conversion':
-      // only a GOOD conversion gets a cheer; the label carries the outcome
-      return m.label.startsWith('CONVERSION —') ? 'save' : 'miss'
+    case 'conversion': // made — the polite applause tier
+      return 'save'
     case 'break':
       return 'save'
     case 'card':
@@ -48,22 +47,28 @@ function audioKindFor(m: RugbyMoment): MomentKind {
     case 'story':
       return m.kind
     default:
-      return 'miss'
+      return 'miss' // conversionMiss / penaltyMiss / dropMiss — silent
   }
 }
 
 /**
- * The audio mixer only ever reads plan.{total,playStart,playEnd,resultStart,
- * moments[].kind/t/team} and model.seed — this adapter presents the rugby
- * model through that exact surface (cast is safe by construction; guarded by
- * the field list above staying in sync with export/audio.ts).
+ * Present the rugby model to the shared audio mixer as a REAL RenderModel —
+ * no casts. Moments are re-keyed into the soccer cue vocabulary; segs and
+ * sendOffs are sport-specific shapes the mixer never reads, so they go over
+ * empty rather than lying about their types.
  */
 function audioModelFor(model: RugbyRenderModel): RenderModel {
-  const moments = model.plan.moments.map((m) => ({ ...m, kind: audioKindFor(m) }))
-  return {
-    ...model,
-    plan: { ...model.plan, moments },
-  } as unknown as RenderModel
+  const moments: Moment[] = model.plan.moments.map((m) => ({
+    t: m.t,
+    dur: m.dur,
+    kind: audioKindFor(m),
+    team: m.team,
+    minute: m.minute,
+    label: m.label,
+    cardType: m.cardType,
+  }))
+  const plan: RenderPlan = { ...model.plan, segs: [], sendOffs: [], moments }
+  return { ...model, plan }
 }
 
 async function pickCodec(): Promise<string | null> {

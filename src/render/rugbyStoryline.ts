@@ -123,11 +123,17 @@ export function buildRugbyStoryMoments(
     })
   }
 
-  // --- late drama: within one score with ten to play ---
+  // --- late drama: within one score with ten to play — but only when the
+  // closeness is EARNED (recent scores or chances), never a caption promising
+  // drama in a match that died at half-time (same gate the soccer layer has)
   const at70 = [...m.events].reverse().find((e) => e.minute <= 70)
   if (at70) {
     const diff = Math.abs(at70.scoreAfter[0] - at70.scoreAfter[1])
-    if (diff > 0 && diff <= 7) {
+    const lateScores = scores.filter((e) => e.minute > 55 && e.minute <= 70).length
+    const lateChances = m.events.filter(
+      (e) => (e.type === 'break' || e.type === 'penalty') && e.minute > 55 && e.minute <= 70,
+    ).length
+    if (diff > 0 && diff <= 7 && (lateScores >= 1 || lateChances >= 2)) {
       cands.push({
         id: 'late',
         priority: 3,

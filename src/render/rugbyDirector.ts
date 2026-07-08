@@ -25,7 +25,8 @@ export interface RugbyBallSeg {
 export type RugbyMomentKind =
   | 'kickoff'
   | 'try'
-  | 'conversion'
+  | 'conversion' // made — worth +2 and a cheer
+  | 'conversionMiss'
   | 'penaltyGoal'
   | 'penaltyMiss'
   | 'dropGoal'
@@ -89,6 +90,7 @@ const MOMENT_DUR: Record<RugbyMomentKind, number> = {
   kickoff: 1.2,
   try: 3.4,
   conversion: 1.8,
+  conversionMiss: 1.8,
   penaltyGoal: 2.8,
   penaltyMiss: 2.0,
   dropGoal: 2.8,
@@ -100,11 +102,18 @@ const MOMENT_DUR: Record<RugbyMomentKind, number> = {
   story: 2.4,
 }
 
+const SCORING_TYPES = new Set(['try', 'conversion', 'penaltyGoal', 'dropGoal'])
+
 /**
  * Context-aware try labels — precedence mirrors the soccer goal labeller:
  * late winner > leveller > opener > lead-taker > run-counting > consolation.
  * Deterministic from the full event list; {T} falls back to the abbreviation
  * when the full name would overflow the lower third.
+ *
+ * Two rugby-specific rules keep the label honest against the scoreboard:
+ * the score state includes the CONVERSION (a try that levels and is converted
+ * to win is a winner, not a leveller), and "stays ahead"/"never level" scan
+ * EVERY later scoring event — penalty goals flip leads just as well as tries.
  */
 function tryLabelFor(m: RugbyMatchResult, ev: RugbyMatchEvent): string {
   const tries = m.events.filter((e) => e.type === 'try')
@@ -118,13 +127,16 @@ function tryLabelFor(m: RugbyMatchResult, ev: RugbyMatchEvent): string {
     return full.length <= 30 ? full : pattern.replace('{T}', abbr)
   }
 
-  const own = scorer === 'home' ? ev.scoreAfter[0] : ev.scoreAfter[1]
-  const oth = scorer === 'home' ? ev.scoreAfter[1] : ev.scoreAfter[0]
-  const beforeOwn = own - 5
-  const later = tries.slice(idx + 1)
+  // score state once the whole try (grounding + conversion attempt) resolves
+  const convEv = m.events.find((e) => e.id === ev.id + 1)
+  const settled = convEv && convEv.type === 'conversion' ? convEv.scoreAfter : ev.scoreAfter
+  const own = scorer === 'home' ? settled[0] : settled[1]
+  const oth = scorer === 'home' ? settled[1] : settled[0]
+  const beforeOwn = (scorer === 'home' ? ev.scoreAfter[0] : ev.scoreAfter[1]) - 5
+  const laterScores = m.events.filter((e) => SCORING_TYPES.has(e.type) && e.id > ev.id + 1)
   const staysAhead =
     own > oth &&
-    later.every((g) => {
+    laterScores.every((g) => {
       const so = scorer === 'home' ? g.scoreAfter[0] : g.scoreAfter[1]
       const oo = scorer === 'home' ? g.scoreAfter[1] : g.scoreAfter[0]
       return so > oo
@@ -143,7 +155,7 @@ function tryLabelFor(m: RugbyMatchResult, ev: RugbyMatchEvent): string {
     return fit('TRY — {T}')
   }
 
-  const neverLevel = later.every((g) => g.scoreAfter[0] !== g.scoreAfter[1])
+  const neverLevel = laterScores.every((g) => g.scoreAfter[0] !== g.scoreAfter[1])
   const finalOwn = scorer === 'home' ? m.score[0] : m.score[1]
   const finalOth = scorer === 'home' ? m.score[1] : m.score[0]
   if (ev.minute >= 65 && neverLevel && finalOwn < finalOth) return `A CONSOLATION FOR ${abbr}`
@@ -253,7 +265,7 @@ export function buildRugbyRenderPlan(m: RugbyMatchResult): RugbyRenderPlan {
           moments.push({
             t: shotT,
             dur: MOMENT_DUR.conversion,
-            kind: 'conversion',
+            kind: p.conv === 'good' ? 'conversion' : 'conversionMiss',
             team: p.team,
             minute: minuteOf(shotT),
             label: p.conv === 'good' ? `CONVERSION — ${abbr}` : 'CONVERSION MISSED',
@@ -383,6 +395,7 @@ const THIRD_PRIORITY: Record<RugbyMomentKind, number> = {
   penaltyMiss: 3,
   dropMiss: 3,
   conversion: 2,
+  conversionMiss: 2,
   halftime: 2,
   story: 1,
   kickoff: 0,

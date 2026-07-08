@@ -166,16 +166,36 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
   const poss = m.possessions
   const matchEnd = poss.length ? poss[poss.length - 1].end : 80 * 60
 
-  // Cards walk a player off. Picked FIRST so the ':pbp' draw order is stable.
-  // Yellows return after 10 sim-minutes; reds are gone for good.
-  const sendOffs: RugbySendOff[] = m.events
-    .filter((e) => (e.type === 'yellow' || e.type === 'red') && e.team)
-    .map((e) => ({
-      team: e.team as Side,
-      slot: 1 + Math.floor(rng() * 9),
-      simSec: e.minute * 60,
-      returnSec: e.type === 'yellow' ? e.minute * 60 + 600 : undefined,
-    }))
+  // Cards walk a player off. Picked FIRST so the ':pbp' draw order is stable
+  // (exactly one draw per card). Yellows return after 10 sim-minutes; reds are
+  // gone for good. The walk-off is anchored to the exact END of the possession
+  // that produced the card (cards always follow their penalty award at id-1),
+  // never to the floored event minute — which could land up to a minute early,
+  // before the card stoppage is even staged. The slot is drawn WITHOUT
+  // replacement among players currently on the pitch, so two cards can never
+  // hit the same dot (a red-carded player must never stroll back on).
+  const sendOffs: RugbySendOff[] = []
+  for (const e of m.events) {
+    if ((e.type !== 'yellow' && e.type !== 'red') || !e.team) continue
+    const team = e.team as Side
+    const span = poss.find((p) => p.eventId === e.id - 1)
+    const simSec = span ? span.end : e.minute * 60
+    const taken = sendOffs
+      .filter(
+        (s) =>
+          s.team === team && s.simSec <= simSec && (s.returnSec === undefined || s.returnSec > simSec),
+      )
+      .map((s) => s.slot)
+    const avail: number[] = []
+    for (let i = 1; i <= 9; i++) if (!taken.includes(i)) avail.push(i)
+    const slot = avail[Math.floor(rng() * avail.length) % avail.length]
+    sendOffs.push({
+      team,
+      slot,
+      simSec,
+      returnSec: e.type === 'yellow' ? simSec + 600 : undefined,
+    })
+  }
   const offSlots = (team: Side, simSec: number): number[] =>
     sendOffs
       .filter(
@@ -221,7 +241,9 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       } else if (res && res.type === 'penaltyMiss') {
         cands.push({
           pi,
-          must: cardType === 'red',
+          // ANY card must be staged: the send-off walks a player off the pitch,
+          // and an unexplained disappearance is worse than a busy clip
+          must: cardType !== undefined,
           score: cardType ? 2 : 0.45,
           dur: DUR.penMiss,
           kind: 'penMiss',
@@ -243,7 +265,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       } else if (res && res.type === 'break') {
         cands.push({
           pi,
-          must: cardType === 'red',
+          must: cardType !== undefined,
           score: cardType ? 2 : 0.45,
           dur: DUR.break + CORNER_EXTRA,
           kind: 'break',
@@ -252,10 +274,11 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
           viaCorner: true,
         })
       } else if (cardType) {
-        // award + card, drive defended — the card is the story
+        // award + card, drive defended — the card is the story (and every card
+        // must be staged: its player visibly leaves the pitch)
         cands.push({
           pi,
-          must: cardType === 'red',
+          must: true,
           score: cardType === 'red' ? 9 : 0.5,
           dur: DUR.card,
           kind: 'card',
@@ -440,6 +463,9 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       const b = s1 - a > MAX_BRIDGE_SPAN ? a + MAX_BRIDGE_SPAN : s1
       const steal = rng() < 0.5
       const passerTeam = steal ? opp(nextTeam) : nextTeam
+      // fresh receiver chain per passage — a slot index left over from the
+      // OTHER team must never exclude this team's nearest player
+      lastSlot = -1
       const touches = openTouches(passerTeam, a)
       const kickChange = steal && rng() < 0.55
       const dir = attackDir(nextTeam)
@@ -518,6 +544,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
     const p = poss[c.pi]
     const team = p.team
     const dir = attackDir(team)
+    lastSlot = -1 // fresh receiver chain per passage (see pushBridge)
     const touches = openTouches(team, simStart)
     const ev = c.ev
     let label: string | undefined = ev.label
@@ -549,7 +576,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       holdBall(touches, team, 1.4, 'maul')
       carryTo(touches, team, simStart, clampPt([lineoutAt[0] + jit(rng, 0.04), lineoutAt[1] + dir * 0.04]))
       const G: [number, number] = [X, tryLineY(team, 0.025)]
-      lastSlot = rugbyNearestSlot(team, X, ballAt[1], lastSlot, offSlots(team, simStart))
+      // the man driving the maul is the man who grounds it — same slot
       touches.push({ kind: 'grounding', team, from: ballAt, to: G, slot: lastSlot, w: Math.max(0.3, manLen(ballAt, G)), arc: 0, risky: true })
       ballAt = G
       holdBall(touches, team, 1.15, 'celebrate')
@@ -561,7 +588,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
       const breakAt = clampPt([lerp(ballAt[0], X, 0.8), 0.5 + dir * 0.42])
       carryTo(touches, team, simStart, breakAt, true)
       const G: [number, number] = [X, tryLineY(team, 0.025)]
-      lastSlot = rugbyNearestSlot(team, X, breakAt[1], lastSlot, offSlots(team, simStart))
+      // the player who made the break finishes it — same slot dives over
       touches.push({ kind: 'grounding', team, from: ballAt, to: G, slot: lastSlot, w: Math.max(0.3, manLen(ballAt, G)), arc: 0, risky: false })
       ballAt = G
       holdBall(touches, team, 1.15, 'celebrate')

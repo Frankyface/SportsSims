@@ -13,6 +13,14 @@ import type { TeamRating } from './types'
  * Never update this snapshot without an explicit, understood decision about
  * exactly which matches change and why (see scoreCompat.test.ts for the
  * discipline the soccer engine follows).
+ *
+ * Snapshot history:
+ * - 2026-07-08 (same-day, pre-release): regenerated once during the launch
+ *   code-review, BEFORE any rugby league persistence existed anywhere (no
+ *   saved data could be invalidated). Two same-day fixes: shorthandedness is
+ *   now judged at possession START (was end — bins expired ~half a possession
+ *   early), and possession % now always sums to 100. No rng() draws changed;
+ *   only weights/stats. RUGBY_SIM_VERSION stays 1 — this is the launch stream.
  */
 
 function fnv1a(s: string): string {

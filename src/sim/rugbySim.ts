@@ -92,10 +92,16 @@ export function simulateRugbyMatch(config: RugbyMatchConfig): RugbyMatchResult {
   let possHome = 0
   let possAway = 0
   const redOff: [boolean, boolean] = [false, false]
+  // Team-level sin-bin state — a deliberate v1 simplification: a second yellow
+  // while already binned refreshes the window rather than modelling 13 men.
+  // Overlapping bins are rare (~1.2 yellows/match); per-player binning would
+  // need a RUGBY_SIM_VERSION bump if it's ever wanted.
   const sinBinUntil: [number, number] = [0, 0]
   const possessions: RugbyPossessionSpan[] = []
 
-  const isShort = (i: 0 | 1): boolean => redOff[i] || clock < sinBinUntil[i]
+  // Shorthandedness is judged at the START of a possession — the state the
+  // teams were in when the passage of play began.
+  const isShort = (i: 0 | 1, at: number): boolean => redOff[i] || at < sinBinUntil[i]
 
   // Try + conversion, shared by open play and the lineout drive.
   // Draw order (frozen): tryX, then the conversion roll.
@@ -138,10 +144,12 @@ export function simulateRugbyMatch(config: RugbyMatchConfig): RugbyMatchResult {
 
     // 1) who has this possession — attack-weighted, home tilt, momentum;
     // 14 men see less of the ball
+    const short0 = isShort(0, spanStart)
+    const short1 = isShort(1, spanStart)
     const wHome =
-      home.attack * homeAdvantage * formHome * (1 + 0.15 * momentum) * (isShort(0) ? SHORT_POSSESSION : 1)
+      home.attack * homeAdvantage * formHome * (1 + 0.15 * momentum) * (short0 ? SHORT_POSSESSION : 1)
     const wAway =
-      away.attack * formAway * (1 - 0.15 * momentum) * (isShort(1) ? SHORT_POSSESSION : 1)
+      away.attack * formAway * (1 - 0.15 * momentum) * (short1 ? SHORT_POSSESSION : 1)
     const isHome = rng() < wHome / (wHome + wAway)
     const side: Side = isHome ? 'home' : 'away'
     const idx = isHome ? 0 : 1
@@ -223,9 +231,11 @@ export function simulateRugbyMatch(config: RugbyMatchConfig): RugbyMatchResult {
 
     // 3) open play — try / line break / drop-goal attempt / turnover,
     // one outcome roll against stacked probability bands
-    const atkFac = isShort(idx) ? SHORT_ATTACK : 1
-    const defFac = isShort(oppIdx) ? SHORT_DEFENSE : 1
-    const tryBoost = isShort(oppIdx) ? SHORT_TRY_BOOST : 1
+    const shortAtk = isHome ? short0 : short1
+    const shortDef = isHome ? short1 : short0
+    const atkFac = shortAtk ? SHORT_ATTACK : 1
+    const defFac = shortDef ? SHORT_DEFENSE : 1
+    const tryBoost = shortDef ? SHORT_TRY_BOOST : 1
     const pTry = clamp(
       BASE_TRY * ((atk.attack * atkFac) / (def.defense * defFac)) * form * (1 + MOMENTUM_GAIN * momForSide) * tryBoost,
       0.008,
@@ -274,10 +284,8 @@ export function simulateRugbyMatch(config: RugbyMatchConfig): RugbyMatchResult {
   }
 
   const totalPoss = possHome + possAway || 1
-  stats.possession = [
-    Math.round((possHome / totalPoss) * 100),
-    Math.round((possAway / totalPoss) * 100),
-  ]
+  const possPctHome = Math.round((possHome / totalPoss) * 100)
+  stats.possession = [possPctHome, 100 - possPctHome] // always sums to 100
 
   push(80, { type: 'fulltime', team: null, label: 'Full-time' })
 
