@@ -11,6 +11,7 @@ import { fixtureMatch, teamById, computeStandings } from '../league/league'
 import { exportMatchMp4 } from '../export/exportMp4'
 import { exportStandingsPng } from '../render/standingsCard'
 import { matchCaption, standingsCaption } from './captions'
+import { matchOfWeekIds } from './matchOfWeek'
 import { BRAND } from '../brand'
 
 function orderedPlayed(state: LeagueState) {
@@ -57,6 +58,14 @@ export async function buildSeasonContent(
   let postNo = 1
   const text = (s: string) => new TextEncoder().encode(s)
 
+  // Re-sim every match once (cheap) so we can pick the Match of the Week per
+  // matchday before exporting, then reuse the same result for the video.
+  const results = new Map(ordered.map((f) => [f.id, fixtureMatch(state, f.id)]))
+  const motw = matchOfWeekIds(
+    ordered.filter((f) => f.stage === 'regular'),
+    results,
+  )
+
   for (let i = 0; i < ordered.length; i++) {
     const f = ordered[i]
     const sc = state.results[f.id]!
@@ -65,10 +74,11 @@ export async function buildSeasonContent(
 
     // folder tag says exactly where this game sits in the posting order
     const tag = tags[i]
-    const folder = `${tag} - ${h.abbr} vs ${a.abbr}`
+    const isMotw = motw.has(f.id)
+    const folder = `${tag} - ${h.abbr} vs ${a.abbr}${isMotw ? ' (MATCH OF THE WEEK)' : ''}`
     onProgress?.(i / total, `${tag} ${h.abbr} v ${a.abbr}`)
 
-    const match = fixtureMatch(state, f.id)
+    const match = results.get(f.id)!
     const vid = await exportMatchMp4(match, (p) => onProgress?.((i + p) / total, `${tag} ${h.abbr} v ${a.abbr}`))
 
     let rows
@@ -83,14 +93,14 @@ export async function buildSeasonContent(
     }
     const png = await exportStandingsPng(state, label, rows)
 
-    const gameCaption = matchCaption(state, f, sc)
+    const gameCaption = (isMotw ? '⭐ MATCH OF THE WEEK\n' : '') + matchCaption(state, f, sc)
     const tableCaption = standingsCaption(state, label, rows)
     files[`${folder}/1-game.mp4`] = new Uint8Array(await vid.arrayBuffer())
     files[`${folder}/2-standings.png`] = new Uint8Array(await png.arrayBuffer())
     files[`${folder}/caption-game.txt`] = text(gameCaption)
     files[`${folder}/caption-standings.txt`] = text(tableCaption)
 
-    manifest.push(`POST ${postNo++} — 🎬 ${folder}/1-game.mp4`)
+    manifest.push(`POST ${postNo++} — 🎬 ${folder}/1-game.mp4${isMotw ? '   ⭐ MATCH OF THE WEEK' : ''}`)
     manifest.push(indent(gameCaption))
     manifest.push('')
     manifest.push(`POST ${postNo++} — 📊 ${folder}/2-standings.png`)

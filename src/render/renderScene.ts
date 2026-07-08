@@ -362,24 +362,38 @@ export function drawCrowd(
   const homePalette = [homeColor, homeColor, homeAlt, '#e8edf4'] as const
   const awayPalette = [awayColor, awayColor, awayAlt, '#e8edf4'] as const
 
+  // The travelling away section rotates between the four goal-end corners each
+  // match (seeded) so it isn't stuck in the same corner every time.
+  const corner = seed % 4 // 0 top-left · 1 top-right · 2 bottom-left · 3 bottom-right
+  const awayOnTop = corner < 2
+  const awayOnLeft = corner % 2 === 0
+
   for (const stand of [CROWD_TOP, CROWD_BOTTOM]) {
     const pitchBelow = stand === CROWD_TOP
+    const isAwayStand = pitchBelow === awayOnTop
+    const homeSalt = pitchBelow ? 101 : 303
     drawTerraceBack(ctx, stand, pitchBelow)
 
-    if (stand === CROWD_TOP) {
-      const split = stand.x + stand.w * (1 - AWAY_SECTION_FRAC)
-      drawStandSection(ctx, stand, stand.x, split, homePalette, seed, 101, t, homeJump, pitchBelow)
-      drawStandSection(ctx, stand, split, stand.x + stand.w, awayPalette, seed, 707, t, awayJump, pitchBelow)
-      // segregation line between home + away sections
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)'
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.moveTo(split, stand.y + 4)
-      ctx.lineTo(split, stand.y + stand.h - 4)
-      ctx.stroke()
-    } else {
-      drawStandSection(ctx, stand, stand.x, stand.x + stand.w, homePalette, seed, 303, t, homeJump, pitchBelow)
+    if (!isAwayStand) {
+      drawStandSection(ctx, stand, stand.x, stand.x + stand.w, homePalette, seed, homeSalt, t, homeJump, pitchBelow)
+      continue
     }
+
+    const split = stand.x + stand.w * (awayOnLeft ? AWAY_SECTION_FRAC : 1 - AWAY_SECTION_FRAC)
+    if (awayOnLeft) {
+      drawStandSection(ctx, stand, stand.x, split, awayPalette, seed, 707, t, awayJump, pitchBelow)
+      drawStandSection(ctx, stand, split, stand.x + stand.w, homePalette, seed, homeSalt, t, homeJump, pitchBelow)
+    } else {
+      drawStandSection(ctx, stand, stand.x, split, homePalette, seed, homeSalt, t, homeJump, pitchBelow)
+      drawStandSection(ctx, stand, split, stand.x + stand.w, awayPalette, seed, 707, t, awayJump, pitchBelow)
+    }
+    // segregation line between home + away sections
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(split, stand.y + 4)
+    ctx.lineTo(split, stand.y + stand.h - 4)
+    ctx.stroke()
   }
 }
 

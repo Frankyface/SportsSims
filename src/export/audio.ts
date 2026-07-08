@@ -45,13 +45,19 @@ export function buildMatchAudio(model: RenderModel, bank: AudioAssetBank = EMPTY
   const rng = mulberry32((model.seed ^ 0x51ed270b) >>> 0)
   const seed = model.seed >>> 0
 
-  // Crowd bed: 1-pole low-passed noise = a murmur (quieter under real music).
-  const bedGain = bank.music.length > 0 ? 0.07 : 0.12
-  let lp = 0
+  // Crowd bed: a cascaded low-pass on white noise = a soft, dark MURMUR rather
+  // than hiss/static. Two poles at a low cutoff roll off the high end (the
+  // "static"); the level is boosted back up to compensate for the lost energy.
+  // When a real crowd-ambience file is present it carries the bed, so the synth
+  // layer drops to a faint texture underneath it.
+  const bedGain = bank.music.length > 0 ? 0.05 : 0.13
+  let lp1 = 0
+  let lp2 = 0
   for (let i = 0; i < n; i++) {
     const white = rng() * 2 - 1
-    lp += (white - lp) * 0.05
-    out[i] = lp * bedGain
+    lp1 += (white - lp1) * 0.02
+    lp2 += (lp1 - lp2) * 0.05
+    out[i] = lp2 * bedGain * 7 // gain-compensate for the heavy low-pass
   }
 
   // Quieter under the intro and result cards; alive during open play.

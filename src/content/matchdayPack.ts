@@ -7,6 +7,7 @@ import { fixtureMatch, teamById } from '../league/league'
 import { exportMatchMp4 } from '../export/exportMp4'
 import { exportStandingsPng } from '../render/standingsCard'
 import { matchCaption, standingsCaption } from './captions'
+import { matchOfWeekIds } from './matchOfWeek'
 
 export interface PackItem {
   name: string
@@ -39,16 +40,22 @@ export async function buildMatchdayPack(
   const total = fixtures.length + 1
   let done = 0
 
+  // Re-sim the round once, pick the Match of the Week (regular rounds only).
+  const results = new Map(fixtures.map((f) => [f.id, fixtureMatch(state, f.id)]))
+  const isRegular = fixtures[0]?.stage === 'regular'
+  const motw = isRegular ? matchOfWeekIds(fixtures, results) : new Set<string>()
+
   for (const f of fixtures) {
     const h = teamById(state, f.home).identity
     const a = teamById(state, f.away).identity
-    const match = fixtureMatch(state, f.id)
+    const isMotw = motw.has(f.id)
+    const match = results.get(f.id)!
     const blob = await exportMatchMp4(match, (p) => onProgress?.((done + p) / total, `${h.abbr} v ${a.abbr}`))
     items.push({
-      name: `${roundLabel.replace(/\s/g, '')}-${h.abbr}-${a.abbr}.mp4`,
+      name: `${roundLabel.replace(/\s/g, '')}-${h.abbr}-${a.abbr}${isMotw ? '-MOTW' : ''}.mp4`,
       blob,
       kind: 'video',
-      caption: matchCaption(state, f, state.results[f.id]!),
+      caption: (isMotw ? '⭐ MATCH OF THE WEEK\n' : '') + matchCaption(state, f, state.results[f.id]!),
     })
     done++
     onProgress?.(done / total, 'standings post')
