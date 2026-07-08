@@ -32,6 +32,25 @@ function mixSample(out: Float32Array, sample: Float32Array, atSec: number, gain:
   }
 }
 
+/**
+ * Broadcast-style sidechain duck: dip the crowd bed to `floor` for `holdSec`
+ * around `atSec`, with short ramps so a goal cheer / boo sits on TOP of the
+ * bed and clearly cuts through instead of being masked by the steady crowd.
+ */
+function duck(out: Float32Array, atSec: number, holdSec: number, floor: number): void {
+  const ramp = Math.floor(0.1 * AUDIO_SR)
+  const start = Math.floor((atSec - 0.15) * AUDIO_SR)
+  const hold = Math.floor(holdSec * AUDIO_SR)
+  for (let i = 0; i < hold; i++) {
+    const j = start + i
+    if (j < 0 || j >= out.length) continue
+    let g = floor
+    if (i < ramp) g = 1 - (1 - floor) * (i / ramp)
+    else if (i > hold - ramp) g = 1 - (1 - floor) * ((hold - i) / ramp)
+    out[j] *= g
+  }
+}
+
 /** Deterministic pick from a variant pool (same match -> same sound). */
 function pick(pool: Float32Array[], seed: number, salt: number): Float32Array | null {
   if (pool.length === 0) return null
@@ -64,14 +83,6 @@ export function buildMatchAudio(model: RenderModel, bank: AudioAssetBank = EMPTY
   applyGain(out, 0, plan.playStart, 0.55)
   applyGain(out, plan.resultStart, plan.total, 0.6)
 
-  // Swells and hushes around the moments.
-  for (const m of plan.moments) {
-    if (m.kind === 'goal') applyGain(out, m.t - 0.6, m.t + 2.0, 1.5)
-    else if (m.kind === 'bigChance') applyGain(out, m.t - 0.5, m.t + 1.4, 1.35)
-    else if (m.kind === 'save' || m.kind === 'miss' || m.kind === 'corner') applyGain(out, m.t - 0.4, m.t + 1.0, 1.2)
-    else if (m.kind === 'card') applyGain(out, m.t, m.t + 1.2, 0.7)
-  }
-
   // Background ambience bed. When the track is long enough to cover the whole
   // clip (it is — the bed is ~72s vs a max ~69s clip), play it ONCE from a
   // seeded start offset: it never loops back, so a distinctive sound can't
@@ -92,6 +103,15 @@ export function buildMatchAudio(model: RenderModel, bank: AudioAssetBank = EMPTY
     applyGain(out, plan.playEnd, plan.total, 0.85)
   }
 
+  // Duck the steady bed under each reaction so the goal cheer / boo punches
+  // through instead of being masked by the crowd. (Applied to the full bed;
+  // the cheers/boos are mixed on top AFTER this.)
+  for (const m of plan.moments) {
+    if (m.kind === 'goal') duck(out, m.t, 2.8, 0.4)
+    else if (m.kind === 'bigChance' || m.kind === 'save') duck(out, m.t, 1.7, 0.6)
+    else if (m.kind === 'card') duck(out, m.t + 0.1, 1.7, 0.55)
+  }
+
   // Whistles at kickoff, half-time and full-time (always procedural — crisp).
   for (const m of plan.moments) {
     if (m.kind === 'kickoff' || m.kind === 'halftime' || m.kind === 'fulltime') {
@@ -110,15 +130,15 @@ export function buildMatchAudio(model: RenderModel, bank: AudioAssetBank = EMPTY
     if (m.kind === 'goal') {
       const isHome = m.team === 'home'
       const cheer = pick(bank.cheer, seed, momentIdx)
-      if (cheer) mixSample(out, cheer, m.t, isHome ? 0.95 : 0.4)
-      else addRoar(out, m.t, rng, isHome ? 0.5 : 0.3)
+      if (cheer) mixSample(out, cheer, m.t, isHome ? 1.15 : 0.6)
+      else addRoar(out, m.t, rng, isHome ? 0.6 : 0.35)
       if (!isHome) {
         const boo = pick(bank.boo, seed, momentIdx + 13)
-        if (boo) mixSample(out, boo, m.t + 0.4, 0.55)
+        if (boo) mixSample(out, boo, m.t + 0.4, 0.75)
       }
     } else if (m.kind === 'bigChance' || m.kind === 'save' || m.kind === 'corner') {
       const cheer = pick(bank.cheer, seed, momentIdx)
-      if (cheer) mixSample(out, cheer, m.t, m.team === 'home' ? 0.45 : 0.22)
+      if (cheer) mixSample(out, cheer, m.t, m.team === 'home' ? 0.6 : 0.3)
     } else if (m.kind === 'card') {
       const boo = pick(bank.boo, seed, momentIdx)
       if (boo) mixSample(out, boo, m.t + 0.2, m.team === 'home' ? 0.9 : 0.6)
