@@ -6,12 +6,12 @@ body {
   background: #0a0e14;
   color: #e8edf4;
 }
-.wrap { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+.wrap { max-width: 880px; margin: 0 auto; padding: 28px 22px 64px; }
 header {
   display: flex; align-items: baseline; gap: 10px;
   border-bottom: 2px solid #c8102e; padding-bottom: 8px; margin-bottom: 20px;
 }
-.net { font-weight: 800; letter-spacing: 1px; font-size: 20px; }
+.net { font-weight: 800; letter-spacing: 1px; font-size: 27px; }
 .net b { color: #c8102e; }
 .tag { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #7b8794; }
 .scoreboard {
@@ -37,7 +37,7 @@ header {
 .matchCanvas {
   display: block;
   width: 100%;
-  max-width: 300px;
+  max-width: 460px;
   aspect-ratio: 9 / 16;
   margin: 0 auto;
   border-radius: 14px;
@@ -48,7 +48,7 @@ header {
 
 /* Tabs */
 .tabs { display: flex; gap: 6px; margin: 16px 0 20px; }
-.tabs button { flex: 1; background: #121924; color: #9aa5b1; border: 0; border-radius: 8px; padding: 11px; font-weight: 700; cursor: pointer; }
+.tabs button { flex: 1; background: #121924; color: #9aa5b1; border: 0; border-radius: 8px; padding: 15px; font-weight: 700; font-size: 16px; cursor: pointer; }
 .tabs button.on { background: #c8102e; color: #fff; }
 
 /* Buttons */
@@ -59,9 +59,12 @@ header {
 
 /* League */
 .leagueHead { display: flex; align-items: center; gap: 12px; }
-.leagueHead h2 { margin: 0; font-size: 20px; }
+.leagueHead h2 { margin: 0; font-size: 28px; }
 .league-logo { width: 58px; height: 58px; object-fit: contain; flex: 0 0 auto; }
-.crest-img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle; }
+.crest-img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; margin-right: 10px; vertical-align: middle; }
+.league-logo { width: 72px; height: 72px; }
+.btn { font-size: 16px; padding: 12px 20px; }
+.sub, .stats, .hint, .msg { font-size: 15px; }
 .sub { color: #7b8794; font-size: 13px; }
 .sectionH { font-size: 13px; color: #9aa5b1; margin: 24px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
 .hint { font-size: 13px; color: #9aa5b1; margin: 0 0 16px; }
@@ -70,9 +73,9 @@ header {
 .offseason b { color: #fff; }
 
 /* Standings */
-.standings { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
-.standings th { color: #7b8794; font-weight: 600; text-align: center; padding: 6px 4px; border-bottom: 1px solid #1b2532; }
-.standings td { text-align: center; padding: 7px 4px; border-bottom: 1px solid #121924; }
+.standings { width: 100%; border-collapse: collapse; font-size: 17px; margin-top: 16px; }
+.standings th { color: #7b8794; font-weight: 600; text-align: center; padding: 10px 6px; border-bottom: 1px solid #1b2532; }
+.standings td { text-align: center; padding: 12px 6px; border-bottom: 1px solid #121924; }
 .standings .teamCol { text-align: left; font-weight: 700; }
 .standings .pts { font-weight: 800; }
 .standings .formCol { letter-spacing: 1px; color: #7b8794; font-size: 11px; }
@@ -81,7 +84,7 @@ header {
 
 /* Results list */
 .results { list-style: none; padding: 0; margin: 0; }
-.results li { display: flex; align-items: center; gap: 8px; background: #121924; border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; cursor: pointer; font-size: 14px; }
+.results li { display: flex; align-items: center; gap: 8px; background: #121924; border-radius: 8px; padding: 12px 16px; margin-bottom: 7px; cursor: pointer; font-size: 17px; }
 .results li.sel { outline: 2px solid #c8102e; }
 .results li .rd { color: #7b8794; font-size: 11px; width: 46px; }
 .results li b { margin: 0 auto; }

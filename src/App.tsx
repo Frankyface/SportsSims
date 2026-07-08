@@ -10,9 +10,16 @@ const LEAGUE_ID = 'crown-league'
 const LEAGUE_NAME = 'Crown League'
 type Tab = 'league' | 'friendly' | 'settings'
 
+// A fresh random seed each time a league is created, so every new league plays
+// out differently. (This is a UI action, not the deterministic sim — a saved
+// league stores its seed, so its matches still re-render identically.)
+function newSeed(): string {
+  return `crown-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>('league')
-  const [league, setLeague] = useState<LeagueState>(() => loadLocal(LEAGUE_ID) ?? createLeague(LEAGUE_ID, LEAGUE_NAME))
+  const [league, setLeague] = useState<LeagueState>(() => loadLocal(LEAGUE_ID) ?? createLeague(newSeed(), LEAGUE_NAME, 6, LEAGUE_ID))
 
   useEffect(() => {
     saveLocal(league)
@@ -20,7 +27,7 @@ export default function App() {
 
   function resetLeague() {
     if (window.confirm('Start a brand-new league? This clears the current one on this device.')) {
-      setLeague(createLeague(LEAGUE_ID, LEAGUE_NAME))
+      setLeague(createLeague(newSeed(), LEAGUE_NAME, 6, LEAGUE_ID))
     }
   }
 

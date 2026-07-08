@@ -36,8 +36,9 @@ export function buildRenderModel(m: MatchResult, width = RENDER_W, height = REND
 }
 
 // Portrait layout; keep key content inside the IG safe band (avoid top ~220, bottom ~470).
-const PITCH = { x: 70, y: 470, w: 940, h: 980 }
-const BUG_Y = 300
+// Big pitch — fills most of the frame; the scorebug + lower-thirds float over it.
+const PITCH = { x: 20, y: 300, w: 1040, h: 1440 }
+const BUG_Y = 240
 
 function ease(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) * (-2 * t + 2)) / 2
@@ -77,11 +78,11 @@ function drawPitch(ctx: Ctx): void {
   ctx.lineTo(x + w, y + h / 2)
   ctx.stroke()
   ctx.beginPath()
-  ctx.arc(x + w / 2, y + h / 2, 92, 0, Math.PI * 2)
+  ctx.arc(x + w / 2, y + h / 2, 130, 0, Math.PI * 2)
   ctx.stroke()
-  const gw = 240
-  ctx.strokeRect(x + w / 2 - gw / 2, y - 2, gw, 44)
-  ctx.strokeRect(x + w / 2 - gw / 2, y + h - 42, gw, 44)
+  const gw = 340
+  ctx.strokeRect(x + w / 2 - gw / 2, y - 2, gw, 64)
+  ctx.strokeRect(x + w / 2 - gw / 2, y + h - 62, gw, 64)
 }
 
 function attackingGoalY(team: Beat['team']): number {
@@ -121,11 +122,14 @@ function drawDisc(ctx: Ctx, x: number, y: number, r: number, fill: string): void
 }
 
 const FORM: Array<[number, number]> = [
-  [0.5, 0.9],
-  [0.26, 0.74],
-  [0.74, 0.74],
-  [0.4, 0.56],
-  [0.6, 0.56],
+  [0.5, 0.95], // keeper
+  [0.18, 0.82],
+  [0.4, 0.86],
+  [0.6, 0.86],
+  [0.82, 0.82],
+  [0.3, 0.66],
+  [0.7, 0.66],
+  [0.5, 0.52], // striker
 ]
 
 function drawPlayers(ctx: Ctx, model: RenderModel, beat: Beat, t: number, progress: number): void {
@@ -145,7 +149,7 @@ function drawPlayers(ctx: Ctx, model: RenderModel, beat: Beat, t: number, progre
         px += (ball.x - px) * 0.06
         py += (ball.y - py) * 0.06
       }
-      drawDisc(ctx, px, py, 22, team.color)
+      drawDisc(ctx, px, py, 27, team.color)
     }
   }
 }
@@ -153,7 +157,7 @@ function drawPlayers(ctx: Ctx, model: RenderModel, beat: Beat, t: number, progre
 function drawBall(ctx: Ctx, beat: Beat, progress: number): void {
   const b = ballPos(beat, progress)
   ctx.beginPath()
-  ctx.arc(b.x, b.y, 13, 0, Math.PI * 2)
+  ctx.arc(b.x, b.y, 17, 0, Math.PI * 2)
   ctx.fillStyle = '#ffffff'
   ctx.fill()
   ctx.lineWidth = 2
@@ -214,7 +218,7 @@ function drawLowerThird(ctx: Ctx, model: RenderModel, beat: Beat, progress: numb
   const w = 760
   const h = 78
   const x = model.width / 2 - w / 2
-  const y = 1372
+  const y = 1330
   ctx.save()
   ctx.globalAlpha = ease(Math.min(1, progress * 3))
   roundRect(ctx, x, y, w, h, 10)
