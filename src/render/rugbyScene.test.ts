@@ -226,4 +226,63 @@ describe('rugby scene — player motion', () => {
       prev = s
     }
   })
+
+  it('RUGBY LAW: attacking support is never drawn goal-side of the ball in open play', () => {
+    const m = match('ronside:atk')
+    const plan = buildRugbyRenderPlan(m)
+    const seed = m.renderSeed >>> 0
+    let checked = 0
+    for (const seg of plan.segs) {
+      if (seg.kind !== 'carry') continue
+      const fwd = seg.team === 'home' ? seg.from[1] - seg.to[1] : seg.to[1] - seg.from[1]
+      if (fwd < 0.1) continue // only meaningful forward carries
+      const t = (seg.t0 + seg.t1) / 2
+      const ball = rugbyBallStateAt(plan, t)
+      const shift = rugbyTeamShiftAt(plan, t)
+      for (let slot = 1; slot < RUGBY_SLOTS.length; slot++) {
+        if (slot === seg.slot) continue // the carrier is allowed level/ahead
+        const [, py] = rugbyPlayerPosAt(plan, seed, seg.team, slot, t, ball, shift)
+        // 30px << the old possession push (0.08 * fieldH ~= 102px)
+        if (seg.team === 'home') expect(py).toBeGreaterThan(ball.y - 30)
+        else expect(py).toBeLessThan(ball.y + 30)
+      }
+      if (++checked >= 8) break
+    }
+    expect(checked).toBeGreaterThan(3)
+  })
+
+  it('kick cover: one nominated defender drops behind the flat line as a sweeper', () => {
+    const m = match('rsweep:0')
+    const plan = buildRugbyRenderPlan(m)
+    const seed = m.renderSeed >>> 0
+    const sweeperSlot = 6 + (seed % 4)
+    let checked = 0
+    for (const seg of plan.segs) {
+      if (seg.kind !== 'pass' && seg.kind !== 'carry') continue
+      const t = (seg.t0 + seg.t1) / 2
+      const ball = rugbyBallStateAt(plan, t)
+      // evaluate only when the ball is around midfield, so the defending line
+      // sits well off its own goal and the sweeper can visibly drop behind it
+      const midLo = RUGBY_PITCH.y + RUGBY_PITCH.h * 0.35
+      const midHi = RUGBY_PITCH.y + RUGBY_PITCH.h * 0.65
+      if (ball.y < midLo || ball.y > midHi) continue
+      const shift = rugbyTeamShiftAt(plan, t)
+      const def: 'home' | 'away' = seg.team === 'home' ? 'away' : 'home'
+      const gate = def === 'home' ? shift.defendHome : shift.defendAway
+      if (gate < 0.3) continue
+      const ys: number[] = []
+      for (let s = 1; s < RUGBY_SLOTS.length; s++) {
+        const [, py] = rugbyPlayerPosAt(plan, seed, def, s, t, ball, shift)
+        ys.push(py)
+      }
+      const sweeperPy = ys[sweeperSlot - 1]
+      const others = ys.filter((_, i) => i + 1 !== sweeperSlot)
+      const lineMean = others.reduce((a, b) => a + b, 0) / others.length
+      const [, ownGoalPy] = rugbyToPx([0.5, def === 'home' ? 1 : 0])
+      // the sweeper sits clearly closer to its own goal than the rest of the line
+      expect(Math.abs(sweeperPy - ownGoalPy)).toBeLessThan(Math.abs(lineMean - ownGoalPy) - 20)
+      if (++checked >= 4) break
+    }
+    expect(checked).toBeGreaterThan(0)
+  })
 })

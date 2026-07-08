@@ -72,7 +72,11 @@ function segProgressEase(seg: RugbyBallSeg, p: number): number {
     if (seg.risky || man > 0.28) return p
   }
   if (seg.kind === 'grounding') return easeOut(p) // the dive
-  return easeInOut(p)
+  // passes / short carries: blend linear with easeInOut so the ball keeps ~half
+  // its speed across segment boundaries instead of stopping dead (kills the
+  // stop-start jolt) while the mid-segment peak drops 2.0x -> 1.5x (safer for
+  // the anti-teleport gate). Endpoints stay 0 and 1, so arrivals are exact.
+  return 0.5 * p + 0.5 * easeInOut(p)
 }
 
 /** Ball position/flight at render-time t (clamped into the play window). */
@@ -83,7 +87,15 @@ export function rugbyBallStateAt(plan: RugbyRenderPlan, t: number): RugbyBallSta
   const e = segProgressEase(seg, p)
   const nx = lerp(seg.from[0], seg.to[0], e)
   const ny = lerp(seg.from[1], seg.to[1], e)
-  const [x, y] = rugbyToPx([nx, ny])
+  let [x, y] = rugbyToPx([nx, ny])
+  // RUCK CREEP: a breakdown is a gather, not a dead freeze. A sin(pi*p) envelope
+  // adds a small wander that is exactly 0 at both segment ends, so continuity
+  // and the anti-teleport gate are untouched. (Render layer — Math.sin is fine.)
+  if (seg.kind === 'held' && (seg.tag === 'ruck' || seg.tag === 'maul')) {
+    const env = Math.sin(Math.PI * p)
+    x += env * 4 * Math.sin(t * 1.7 + seg.t0)
+    y += env * 3 * Math.cos(t * 1.3 + seg.t0)
+  }
   const air = seg.arc > 0 ? seg.arc * 4 * p * (1 - p) : 0
   // kicks and shots climb HIGH — the flight must never read as a flat pass
   const airMul = seg.kind === 'kick' || seg.kind === 'shot' ? 1.9 : 1.1
@@ -150,8 +162,10 @@ export function rugbyTeamShiftAt(plan: RugbyRenderPlan, t: number): RugbyTeamShi
   }
   const fh = all > 0 ? homePoss / all : 0.5
   return {
-    home: lerp(-0.05, 0.08, fh),
-    away: lerp(-0.05, 0.08, 1 - fh),
+    // small, symmetric possession push — the attacking team no longer surges
+    // goal-side of the ball (rugby support arrives level or from behind)
+    home: lerp(-0.03, 0.03, fh),
+    away: lerp(-0.03, 0.03, 1 - fh),
     defendHome: all > 0 ? liveAway / all : 0,
     defendAway: all > 0 ? liveHome / all : 0,
   }
@@ -202,8 +216,9 @@ export function rugbyPlayerPosAt(
     const amt = side === 'home' ? shift.home : shift.away
     ny += side === 'home' ? -amt : amt
 
-    // 2) the whole team travels with the ball
-    ny += clampN((ballNy - 0.5) * 0.18, -0.1, 0.1)
+    // 2) the whole team travels with the ball — gentle DEPTH follow (kept small
+    // so it doesn't surge upfield), full LATERAL follow (the side-to-side we want)
+    ny += clampN((ballNy - 0.5) * 0.12, -0.06, 0.06)
     nx += (ballNx - 0.5) * (slot >= 6 ? 0.2 : 0.14)
 
     if (gate > 0.15) {
@@ -211,7 +226,14 @@ export function rugbyPlayerPosAt(
       // of the ball. Rank spreads 1-9 shoulder to shoulder.
       const rank = (slot - 1) / 8 // 0..1 across the width
       const lineX = clampN(0.08 + rank * 0.84, 0.06, 0.94)
-      const lineY = clampN(lerp(ballNy, ownGoalY, 0.26), 0.04, 0.96)
+      let lineY = clampN(lerp(ballNy, ownGoalY, 0.26), 0.04, 0.96)
+      // one nominated back drops off the line as a SWEEPER for kick cover
+      // (alongside the fullback) — depth breathes gently, always behind the line
+      const sweeperSlot = 6 + (seed % 4)
+      if (slot === sweeperSlot) {
+        const drop = 0.16 + 0.05 * Math.sin(t * 0.5 + seed * 0.01)
+        lineY = clampN(lerp(ballNy, ownGoalY, 0.26 + drop), 0.04, 0.98)
+      }
       const k = gate * (0.38 + 0.22 * d3def)
       nx = lerp(nx, lineX, k)
       ny = lerp(ny, lineY, k)
@@ -287,6 +309,48 @@ export function rugbyPlayerPosAt(
     const swarm = easeInOut(clamp01(ball.p * 1.6)) * 0.3
     px = lerp(px, ball.x, swarm)
     py = lerp(py, ball.y, swarm)
+  }
+
+  // 8) LINE-BREAK FUNNEL: on a break (a risky carry that bursts upfield) the
+  // attacking support pours into a trailing chase BEHIND the carrier — the
+  // "everyone funnels to the ball" look. (from/to are normalized; ball.x/y px.)
+  if (
+    ball.seg.kind === 'carry' &&
+    ball.seg.risky &&
+    side === ball.seg.team &&
+    slot !== FULLBACK_SLOT &&
+    slot !== ball.seg.slot
+  ) {
+    const fwd = side === 'home' ? ball.seg.from[1] - ball.seg.to[1] : ball.seg.to[1] - ball.seg.from[1]
+    if (fwd > 0.15) {
+      const ramp = easeInOut(clamp01(ball.p * 1.5))
+      const lane = slot - 5 // spread the chase across the field
+      const trailX = ball.x + lane * 30
+      const trailY = ball.y + (side === 'home' ? 1 : -1) * (40 + Math.abs(lane) * 22) // behind
+      px = lerp(px, trailX, ramp * 0.5)
+      py = lerp(py, trailY, ramp * 0.5)
+    }
+  }
+
+  // 9) ATTACKER ONSIDE LAW — the final word, over every other urge: in open
+  // play NO attacker is ever rendered goal-side of the ball (rugby's core
+  // shape). This deliberately reins in the involvement pull too: a support
+  // runner is NOT allowed to drift ahead of the ball before he receives it
+  // (that pre-catch forward drift is exactly the "forward pass" illusion).
+  // Exempt only the current ball-player (carrier/passer, who is on the ball)
+  // and the ruck-cluster forwards (so the breakdown pile isn't flattened).
+  // y only; kicks are owned by the kick onside law above.
+  const openPlay = ball.seg.kind === 'pass' || ball.seg.kind === 'carry'
+  const heldBreakdown = ball.seg.kind === 'held' && (ball.seg.tag === 'ruck' || ball.seg.tag === 'maul')
+  if ((openPlay || heldBreakdown) && side === ball.seg.team && slot !== FULLBACK_SLOT) {
+    const isBallPlayer = slot === ball.seg.slot
+    const inRuckCluster = heldBreakdown && slot >= 1 && slot <= 5
+    if (!isBallPlayer && !inRuckCluster) {
+      const RAMP = 0.9 // strong but soft — avoids a per-frame cliff
+      // home attacks the top (goal-side = smaller y) → clamp py to >= ball.y
+      if (side === 'home') py = lerp(py, Math.max(py, ball.y), RAMP)
+      else py = lerp(py, Math.min(py, ball.y), RAMP)
+    }
   }
 
   return [px, py]

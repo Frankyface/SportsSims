@@ -1,6 +1,6 @@
 # Handoff — ESSPN / Crown League
 
-_Last updated: 2026-07-08 · **V1 shipped & LIVE**. Soccer engine feature-complete. **🏉 THE RUGBY MATCH ENGINE IS NOW BUILT AND VERIFIED** — the operator locked **rugby union**, and the full deterministic union sim → choreographer → continuous-play renderer → MP4 export chain shipped in one pass: calibrated scorelines (~50 pts, ~5.8 tries, 75% conversions, 2% draws), sin-bin/red-card send-offs (yellows walk back on), penalty corners → lineout mauls, try groundings + conversions off the tee, Bastion broadcast overlay, and a live Rugby tab (pick clubs → watch → export the Reel). 126 tests green (79 soccer untouched + 47 rugby), production build clean, in-browser export smoke passed (81MB H.264/AAC MP4). **Next: plug rugby into the league/persistence/content spine (Bastion league mode with rugby standings).**_
+_Last updated: 2026-07-08 · **V1 shipped & LIVE**. Soccer engine feature-complete. **🏉 THE RUGBY MATCH ENGINE IS BUILT + LEAGUE-INTEGRATED, now on a realism-tuning loop (v3: onside law, side-to-side flow, sweeper, break funnel, slower pace)** — the operator locked **rugby union**, and the full deterministic union sim → choreographer → continuous-play renderer → MP4 export chain shipped in one pass: calibrated scorelines (~50 pts, ~5.8 tries, 75% conversions, 2% draws), sin-bin/red-card send-offs (yellows walk back on), penalty corners → lineout mauls, try groundings + conversions off the tee, Bastion broadcast overlay, and a live Rugby tab (pick clubs → watch → export the Reel). 126 tests green (79 soccer untouched + 47 rugby), production build clean, in-browser export smoke passed (81MB H.264/AAC MP4). **Next: plug rugby into the league/persistence/content spine (Bastion league mode with rugby standings).**_
 
 **Full-frame stadium layout (2026-07-08):** the old top/bottom dead space is gone — wordmark+scorebug pulled up tight (y 95 / 150), the pitch grown to fill 384-1776 (w:h 0.747), deep 5-row tiered crowd terraces (front-to-back size/brightness falloff, away section rotating through the four goal-end corners per match) replacing the thin rails, and **goal frames + nets** at each end so a ball in the top net lands in a real goal with the terrace erupting behind it. Money shot preserved (ball y~363, clear of scorebug bottom 250). 4 layout regression tests lock the fill + clearance geometry.
 
@@ -28,6 +28,28 @@ V1 is done and live; the Soccer engine is feature-complete; **the Rugby match en
 `src/sim` (soccer: simulateMatch, choreographer, formation · **rugby: rugbySim, rugbyTypes, rugbyChoreographer, rugbyFormation**) · `src/ratings` (glicko2, teams, rugbyTeams, strength) · `src/render` (soccer: director, storyline, renderScene, renderMatch · **rugby: rugbyDirector, rugbyStoryline, rugbyScene, rugbyRenderMatch** · standingsCard, wordmark, logos, rugbyLogos) · `src/export` (exportMp4, **exportRugbyMp4**, audio, audioAssets) · `src/league` · `src/content` · `src/ui` (LeagueTab, FriendlyTab, **RugbyTab, RugbyMatchView**, SettingsTab, …) · `src/App.tsx` · `src/assets/logos` (soccer crests + Crown League + 6 rugby crests + bastion).
 
 ## ✅ Things I've Changed (newest first)
+- **🏉 Rugby v3 — "make it read as rugby" (operator feedback + full planning stage):** locked six
+  visual rules and implemented them, all on the render / `:pbp` cosmetic layer (score stream +
+  golden untouched). (1) **Attacker onside law** — in open play NO attacking dot is ever rendered
+  goal-side of the ball (final clamp in `rugbyPlayerPosAt`, exempting only the ball-carrier and
+  ruck-cluster forwards); this deliberately reins in the involvement pull so a support runner can't
+  drift ahead before he receives — that pre-catch drift *was* the "forward pass" the operator saw.
+  (2) **Less vertical churn** — possession-push `±0.08→±0.03`, depth-lean `0.18→0.12`, so the eye
+  sees the ball worked side-to-side, not a soccer surge upfield. (3) **De-jolt** — ruck `held` beats
+  now *gather* (a `sin(πp)`-enveloped wander, 0 at both ends so continuity/anti-teleport hold)
+  instead of dead-freezing; pass/short-carry easing blended `0.5·linear + 0.5·easeInOut` so the ball
+  keeps ~half its speed across boundaries; ruck hold weights cut (~0.4→~0.22, constants only so the
+  `:pbp` stream and repertoire quotas are unchanged). (4) **Sweeper** — one nominated back
+  (`6 + seed%4`) drops behind the flat defensive line for kick cover, depth gently breathing.
+  (5) **Line-break funnel** — on a risky break carry, attacking support pours into a trailing V
+  behind the carrier. (6) **Slower** — director play window `58-74→64-75s` (totals ~70.7-81.7s,
+  ≤82 band held; `SPEED_FLOOR` left alone — it only compresses dwell, doesn't slow the clip).
+  Two new lockdown tests (attacker-onside regression, sweeper-behind-line) + updated runtime band;
+  136 tests green, build clean. Pitch orientation kept VERTICAL (operator choice). ⚠️ In-session
+  browser screenshot/eyeball was blocked by a preview-harness capture failure (screenshots timed out
+  identically on the unchanged soccer canvas — environmental, not the code); verification rests on
+  the deterministic test suite + clean build + canvas-mounts/console-clean checks. Plan:
+  `~/.claude/plans/luminous-dazzling-beacon.md`.
 - **🏉 Rugby v2 — realism overhaul + LEAGUE MODE + tab restructure (operator feedback, same day):**
   - **Realism (operator: "it doesn't look like rugby"):** player dots 27→21px; whole game slowed (play window 58-74s vs 48-62, SPEED_FLOOR 1.15, heavier per-beat dwell); passes now travel VISIBLY backward (0.03-0.09 of the pitch, machine-checked: >60% of passes are clearly deep); kicks get real hang time (w×1.4, 1.9× flight scale, trajectory intent line) so they never read as forward passes; **the onside law is rendered AND tested** — while a kick is in the air the kicking team retreats behind the boot (only the named chaser goes); the phase engine is a weighted menu of real shapes: **forward pods off the ruck, backline sweeps (each pass deeper), switch/scissors plays, offload chains through contact, chips/box kicks to space chased by the winger from deep** (all quota-tested in rugbyChoreographer.test).
   - **League mode (`src/league/rugbyLeague.ts` + tests):** persistent Bastion Championships — UNION standings (4 win / 2 draw / 0 loss, +1 four-try bonus, +1 losing-within-7 bonus, ranked pts→PD→PF; math unit-tested), double round-robin via shared generateFixtures, top-4 playoffs (sf1/sf2/final, ties to seed), Glicko offseason with big-offseason volatility, own localStorage namespace (`elitesim:rugbyleague:bastion-championships`). Deterministic: same seed → identical season, fixtures re-sim for video.

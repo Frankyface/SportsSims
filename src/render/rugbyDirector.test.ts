@@ -79,7 +79,7 @@ describe('rugby director — the clock counts up, continuously', () => {
   it('every clip lands in the runtime band (slower rugby pace, IG Reels-safe)', () => {
     for (let s = 0; s < 200; s++) {
       const plan = buildRugbyRenderPlan(match(`rband:${s}`))
-      expect(plan.total).toBeGreaterThanOrEqual(63)
+      expect(plan.total).toBeGreaterThanOrEqual(69) // v3: slower, locks the floor up
       expect(plan.total).toBeLessThanOrEqual(82)
     }
   })

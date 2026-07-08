@@ -414,7 +414,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
         simSec,
         clampPt([ballAt[0] - sgn * (0.1 + rng() * 0.06), ballAt[1] + dir * (0.07 + rng() * 0.04)]),
       )
-      if (rng() < 0.6) holdBall(touches, team, 0.3 + rng() * 0.2, 'ruck')
+      if (rng() < 0.6) holdBall(touches, team, 0.16 + rng() * 0.12, 'ruck')
     } else if (roll < 0.48) {
       // offload chain — kept alive through the tackle, funneled to support
       carryTo(
@@ -450,7 +450,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
         simSec,
         clampPt([ballAt[0] + sgn * (0.06 + rng() * 0.05), ballAt[1] + dir * (0.08 + rng() * 0.05)]),
       )
-      if (rng() < 0.6) holdBall(touches, team, 0.3 + rng() * 0.15, 'ruck')
+      if (rng() < 0.6) holdBall(touches, team, 0.16 + rng() * 0.10, 'ruck')
     } else {
       // pod crash — short ball off the ruck, a forward runs it up, recycle
       passTo(touches, team, simSec, (ballAt[0] < 0.5 ? 1 : -1) * (0.07 + rng() * 0.05), 0.05 + rng() * 0.03)
@@ -460,7 +460,7 @@ export function buildRugbyPlayScript(m: RugbyMatchResult): RugbyPlayScript {
         simSec,
         clampPt([ballAt[0] + jit(rng, 0.04), ballAt[1] + dir * (0.06 + rng() * 0.05)]),
       )
-      holdBall(touches, team, 0.3 + rng() * 0.25, 'ruck')
+      holdBall(touches, team, 0.16 + rng() * 0.14, 'ruck')
     }
   }
 
