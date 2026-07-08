@@ -1,20 +1,22 @@
-// Pure Canvas renderer for GOLF: draws a single frame of an Apex Tour round
-// at render-time `t`. A GolfRenderModel is built once from a GolfRoundResult;
+// Pure Canvas renderer for GOLF: draws a single frame of an Apex Tour
+// foursome's round at render-time `t`. The whole group is on the hole at
+// once — four golfer chips, four balls — and every shot animates in turn.
+// A GolfRenderModel is built once from a GolfRoundResult + group index;
 // drawGolfFrame(ctx, model, t) is a pure function of (model, t), so the same
 // function powers the live preview and the frame-stepped WebCodecs export.
-// Its own module — the soccer/rugby paths never load golf art and vice-versa.
 
 import type { GolfRoundResult, GolfShot } from '../sim/golfTypes'
-import { HOLES_PER_ROUND } from '../sim/golfTypes'
 import {
-  buildGolfRenderPlan,
+  buildGolfGroupPlan,
   formatToPar,
-  golfChapterAt,
-  golfLbAt,
+  golfActiveSegAt,
+  golfBoardAt,
+  golferPosAt,
+  golfHoleAt,
   pickActiveGolfMoment,
-  type GolfFeaturedShot,
   type GolfMoment,
-  type GolfRenderPlan,
+  type GolfGroupPlan,
+  type GolfShotSeg,
 } from './golfDirector'
 import {
   buildHoleLayout,
@@ -24,6 +26,7 @@ import {
   type GolfHoleLayout,
 } from './golfCourseArt'
 import { drawWordmark } from './wordmark'
+import { HOLES_PER_ROUND } from '../sim/golfTypes'
 
 export interface GolfEventBrand {
   name: string
@@ -35,7 +38,7 @@ export interface GolfEventBrand {
 }
 
 export interface GolfRenderModel {
-  plan: GolfRenderPlan
+  plan: GolfGroupPlan
   m: GolfRoundResult
   event: GolfEventBrand
   courseName: string
@@ -55,6 +58,7 @@ const BUG_Y = 150
 
 export function buildGolfRenderModel(
   m: GolfRoundResult,
+  group: 0 | 1,
   event: GolfEventBrand,
   courseName: string,
   storyChips: string[] = [],
@@ -66,7 +70,7 @@ export function buildGolfRenderModel(
     layouts.push(buildHoleLayout(m.config.course, hIdx, m.renderSeed))
   }
   return {
-    plan: buildGolfRenderPlan(m),
+    plan: buildGolfGroupPlan(m, group),
     m,
     event,
     courseName,
@@ -112,12 +116,9 @@ function readableOn(hex: string): string {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? '#0a0e14' : '#ffffff'
 }
 
-// --- ball flight -----------------------------------------------------------
+// --- the group on the course -------------------------------------------------
 
-/**
- * Where the ball lands VISUALLY. Penalty shots fly into the drawn water (the
- * sim's drop spot stays authoritative for the next shot — this is cosmetic).
- */
+/** Penalty shots fly into the drawn water (cosmetic; the sim's drop spot rules). */
 function visualTarget(l: GolfHoleLayout, shot: GolfShot): [number, number] {
   if (shot.penalty) {
     if (l.water) return [l.water.x, l.water.y]
@@ -128,36 +129,64 @@ function visualTarget(l: GolfHoleLayout, shot: GolfShot): [number, number] {
   return holeToScreen(l, shot.to)
 }
 
-function drawGolferChip(ctx: Ctx, x: number, y: number, color: string, abbr: string): void {
+function drawGolferChip(ctx: Ctx, x: number, y: number, r: number, color: string, abbr: string, dim = false): void {
+  ctx.save()
+  if (dim) ctx.globalAlpha = 0.75
   ctx.beginPath()
-  ctx.arc(x, y, 26, 0, Math.PI * 2)
+  ctx.arc(x, y, r, 0, Math.PI * 2)
   ctx.fillStyle = color
   ctx.fill()
-  ctx.lineWidth = 3
+  ctx.lineWidth = Math.max(2, r * 0.12)
   ctx.strokeStyle = 'rgba(255,255,255,0.7)'
   ctx.stroke()
   ctx.fillStyle = readableOn(color)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.font = 'bold 19px system-ui, sans-serif'
+  ctx.font = `bold ${Math.round(r * 0.74)}px system-ui, sans-serif`
   ctx.fillText(abbr, x, y + 1)
+  ctx.restore()
 }
 
-function drawFeaturedShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, f: GolfFeaturedShot, t: number): void {
-  const g = model.m.config.golfers[f.shot.golfer]
-  const p = clamp01((t - f.t0) / (f.t1 - f.t0))
-  const from = holeToScreen(l, f.shot.from)
-  const to = visualTarget(l, f.shot)
-  const isPutt = f.shot.kind === 'putt'
-  const flightEnd = isPutt ? 0.75 : 0.7
+/** Waiting golfers: small chip + ball at their current lie (nudged apart). */
+function drawWaitingGolfers(
+  ctx: Ctx,
+  model: GolfRenderModel,
+  l: GolfHoleLayout,
+  hole: number,
+  t: number,
+  activeGolfer: number | null,
+): void {
+  const plan = model.plan
+  plan.golfers.forEach((gi, slot) => {
+    if (gi === activeGolfer) return
+    const st = golferPosAt(plan, gi, t, hole)
+    if (st.holed) return
+    const g = model.m.config.golfers[gi]
+    let [x, y] = st.started ? holeToScreen(l, st.pos) : [l.tee[0] - 45 + slot * 30, l.tee[1] + 34]
+    // nudge co-located balls apart so four dots never stack
+    x += (slot - 1.5) * 9
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(x, y, 6, 0, Math.PI * 2)
+    ctx.fill()
+    drawGolferChip(ctx, x, y - 24, 15, g.color, g.abbr, true)
+  })
+}
+
+function drawActiveShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, seg: GolfShotSeg, t: number): void {
+  const g = model.m.config.golfers[seg.shot.golfer]
+  const p = clamp01((t - seg.t0) / (seg.t1 - seg.t0))
+  const from = holeToScreen(l, seg.shot.from)
+  const to = visualTarget(l, seg.shot)
+  const isPutt = seg.shot.kind === 'putt'
+  const flightEnd = isPutt ? 0.78 : 0.72
   const fp = clamp01(p / flightEnd)
   const e = ease(fp)
 
   const dx = to[0] - from[0]
   const dy = to[1] - from[1]
   const dist = Math.sqrt(dx * dx + dy * dy)
-  // arc height: drives soar, putts roll
-  const lift = isPutt ? 0 : f.shot.kind === 'chip' || f.shot.kind === 'recovery' ? dist * 0.18 : dist * 0.3 + 40
+  const lift = isPutt ? 0 : seg.shot.kind === 'chip' || seg.shot.kind === 'recovery' ? dist * 0.18 : dist * 0.3 + 40
 
   const bx = from[0] + dx * e
   const by = from[1] + dy * e - lift * 4 * e * (1 - e)
@@ -177,11 +206,15 @@ function drawFeaturedShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, f
     ctx.stroke()
   }
 
-  // the golfer at the ball's origin
-  drawGolferChip(ctx, from[0], from[1] + 2, g.color, g.abbr)
+  // the player, highlighted
+  drawGolferChip(ctx, from[0], from[1] + 2, 24, g.color, g.abbr)
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(from[0], from[1] + 2, 31 + Math.sin(t * 6) * 2, 0, Math.PI * 2)
+  ctx.stroke()
 
   if (fp < 1) {
-    // ball in motion + shadow
     ctx.fillStyle = 'rgba(10,14,20,0.35)'
     ctx.beginPath()
     ctx.ellipse(bx, from[1] + dy * e + 6, 8, 4, 0, 0, Math.PI * 2)
@@ -192,18 +225,15 @@ function drawFeaturedShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, f
     ctx.fill()
   } else {
     const sp = clamp01((p - flightEnd) / (1 - flightEnd))
-    if (f.shot.penalty) {
-      // splash rings, ball gone
+    if (seg.shot.penalty) {
       ctx.strokeStyle = `rgba(255,255,255,${0.8 * (1 - sp)})`
       for (let i = 0; i < 3; i++) {
-        const rr = 8 + sp * 46 + i * 12
         ctx.lineWidth = 4 - i
         ctx.beginPath()
-        ctx.arc(to[0], to[1], rr, 0, Math.PI * 2)
+        ctx.arc(to[0], to[1], 8 + sp * 46 + i * 12, 0, Math.PI * 2)
         ctx.stroke()
       }
-    } else if (f.shot.holed) {
-      // drop in the cup: flag pulse + shrinking ball
+    } else if (seg.shot.holed) {
       const r = 9 * (1 - sp)
       if (r > 0.5) {
         ctx.fillStyle = '#ffffff'
@@ -217,9 +247,8 @@ function drawFeaturedShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, f
       ctx.arc(l.pin[0], l.pin[1], 16 + sp * 30, 0, Math.PI * 2)
       ctx.stroke()
     } else {
-      // settle bounce
       const bounce = Math.abs(Math.sin(sp * Math.PI * 2)) * 6 * (1 - sp)
-      if (f.shot.toLie === 'bunker' && sp < 0.5) {
+      if (seg.shot.toLie === 'bunker' && sp < 0.5) {
         ctx.fillStyle = `rgba(232,216,168,${0.7 * (1 - sp * 2)})`
         ctx.beginPath()
         ctx.arc(to[0], to[1] - 6, 14 + sp * 22, 0, Math.PI * 2)
@@ -232,9 +261,9 @@ function drawFeaturedShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, f
     }
   }
 
-  // shot tag under the golfer: name + shot kind
-  const tagW = 250
-  const tagY = Math.min(from[1] + 44, GOLF_ART.y + GOLF_ART.h - 40)
+  // shot tag: who's playing + stroke number
+  const tagW = 280
+  const tagY = Math.min(from[1] + 42, GOLF_ART.y + GOLF_ART.h - 40)
   const tagX = Math.max(GOLF_ART.x + 10, Math.min(from[0] - tagW / 2, GOLF_ART.x + GOLF_ART.w - tagW - 10))
   roundRect(ctx, tagX, tagY, tagW, 40, 8)
   ctx.fillStyle = 'rgba(9,13,20,0.82)'
@@ -245,8 +274,12 @@ function drawFeaturedShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, f
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.font = 'bold 21px system-ui, sans-serif'
-  const kindLbl = f.shot.kind === 'penaltyDrop' ? 'DROP' : f.shot.kind.toUpperCase()
-  ctx.fillText(`${g.name.split(' ').pop()?.toUpperCase()} · ${kindLbl}`, tagX + tagW / 2 + 4, tagY + 20)
+  const kindLbl = seg.shot.kind === 'penaltyDrop' ? 'DROP' : seg.shot.kind.toUpperCase()
+  ctx.fillText(
+    `${g.name.split(' ').pop()?.toUpperCase()} · ${kindLbl} ${seg.shot.shotNo}`,
+    tagX + tagW / 2 + 4,
+    tagY + 20,
+  )
 }
 
 // --- overlays ---------------------------------------------------------------
@@ -273,27 +306,35 @@ function drawScorebug(ctx: Ctx, model: GolfRenderModel, t: number): void {
   ctx.fillText(model.event.short, x + 26, y + hgt / 2 - 16)
   ctx.fillStyle = 'rgba(255,255,255,0.55)'
   ctx.font = 'bold 20px system-ui, sans-serif'
-  ctx.fillText(model.event.major ? (model.event.championship ? 'THE CHAMPIONSHIP · MAJOR' : 'MAJOR') : 'APEX TOUR', x + 26, y + hgt / 2 + 18)
+  const groupLbl = plan.group === 1 ? 'FINAL GROUP' : 'GROUP 1'
+  ctx.fillText(
+    `${model.event.major ? (model.event.championship ? 'THE CHAMPIONSHIP · ' : 'MAJOR · ') : ''}${groupLbl}`,
+    x + 26,
+    y + hgt / 2 + 18,
+  )
 
-  const chapter = golfChapterAt(plan, t)
-  const hole = model.m.config.course.holes[chapter.hole]
+  const hole = golfHoleAt(plan, t)
+  const holeDef = model.m.config.course.holes[hole.hole]
   ctx.textAlign = 'right'
   ctx.fillStyle = '#fff'
   ctx.font = 'bold 34px system-ui, sans-serif'
-  const holeLbl = t >= plan.playEnd ? 'FINAL' : `HOLE ${chapter.hole + 1}/9`
-  ctx.fillText(holeLbl, x + w - 26, y + hgt / 2 - 14)
+  ctx.fillText(t >= plan.playEnd ? 'FINAL' : `HOLE ${hole.hole + 1}/9`, x + w - 26, y + hgt / 2 - 14)
   ctx.fillStyle = 'rgba(255,255,255,0.55)'
   ctx.font = 'bold 20px system-ui, sans-serif'
-  ctx.fillText(t >= plan.playEnd ? `ROUND ${model.m.config.round} DONE` : `PAR ${hole.par} · R${model.m.config.round}`, x + w - 26, y + hgt / 2 + 18)
+  ctx.fillText(
+    t >= plan.playEnd ? `ROUND ${model.m.config.round} DONE` : `PAR ${holeDef.par} · R${model.m.config.round}`,
+    x + w - 26,
+    y + hgt / 2 + 18,
+  )
 }
 
-function drawLeaderboard(ctx: Ctx, model: GolfRenderModel, t: number, featuredGolfer: number | null): void {
-  const rows = golfLbAt(model.plan, t)
-  const w = 264
+function drawGroupBoard(ctx: Ctx, model: GolfRenderModel, t: number, activeGolfer: number | null): void {
+  const rows = golfBoardAt(model.plan, t)
+  const w = 268
   const x = model.width - w - 16
   const y = GOLF_ART.y + 26
-  const rowH = 46
-  const h = 54 + rowH * rows.length
+  const rowH = 56
+  const h = 60 + rowH * rows.length
   roundRect(ctx, x, y, w, h, 12)
   ctx.fillStyle = 'rgba(9,13,20,0.78)'
   ctx.fill()
@@ -307,29 +348,32 @@ function drawLeaderboard(ctx: Ctx, model: GolfRenderModel, t: number, featuredGo
   ctx.fillStyle = 'rgba(255,255,255,0.6)'
   ctx.font = 'bold 19px system-ui, sans-serif'
   const thru = rows[0]?.thru ?? 0
-  ctx.fillText(thru >= HOLES_PER_ROUND ? 'LEADERBOARD · F' : `LEADERBOARD · THRU ${thru}`, x + 16, y + 28)
+  ctx.fillText(thru >= HOLES_PER_ROUND ? 'GROUP · F' : `GROUP · THRU ${thru}`, x + 16, y + 28)
+  ctx.textAlign = 'right'
+  ctx.fillText('RD·TOT', x + w - 14, y + 28)
 
   rows.forEach((r, i) => {
     const g = model.m.config.golfers[r.golfer]
-    const ry = y + 54 + i * rowH
-    if (featuredGolfer === r.golfer) {
+    const ry = y + 60 + i * rowH
+    if (activeGolfer === r.golfer) {
       ctx.fillStyle = 'rgba(255,255,255,0.12)'
       ctx.fillRect(x + 4, ry, w - 8, rowH - 4)
     }
-    ctx.fillStyle = i === 0 ? '#d4af37' : 'rgba(255,255,255,0.5)'
-    ctx.font = 'bold 20px system-ui, sans-serif'
-    ctx.fillText(`${i + 1}`, x + 14, ry + rowH / 2 - 2)
     ctx.beginPath()
-    ctx.arc(x + 52, ry + rowH / 2 - 2, 11, 0, Math.PI * 2)
+    ctx.arc(x + 26, ry + rowH / 2 - 2, 12, 0, Math.PI * 2)
     ctx.fillStyle = g.color
     ctx.fill()
+    ctx.textAlign = 'left'
     ctx.fillStyle = '#e8edf4'
-    ctx.font = 'bold 23px system-ui, sans-serif'
-    ctx.fillText(g.abbr, x + 74, ry + rowH / 2 - 2)
+    ctx.font = 'bold 24px system-ui, sans-serif'
+    ctx.fillText(g.abbr, x + 48, ry + rowH / 2 - 2)
     ctx.textAlign = 'right'
-    const tp = r.toPar
-    ctx.fillStyle = tp < 0 ? '#ff5566' : tp === 0 ? '#e8edf4' : '#8fa3b8'
-    ctx.fillText(formatToPar(tp), x + w - 16, ry + rowH / 2 - 2)
+    ctx.font = 'bold 22px system-ui, sans-serif'
+    ctx.fillStyle = r.toParRound < 0 ? '#ff5566' : 'rgba(255,255,255,0.65)'
+    ctx.fillText(formatToPar(r.toParRound), x + w - 82, ry + rowH / 2 - 2)
+    ctx.fillStyle = r.toParTotal < 0 ? '#ff5566' : r.toParTotal === 0 ? '#e8edf4' : '#8fa3b8'
+    ctx.font = 'bold 24px system-ui, sans-serif'
+    ctx.fillText(formatToPar(r.toParTotal), x + w - 14, ry + rowH / 2 - 2)
     ctx.textAlign = 'left'
   })
 }
@@ -356,27 +400,6 @@ function drawHoleCard(ctx: Ctx, model: GolfRenderModel, holeIdx: number, prog: n
   ctx.fillStyle = 'rgba(255,255,255,0.6)'
   ctx.font = 'bold 25px system-ui, sans-serif'
   ctx.fillText(`PAR ${hole.par}${hole.water ? ' · WATER' : ''}`, cx, cy + 28)
-  ctx.restore()
-}
-
-function drawTick(ctx: Ctx, model: GolfRenderModel, holeIdx: number, prog: number): void {
-  // a skipped hole: quick full-width leaderboard pulse "THRU N"
-  const a = Math.min(ease(clamp01(prog * 4)), ease(clamp01((1 - prog) * 4)))
-  ctx.save()
-  ctx.globalAlpha = a
-  const cx = model.width / 2 - 140
-  const y = GOLF_ART.y + 560
-  roundRect(ctx, cx - 170, y - 44, 340, 88, 12)
-  ctx.fillStyle = 'rgba(9,13,20,0.9)'
-  ctx.fill()
-  ctx.fillStyle = model.event.colorAlt
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.font = 'bold 34px system-ui, sans-serif'
-  ctx.fillText(`THRU ${holeIdx + 1}`, cx, y - 8)
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'
-  ctx.font = 'bold 19px system-ui, sans-serif'
-  ctx.fillText('QUIET HOLE — MOVING ON', cx, y + 26)
   ctx.restore()
 }
 
@@ -411,7 +434,6 @@ function drawIntro(ctx: Ctx, model: GolfRenderModel, progress: number): void {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  // event colour wash
   const grad = ctx.createLinearGradient(0, 300, 0, 1500)
   grad.addColorStop(0, model.event.color + '55')
   grad.addColorStop(1, 'rgba(6,9,14,0)')
@@ -425,58 +447,58 @@ function drawIntro(ctx: Ctx, model: GolfRenderModel, progress: number): void {
     : model.event.major
       ? 'A MAJOR CHAMPIONSHIP'
       : 'APEX TOUR'
-  ctx.fillText(kicker, cx, 380 + 30 * clamp01(progress * 3))
+  ctx.fillText(kicker, cx, 360 + 30 * clamp01(progress * 3))
 
   ctx.fillStyle = '#f2f4f3'
-  const nameA = clamp01(progress * 4 - 0.4)
-  ctx.globalAlpha = a * nameA
-  fitText(ctx, model.event.name.toUpperCase(), 960, 76)
-  ctx.fillText(model.event.name.toUpperCase(), cx, 500)
+  ctx.globalAlpha = a * clamp01(progress * 4 - 0.4)
+  fitText(ctx, model.event.name.toUpperCase(), 960, 72)
+  ctx.fillText(model.event.name.toUpperCase(), cx, 470)
 
-  ctx.font = 'bold 34px system-ui, sans-serif'
+  ctx.font = 'bold 32px system-ui, sans-serif'
   ctx.fillStyle = model.event.colorAlt
-  ctx.fillText(`${model.courseName.toUpperCase()}`, cx, 590)
+  ctx.fillText(model.courseName.toUpperCase(), cx, 552)
   ctx.fillStyle = 'rgba(255,255,255,0.65)'
-  ctx.font = 'bold 30px system-ui, sans-serif'
-  ctx.fillText(`ROUND ${model.m.config.round} OF 4 · 9 HOLES`, cx, 650)
+  ctx.font = 'bold 28px system-ui, sans-serif'
+  const groupLbl = model.plan.group === 1 ? 'THE FINAL GROUP' : 'GROUP 1'
+  ctx.fillText(`ROUND ${model.m.config.round} OF 4 · ${groupLbl} · ALL 9 HOLES`, cx, 610)
 
-  // storyline hooks from the stats book
   model.storyChips.forEach((chip, i) => {
-    const y = 780 + i * 92
+    const y = 724 + i * 88
+    ctx.font = 'bold 30px system-ui, sans-serif'
     const wch = Math.min(940, ctx.measureText(chip).width + 120)
-    roundRect(ctx, cx - wch / 2, y - 34, wch, 68, 10)
+    roundRect(ctx, cx - wch / 2, y - 32, wch, 64, 10)
     ctx.fillStyle = 'rgba(255,255,255,0.08)'
     ctx.fill()
     ctx.strokeStyle = model.event.color
     ctx.lineWidth = 2
-    roundRect(ctx, cx - wch / 2, y - 34, wch, 68, 10)
+    roundRect(ctx, cx - wch / 2, y - 32, wch, 64, 10)
     ctx.stroke()
     ctx.fillStyle = '#e8edf4'
     fitText(ctx, chip, wch - 60, 30)
     ctx.fillText(chip, cx, y)
   })
 
-  // the field, entering leaderboard order
-  const rows = model.plan.lb[0].rows
-  const gy = 1100
-  rows.forEach((r, i) => {
-    const g = model.m.config.golfers[r.golfer]
-    const col = i % 2
-    const row = (i - col) / 2
-    const gx = cx + (col === 0 ? -240 : 240)
-    const yy = gy + row * 88
-    ctx.globalAlpha = a * clamp01(progress * 4 - 0.6 - i * 0.06)
+  // the four golfers of THIS group, tee order
+  const gy = 1000
+  model.plan.golfers.forEach((gi, i) => {
+    const g = model.m.config.golfers[gi]
+    const yy = gy + i * 118
+    ctx.globalAlpha = a * clamp01(progress * 4 - 0.6 - i * 0.1)
     ctx.beginPath()
-    ctx.arc(gx - 150, yy, 22, 0, Math.PI * 2)
+    ctx.arc(cx - 330, yy, 34, 0, Math.PI * 2)
     ctx.fillStyle = g.color
     ctx.fill()
+    ctx.fillStyle = readableOn(g.color)
+    ctx.font = 'bold 24px system-ui, sans-serif'
+    ctx.fillText(g.abbr, cx - 330, yy + 1)
     ctx.fillStyle = '#e8edf4'
     ctx.textAlign = 'left'
-    ctx.font = 'bold 30px system-ui, sans-serif'
-    ctx.fillText(g.name, gx - 112, yy)
+    ctx.font = 'bold 38px system-ui, sans-serif'
+    ctx.fillText(g.name, cx - 270, yy)
     ctx.textAlign = 'right'
-    ctx.fillStyle = r.toPar < 0 ? '#ff5566' : 'rgba(255,255,255,0.6)'
-    ctx.fillText(formatToPar(r.toPar), gx + 190, yy)
+    const tp = model.m.config.startToPar[gi]
+    ctx.fillStyle = tp < 0 ? '#ff5566' : 'rgba(255,255,255,0.6)'
+    ctx.fillText(formatToPar(tp), cx + 340, yy)
     ctx.textAlign = 'center'
   })
   ctx.restore()
@@ -491,18 +513,25 @@ function drawResult(ctx: Ctx, model: GolfRenderModel, progress: number): void {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  const rows = model.plan.lb[model.plan.lb.length - 1].rows
+  const rows = model.plan.board[model.plan.board.length - 1].rows
   const isFinal = model.m.config.round === 4
-  const champ = model.m.config.golfers[rows[0].golfer]
+  const winnerEv = model.m.events.find((e) => e.type === 'winner')
+  const champInGroup =
+    isFinal && winnerEv && winnerEv.golfer !== null && model.plan.golfers.includes(winnerEv.golfer)
 
   ctx.fillStyle = model.event.major ? '#d4af37' : '#ff5566'
   ctx.font = 'bold 38px system-ui, sans-serif'
-  ctx.fillText(isFinal ? (model.event.major ? 'MAJOR CHAMPION' : 'TOURNAMENT WINNER') : `ROUND ${model.m.config.round} COMPLETE`, cx, 420)
+  const kicker = champInGroup
+    ? model.event.major
+      ? 'MAJOR CHAMPION'
+      : 'TOURNAMENT WINNER'
+    : `${model.plan.group === 1 ? 'FINAL GROUP' : 'GROUP 1'} · ROUND ${model.m.config.round} COMPLETE`
+  ctx.fillText(kicker, cx, 430)
 
-  ctx.fillStyle = '#fff'
-  if (isFinal) {
+  if (champInGroup && winnerEv && winnerEv.golfer !== null) {
+    const champ = model.m.config.golfers[winnerEv.golfer]
     ctx.beginPath()
-    ctx.arc(cx, 560, 64, 0, Math.PI * 2)
+    ctx.arc(cx, 580, 64, 0, Math.PI * 2)
     ctx.fillStyle = champ.color
     ctx.fill()
     ctx.lineWidth = 5
@@ -510,75 +539,74 @@ function drawResult(ctx: Ctx, model: GolfRenderModel, progress: number): void {
     ctx.stroke()
     ctx.fillStyle = readableOn(champ.color)
     ctx.font = 'bold 44px system-ui, sans-serif'
-    ctx.fillText(champ.abbr, cx, 562)
+    ctx.fillText(champ.abbr, cx, 582)
     ctx.fillStyle = '#fff'
-    fitText(ctx, champ.name.toUpperCase(), 940, 72)
-    ctx.fillText(champ.name.toUpperCase(), cx, 700)
+    fitText(ctx, champ.name.toUpperCase(), 940, 68)
+    ctx.fillText(champ.name.toUpperCase(), cx, 716)
     ctx.fillStyle = '#d4af37'
-    ctx.font = 'bold 56px system-ui, sans-serif'
-    ctx.fillText(formatToPar(rows[0].toPar), cx, 790)
+    ctx.font = 'bold 54px system-ui, sans-serif'
+    ctx.fillText(formatToPar(model.m.totalToPar[winnerEv.golfer]), cx, 800)
   } else {
-    fitText(ctx, `${champ.name.toUpperCase()} LEADS`, 940, 60)
-    ctx.fillText(`${champ.name.toUpperCase()} LEADS`, cx, 520)
+    const leader = model.m.config.golfers[rows[0].golfer]
+    ctx.fillStyle = '#fff'
+    fitText(ctx, `${leader.name.toUpperCase()} LEADS THE GROUP`, 940, 54)
+    ctx.fillText(`${leader.name.toUpperCase()} LEADS THE GROUP`, cx, 540)
     ctx.fillStyle = '#d4af37'
-    ctx.font = 'bold 52px system-ui, sans-serif'
-    ctx.fillText(formatToPar(rows[0].toPar), cx, 600)
+    ctx.font = 'bold 50px system-ui, sans-serif'
+    ctx.fillText(formatToPar(rows[0].toParTotal), cx, 620)
   }
 
-  // final board
-  const by = isFinal ? 900 : 720
+  const by = champInGroup ? 950 : 780
   rows.forEach((r, i) => {
     const g = model.m.config.golfers[r.golfer]
-    const yy = by + i * 78
+    const yy = by + i * 96
     ctx.globalAlpha = clamp01(progress * 3) * clamp01(progress * 5 - i * 0.12)
     ctx.textAlign = 'left'
-    ctx.fillStyle = i === 0 ? '#d4af37' : 'rgba(255,255,255,0.5)'
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'
     ctx.font = 'bold 30px system-ui, sans-serif'
-    ctx.fillText(`${i + 1}`, cx - 330, yy)
+    ctx.fillText(`${i + 1}`, cx - 340, yy)
     ctx.beginPath()
-    ctx.arc(cx - 260, yy, 20, 0, Math.PI * 2)
+    ctx.arc(cx - 270, yy, 24, 0, Math.PI * 2)
     ctx.fillStyle = g.color
     ctx.fill()
     ctx.fillStyle = '#e8edf4'
-    ctx.fillText(g.name, cx - 216, yy)
+    ctx.font = 'bold 34px system-ui, sans-serif'
+    ctx.fillText(g.name, cx - 222, yy)
     ctx.textAlign = 'right'
-    ctx.fillStyle = r.toPar < 0 ? '#ff5566' : 'rgba(255,255,255,0.75)'
-    ctx.fillText(formatToPar(r.toPar), cx + 330, yy)
+    ctx.font = 'bold 28px system-ui, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'
+    ctx.fillText(`R ${formatToPar(r.toParRound)}`, cx + 210, yy)
+    ctx.fillStyle = r.toParTotal < 0 ? '#ff5566' : 'rgba(255,255,255,0.8)'
+    ctx.font = 'bold 34px system-ui, sans-serif'
+    ctx.fillText(formatToPar(r.toParTotal), cx + 340, yy)
   })
   ctx.restore()
 }
 
-/** Draw one frame of a golf round at render-time `t`. Pure function of (model, t). */
+/** Draw one frame of a foursome's round at render-time `t`. Pure fn of (model, t). */
 export function drawGolfFrame(ctx: Ctx, model: GolfRenderModel, t: number): void {
   const plan = model.plan
   ctx.fillStyle = '#0a0e14'
   ctx.fillRect(0, 0, model.width, model.height)
 
-  const chapter = golfChapterAt(plan, t)
-  const layout = model.layouts[chapter.hole]
+  const hole = golfHoleAt(plan, t)
+  const layout = model.layouts[hole.hole]
 
   drawGolfHole(ctx, layout)
 
-  // active featured ball flight
-  let featuredGolfer: number | null = null
-  if (chapter.covered) {
-    for (const f of chapter.featured) {
-      if (t >= f.t0 && t <= f.t1) {
-        drawFeaturedShot(ctx, model, layout, f, t)
-        featuredGolfer = f.shot.golfer
-      }
-    }
-    const cardProg = (t - chapter.t0) / 0.9
-    if (cardProg >= 0 && cardProg < 1) drawHoleCard(ctx, model, chapter.hole, cardProg)
-  } else {
-    drawTick(ctx, model, chapter.hole, clamp01((t - chapter.t0) / (chapter.t1 - chapter.t0)))
-  }
+  const active = golfActiveSegAt(plan, Math.min(t, plan.playEnd - 0.001))
+  const activeGolfer = active && active.shot.hole === hole.hole ? active.shot.golfer : null
+  drawWaitingGolfers(ctx, model, layout, hole.hole, t, activeGolfer)
+  if (active && active.shot.hole === hole.hole) drawActiveShot(ctx, model, layout, active, t)
+
+  const cardProg = (t - hole.t0) / 1.1
+  if (cardProg >= 0 && cardProg < 1) drawHoleCard(ctx, model, hole.hole, cardProg)
 
   drawScorebug(ctx, model, t)
-  drawLeaderboard(ctx, model, t, featuredGolfer)
+  drawGroupBoard(ctx, model, t, activeGolfer)
 
-  const active = pickActiveGolfMoment(plan, t)
-  if (active) drawLowerThird(ctx, model, active, clamp01((t - active.t) / active.dur))
+  const mo = pickActiveGolfMoment(plan, t)
+  if (mo) drawLowerThird(ctx, model, mo, clamp01((t - mo.t) / mo.dur))
 
   if (t < plan.introDur) drawIntro(ctx, model, t / plan.introDur)
   if (t >= plan.resultStart) drawResult(ctx, model, clamp01((t - plan.resultStart) / plan.resultDur))

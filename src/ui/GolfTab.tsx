@@ -12,6 +12,7 @@ import { golfCourseById, golfEventByIndex } from '../ratings/golfCourses'
 import { GOLFERS, GOLF_TOUR } from '../ratings/golfers'
 import { buildGolfRenderModel, type GolfRenderModel } from '../render/golfRenderMatch'
 import { exportGolfRankingsPng } from '../render/golfRankingsCard'
+import { exportGolfLeaderboardPng } from '../render/golfLeaderboardCard'
 import { golfStoryChips } from '../content/golfStorylines'
 import { buildGolfEventPack, golfEventBrand } from '../content/golfEventPack'
 import type { MatchdayPack } from '../content/matchdayPack'
@@ -60,7 +61,9 @@ function GolfSeasonView({
   setState: (s: GolfSeasonState) => void
   onReset: () => void
 }) {
-  const [model, setModel] = useState<GolfRenderModel | null>(null)
+  const [models, setModels] = useState<[GolfRenderModel, GolfRenderModel] | null>(null)
+  const [group, setGroup] = useState<0 | 1>(1)
+  const [viewEventIndex, setViewEventIndex] = useState(0)
   const [viewLabel, setViewLabel] = useState('')
   const [playKey, setPlayKey] = useState(0)
   const [pack, setPack] = useState<MatchdayPack | null>(null)
@@ -71,14 +74,31 @@ function GolfSeasonView({
   const course = golfCourseById(event.courseId)
   const nextRound = state.current.roundsPlayed + 1
 
+  function showRound(
+    eventIndex: number,
+    result: ReturnType<typeof golfRecordRoundResult>,
+    chips: string[],
+    label: string,
+  ): void {
+    const ev = golfEventByIndex(eventIndex)
+    const courseName = golfCourseById(ev.courseId).name
+    const brand = golfEventBrand(eventIndex)
+    setModels([
+      buildGolfRenderModel(result, 0, brand, courseName, chips),
+      buildGolfRenderModel(result, 1, brand, courseName, chips),
+    ])
+    setGroup(1)
+    setViewEventIndex(eventIndex)
+    setViewLabel(label)
+    setPlayKey((k) => k + 1)
+  }
+
   function playRound(): void {
     const chips = golfStoryChips(state)
     const eventIndex = state.current.eventIndex
     const out = playNextGolfRound(state)
     setState(out.state)
-    setModel(buildGolfRenderModel(out.result, golfEventBrand(eventIndex), course.name, chips))
-    setViewLabel(`${event.short} · Round ${out.result.config.round}`)
-    setPlayKey((k) => k + 1)
+    showRound(eventIndex, out.result, chips, `${event.short} · Round ${out.result.config.round}`)
     setPack(null)
   }
 
@@ -86,15 +106,31 @@ function GolfSeasonView({
     const record = state.completed.find((r) => r.eventIndex === eventIndex)
     if (!record) return
     const ev = golfEventByIndex(eventIndex)
-    const result = golfRecordRoundResult(state, record, round)
-    setModel(buildGolfRenderModel(result, golfEventBrand(eventIndex), golfCourseById(ev.courseId).name))
-    setViewLabel(`${ev.short} · Round ${round} (replay)`)
-    setPlayKey((k) => k + 1)
+    showRound(
+      eventIndex,
+      golfRecordRoundResult(state, record, round),
+      [],
+      `${ev.short} · Round ${round} (replay)`,
+    )
   }
 
   async function downloadRankingsPng(): Promise<void> {
     const png = await exportGolfRankingsPng(state)
     downloadBlob(png, `esspn-golf-rankings-s${state.season}.png`)
+  }
+
+  async function downloadLeaderboardPng(eventIndex: number, throughRound: number): Promise<void> {
+    const ev = golfEventByIndex(eventIndex)
+    const record = state.completed.find((r) => r.eventIndex === eventIndex)
+    const src = record ?? (state.current.eventIndex === eventIndex ? state.current : null)
+    if (!src) return
+    const png = await exportGolfLeaderboardPng({
+      event: ev,
+      season: record?.season ?? state.season,
+      field: src.field,
+      toParByRound: src.toParByRound.slice(0, throughRound),
+    })
+    downloadBlob(png, `esspn-golf-${ev.short.replace(/\s/g, '').toLowerCase()}-r${throughRound}-leaderboard.png`)
   }
 
   async function buildPack(eventIndex: number): Promise<void> {
@@ -137,13 +173,27 @@ function GolfSeasonView({
         </div>
       )}
 
-      {model && (
+      {models && (
         <>
-          <p className="hint">{viewLabel}</p>
+          <p className="hint">{viewLabel} — every shot, all 9 holes, one video per foursome.</p>
+          <div className="controls">
+            <button className={`btn ${group === 0 ? '' : 'ghost'}`} onClick={() => setGroup(0)}>
+              Group 1
+            </button>
+            <button className={`btn ${group === 1 ? '' : 'ghost'}`} onClick={() => setGroup(1)}>
+              Final group{models[1].m.config.round > 1 ? ' (leaders)' : ''}
+            </button>
+            <button
+              className="btn ghost"
+              onClick={() => void downloadLeaderboardPng(viewEventIndex, models[group].m.config.round)}
+            >
+              ⬇ Round leaderboard PNG
+            </button>
+          </div>
           <GolfRoundView
-            model={model}
-            filename={`esspn-golf-${viewLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.mp4`}
-            playKey={playKey}
+            model={models[group]}
+            filename={`esspn-golf-${viewLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-g${group + 1}.mp4`}
+            playKey={playKey * 2 + group}
           />
         </>
       )}

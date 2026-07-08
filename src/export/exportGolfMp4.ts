@@ -35,7 +35,6 @@ function audioKindFor(m: GolfMoment): MomentKind {
       return 'goal'
     case 'birdie':
     case 'longPutt':
-    case 'leadChange':
       return 'bigChance'
     case 'splash':
     case 'double':

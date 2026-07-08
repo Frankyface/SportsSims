@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { simulateGolfRound } from '../sim/golfSim'
-import { HOLES_PER_ROUND, type GolfRoundConfig } from '../sim/golfTypes'
+import { GROUP_SIZE, HOLES_PER_ROUND, type GolfRoundConfig } from '../sim/golfTypes'
 import { golfCourseById, GOLF_COURSES } from '../ratings/golfCourses'
 import { generateGolfTour } from '../ratings/golfers'
 import { toGolferRating } from '../ratings/golfStrength'
-import { buildGolfRenderPlan, golfChapterAt, golfLbAt, golfTotalsThru, pickActiveGolfMoment } from './golfDirector'
+import {
+  buildGolfGroupPlan,
+  golfBoardAt,
+  golferPosAt,
+  golfHoleAt,
+  golfTotalsThru,
+  pickActiveGolfMoment,
+} from './golfDirector'
 
 function cfg(seed: string, courseId: string, round: number): GolfRoundConfig {
   return {
@@ -16,90 +23,133 @@ function cfg(seed: string, courseId: string, round: number): GolfRoundConfig {
   }
 }
 
-describe('golf director', () => {
+describe('golf group director — every shot, all nine holes', () => {
   const seeds = Array.from({ length: 200 }, (_, i) => i)
 
-  it('every clip lands in the 55-70s square-race band, over 200 seeds', () => {
-    let lo = Infinity
-    let hi = -Infinity
+  it('every group video lands under the Reels cap (60-88s), over 200 seeds × 2 groups', () => {
     for (const i of seeds) {
-      const plan = buildGolfRenderPlan(
-        simulateGolfRound(cfg(`band-${i}`, GOLF_COURSES[i % GOLF_COURSES.length].id, (i % 4) + 1)),
-      )
-      lo = Math.min(lo, plan.total)
-      hi = Math.max(hi, plan.total)
-      expect(plan.total).toBeGreaterThanOrEqual(55)
-      expect(plan.total).toBeLessThanOrEqual(70)
-    }
-    // the pacing engine is fixed-window by construction: sanity that both ends exist
-    expect(lo).toBeGreaterThan(0)
-    expect(hi).toBeGreaterThan(lo - 40)
-  })
-
-  it('coverage is always exactly 3, 6 or 9 holes, and every kind appears across seeds', () => {
-    const seen = new Set<number>()
-    for (const i of seeds) {
-      const plan = buildGolfRenderPlan(
-        simulateGolfRound(cfg(`cov-${i}`, GOLF_COURSES[(i * 3) % GOLF_COURSES.length].id, (i % 4) + 1)),
-      )
-      const covered = plan.chapters.filter((c) => c.covered).length
-      expect([3, 6, 9]).toContain(covered)
-      expect(covered).toBe(plan.coveredCount)
-      seen.add(covered)
-      // the closing hole is never skipped
-      expect(plan.chapters[HOLES_PER_ROUND - 1].covered).toBe(true)
-    }
-    expect(seen.has(9)).toBe(true) // quiet rounds show the whole card
-  })
-
-  it('chapters tile the play window contiguously and featured shots stay inside them', () => {
-    const plan = buildGolfRenderPlan(simulateGolfRound(cfg('tile', 'pinnacle', 4)))
-    expect(plan.chapters[0].t0).toBeCloseTo(plan.playStart, 5)
-    for (let i = 1; i < plan.chapters.length; i++) {
-      expect(plan.chapters[i].t0).toBeCloseTo(plan.chapters[i - 1].t1, 5)
-    }
-    expect(plan.chapters[plan.chapters.length - 1].t1).toBeCloseTo(plan.playEnd, 5)
-    for (const c of plan.chapters) {
-      for (const f of c.featured) {
-        expect(f.t0).toBeGreaterThanOrEqual(c.t0)
-        expect(f.t1).toBeLessThanOrEqual(c.t1 + 1e-6)
+      const m = simulateGolfRound(cfg(`band-${i}`, GOLF_COURSES[i % GOLF_COURSES.length].id, (i % 4) + 1))
+      for (const g of [0, 1] as const) {
+        const plan = buildGolfGroupPlan(m, g)
+        expect(plan.total).toBeGreaterThanOrEqual(60)
+        expect(plan.total).toBeLessThanOrEqual(88)
       }
-      if (c.covered) expect(c.featured.length).toBeGreaterThanOrEqual(1)
-      else expect(c.featured).toHaveLength(0)
     }
   })
 
-  it('the leaderboard steps to the true final standings', () => {
+  it('shows EVERY shot of the group exactly once, chronologically, per-golfer order intact', () => {
     for (const i of seeds.slice(0, 30)) {
-      const m = simulateGolfRound(cfg(`lb-${i}`, 'mirrorlake', 2))
-      const plan = buildGolfRenderPlan(m)
-      const finalRows = golfLbAt(plan, plan.total)
-      expect(finalRows.map((r) => r.golfer)).toEqual(m.leaderboard)
-      expect(finalRows[0].toPar).toBe(m.totalToPar[m.leaderboard[0]])
-      // and totals-thru agrees with the sim's own totals on the last hole
-      expect(golfTotalsThru(m, HOLES_PER_ROUND - 1)).toEqual(m.totalToPar)
+      const m = simulateGolfRound(cfg(`all-${i}`, 'mirrorlake', (i % 4) + 1))
+      for (const g of [0, 1] as const) {
+        const plan = buildGolfGroupPlan(m, g)
+        const expected = m.shots.filter((s) => plan.golfers.includes(s.golfer))
+        expect(plan.segs.length).toBe(expected.length)
+        // chronological + inside the play window
+        for (let k = 1; k < plan.segs.length; k++) {
+          expect(plan.segs[k].t0).toBeGreaterThanOrEqual(plan.segs[k - 1].t1 - 1e-9)
+        }
+        expect(plan.segs[0].t0).toBeCloseTo(plan.playStart, 5)
+        expect(plan.segs[plan.segs.length - 1].t1).toBeCloseTo(plan.playEnd, 5)
+        // each golfer's own shots keep their sim order
+        for (const gi of plan.golfers) {
+          const mine = plan.segs.filter((s) => s.shot.golfer === gi).map((s) => s.shot)
+          expect(mine).toEqual(expected.filter((s) => s.golfer === gi))
+        }
+      }
     }
   })
 
-  it('a round-4 plan carries a winner moment; chapterAt/momentAt never throw across the clip', () => {
+  it('holes play in order and open with the four tee shots in group order', () => {
+    const m = simulateGolfRound(cfg('tee', 'pinnacle', 2))
+    const plan = buildGolfGroupPlan(m, 1)
+    expect(plan.holes.map((h) => h.hole)).toEqual([...Array(HOLES_PER_ROUND).keys()])
+    for (const h of plan.holes) {
+      const inHole = plan.segs.filter((s) => s.shot.hole === h.hole)
+      const teeShots = inHole.slice(0, GROUP_SIZE)
+      expect(teeShots.map((s) => s.shot.golfer)).toEqual(plan.golfers)
+      expect(teeShots.every((s) => s.shot.fromLie === 'tee')).toBe(true)
+      // and the hole span brackets its shots
+      expect(inHole[0].t0).toBeCloseTo(h.t0, 5)
+      expect(inHole[inHole.length - 1].t1).toBeCloseTo(h.t1, 5)
+    }
+  })
+
+  it('after the honours, the farthest ball always plays first', () => {
+    const m = simulateGolfRound(cfg('farthest', 'saltmarsh', 3))
+    for (const g of [0, 1] as const) {
+      const plan = buildGolfGroupPlan(m, g)
+      for (const h of plan.holes) {
+        const inHole = plan.segs.filter((s) => s.shot.hole === h.hole)
+        // replay the queues and check each post-tee pick was the farthest out
+        const remaining = new Map(plan.golfers.map((gi) => [gi, inHole.filter((s) => s.shot.golfer === gi).map((s) => s.shot)]))
+        for (const [idx, seg] of inHole.entries()) {
+          if (idx >= GROUP_SIZE) {
+            const pickDist = 1 - seg.shot.from[1]
+            for (const [gi, q] of remaining) {
+              if (gi === seg.shot.golfer || q.length === 0) continue
+              expect(pickDist).toBeGreaterThanOrEqual(1 - q[0].from[1] - 1e-6)
+            }
+          }
+          const q = remaining.get(seg.shot.golfer)
+          expect(q?.[0]).toEqual(seg.shot)
+          q?.shift()
+        }
+      }
+    }
+  })
+
+  it('the group board steps to the true totals, and everyone is holed at each hole end', () => {
+    for (const i of seeds.slice(0, 20)) {
+      const m = simulateGolfRound(cfg(`board-${i}`, 'redrock', 4))
+      for (const g of [0, 1] as const) {
+        const plan = buildGolfGroupPlan(m, g)
+        const finalRows = golfBoardAt(plan, plan.total)
+        const trueTotals = golfTotalsThru(m, HOLES_PER_ROUND - 1)
+        for (const r of finalRows) {
+          expect(r.toParTotal).toBe(trueTotals[r.golfer])
+        }
+        for (let k = 1; k < finalRows.length; k++) {
+          expect(finalRows[k - 1].toParTotal).toBeLessThanOrEqual(finalRows[k].toParTotal)
+        }
+        for (const h of plan.holes) {
+          for (const gi of plan.golfers) {
+            expect(golferPosAt(plan, gi, h.t1 + 1e-6, h.hole).holed).toBe(true)
+          }
+        }
+      }
+    }
+  })
+
+  it('moments belong to the group; the winner banner only airs in the champion’s group', () => {
     const m = simulateGolfRound(cfg('winner', 'pinnacle', 4))
-    const plan = buildGolfRenderPlan(m)
-    expect(plan.moments.some((mo) => mo.kind === 'winner')).toBe(true)
-    for (let t = 0; t <= plan.total; t += 0.25) {
-      expect(golfChapterAt(plan, t)).toBeTruthy()
-      pickActiveGolfMoment(plan, t) // may be null, must not throw
-      expect(golfLbAt(plan, t).length).toBe(8)
+    const winner = m.events.find((e) => e.type === 'winner')
+    expect(winner).toBeTruthy()
+    let bannersSeen = 0
+    for (const g of [0, 1] as const) {
+      const plan = buildGolfGroupPlan(m, g)
+      for (const mo of plan.moments) {
+        if (mo.golfer !== null) expect(plan.golfers).toContain(mo.golfer)
+        expect(mo.label.length).toBeGreaterThan(3)
+        expect(mo.label.length).toBeLessThanOrEqual(40)
+      }
+      for (let k = 1; k < plan.moments.length; k++) {
+        expect(plan.moments[k].t).toBeGreaterThanOrEqual(plan.moments[k - 1].t)
+      }
+      if (plan.moments.some((mo) => mo.kind === 'winner')) {
+        bannersSeen++
+        expect(plan.golfers).toContain(winner?.golfer)
+      }
     }
+    expect(bannersSeen).toBe(1)
   })
 
-  it('moments are chronological and labelled', () => {
-    const plan = buildGolfRenderPlan(simulateGolfRound(cfg('mom', 'redrock', 3)))
-    for (let i = 1; i < plan.moments.length; i++) {
-      expect(plan.moments[i].t).toBeGreaterThanOrEqual(plan.moments[i - 1].t)
-    }
-    for (const mo of plan.moments) {
-      expect(mo.label.length).toBeGreaterThan(3)
-      expect(mo.label.length).toBeLessThanOrEqual(40)
+  it('holeAt/boardAt/momentAt never throw across the whole clip', () => {
+    const m = simulateGolfRound(cfg('sweep', 'palmshade', 1))
+    const plan = buildGolfGroupPlan(m, 0)
+    for (let t = 0; t <= plan.total; t += 0.25) {
+      expect(golfHoleAt(plan, t)).toBeTruthy()
+      pickActiveGolfMoment(plan, t)
+      expect(golfBoardAt(plan, t).length).toBe(GROUP_SIZE)
     }
   })
 })

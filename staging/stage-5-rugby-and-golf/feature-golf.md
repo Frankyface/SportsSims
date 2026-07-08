@@ -26,8 +26,12 @@ Validates the engine for an individual (non-team) sport and adds a distinct cont
 
 ## Decisions locked (operator, 2026-07-08)
 - 8 golfers / two foursomes; rounds 2-4 regroup by leaderboard, leaders out last.
-- ~60s videos; the director covers **9, 6 or 3 holes** by drama density (skipped holes = quick
-  leaderboard ticks); runtime band 55-70s locked by test.
+- **FORMAT v2 (operator, same day): every round = TWO videos — one per foursome — showing the
+  whole group playing ALL 9 holes together, EVERY shot, one at a time (real golf order: honours
+  off the tee, then farthest from the pin plays first), plus the full-field LEADERBOARD CARD
+  after the round.** Shot durations are drama-weighted and scaled so each group video lands in a
+  60-88s band (test-locked over 200 seeds × 2 groups). The original 9/6/3-hole highlight-edit
+  director was replaced by this group-play director.
 - Every course has a distinct environment (14 total: coast, alpine, lakeside, forest, heath,
   desert, parkland, links, tropical, quarry, canyon, moor, frost, cliffs) — procedural hole art.
 - Stats system: Glicko-2 via pairwise finishes per event (skill random per save, never tied to
