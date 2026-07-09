@@ -28,7 +28,8 @@ The free, GitHub-native path to the self-running newsroom. Publishing must run s
 - **Run 1** (pre-revision): golf round videos + preview carousel **posted successfully** to the golf account. Soccer step is where the operator saw the content and asked for the Reels/4:5 revision.
 - **Revision applied + verified locally** (`content2/`): soccer + golf-round posts are Reels ending with the flashed scoreboard; golf preview is a 4:5 carousel; golf-cart bed deleted + cheers removed; real SGA crest; photos resized.
 - **Run 2** (corrected, `29046645483`): Generate ✅, Finalize reels ✅, **Host assets ❌ (git push)**, Post skipped. → diagnosed (non-fast-forward + nothing-to-commit) and **fixed in `9e1143a`**.
-- **Run 3 (next):** operator fires Actions → "Post seed content (Round 1 + Event 1)" → Run workflow. Expect Generate ✅ → Finalize ✅ → Host (orphan force-push) ✅ → Post ✅ (12 items live). ← resume here.
+- **Run 3 (`29051219139`): ✅ SUCCESS — full end-to-end.** Every step green: Generate ✅ → Finalize ✅ → **Host (orphan force-push) ✅** → **Post ✅**. `ig-post.mjs` exits non-zero on any failure, so the success exit = **all 12 items published** live (Soccer R1 → soccer account, Golf E1 → `simgatour`). The host-step fix is proven in CI. Seed drop DONE.
+- **Cadence handover:** the `automation-state` cursor starts at soccer=3/golf=5 (exactly where the seed drop left off), enabled=false. Next: a `content-daily.yml` dry-run, then flip enabled.
 
 ## Open Questions
 - Confirm Meta's fetcher accepts the specific GitHub Pages MP4 URL (needs one live end-to-end test).
