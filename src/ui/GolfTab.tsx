@@ -11,6 +11,7 @@ import {
   type GolfSeasonState,
 } from '../league/golfSeason'
 import { golfCourseById, eventById, golfMajors } from '../ratings/golfCourses'
+import { golfEventLogoUrl } from '../render/golfEventLogos'
 import type { GolferRating } from '../sim/golfTypes'
 import { GOLFERS, GOLF_TOUR } from '../ratings/golfers'
 import { buildGolfRenderModel, type GolfRenderModel } from '../render/golfRenderMatch'
@@ -67,7 +68,22 @@ export function GolfTab({
   )
 }
 
-/** The four majors, with their character write-ups + logo art direction. */
+/** An event's real crest PNG, falling back to its colour chip if the file is missing. */
+function MajorCrest({ id, color }: { id: string; color: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) return <span className="chip big" style={{ background: color }} />
+  return (
+    <img
+      className="majorCrest"
+      src={golfEventLogoUrl(id)}
+      alt=""
+      onError={() => setFailed(true)}
+      style={{ width: 64, height: 64, objectFit: 'contain', flex: '0 0 auto' }}
+    />
+  )
+}
+
+/** The four majors, with their real crests + character write-ups. */
 function MajorsBook() {
   const majors = golfMajors()
   return (
@@ -83,7 +99,7 @@ function MajorsBook() {
             style={{ borderTopColor: m.championship ? '#d4af37' : m.color }}
           >
             <div className="clubHead">
-              <span className="chip big" style={{ background: m.color }} />
+              <MajorCrest id={m.id} color={m.color} />
               <div>
                 <b>{m.name}</b>
                 <div className="nick">

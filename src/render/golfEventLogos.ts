@@ -19,6 +19,13 @@ function logoUrl(eventId: string): string {
   return `${import.meta.env.BASE_URL}logos/${eventId}.png`
 }
 
+/** Public URL for an event's crest PNG — for HTML `<img>` use (the DOM UI), as
+ * opposed to the canvas `drawEventLogo`. A missing file just 404s; callers
+ * should fall back on the image's error event. */
+export function golfEventLogoUrl(eventId: string): string {
+  return logoUrl(eventId)
+}
+
 /** Try to load one event's crest once. Never rejects — a miss caches `null` so
  * the drawn-crest fallback is used and we don't re-request it. */
 export function ensureEventLogo(eventId: string): Promise<void> {
