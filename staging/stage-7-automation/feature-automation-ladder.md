@@ -15,12 +15,20 @@ The free, GitHub-native path to the self-running newsroom. Publishing must run s
 
 ## Acceptance criteria
 - [x] ~~frame-step to PNGs → ffmpeg~~ → **superseded:** headless browser runs the app's own WebCodecs export and captures the MP4 Blob. VERIFIED locally in vanilla Chromium (see Spike result).
-- [ ] Run that same runner inside an actual GitHub Actions **ubuntu** runner (confirm parity; check fonts render — self-host if needed).
-- [ ] MP4 committed to a public Pages path → public `video_url`.
-- [ ] 3-step publish: create REELS container → poll `status_code` to `FINISHED` → `media_publish`.
-- [ ] Approval gate (Rung 3): Actions Environment required reviewer, or a preview Issue/PR the user merges from a phone.
-- [ ] Rung 4: gate removed; runs on the season calendar cadence.
-- [ ] Own-account only (Standard Access — no App Review).
+- [x] Run that same runner inside an actual GitHub Actions **ubuntu** runner. **DONE + a wrinkle:** WebCodecs **H.264 works** in Actions Chromium, but its **AAC encoder does not** → videos render **video-only MP4 + a WAV sidecar** and `scripts/finalize-reels.mjs` ffmpeg-muxes AAC in CI. Fonts render fine.
+- [x] MP4 hosted at a public URL → `video_url`. **DONE:** served from `raw.githubusercontent.com/<repo>/<sha>/content-out/…`; Instagram's fetcher accepts the `application/octet-stream` MP4s (proven — golf videos posted).
+- [x] 3-step publish: create REELS container → poll `status_code` to `FINISHED` → `media_publish`. **DONE** (`scripts/ig-post.mjs`, per-account routing; carousels use `is_carousel_item` children → CAROUSEL). First live run published golf reels + the preview carousel.
+- [x] **✅ FIXED** (commit `9e1143a`): the hosting **"Host assets" step** now force-pushes to a fresh orphan `content-host` branch (was failing as non-fast-forward rejection + "nothing to commit" exit 1 when committing onto the moving branch). Same fix on `ig-post-test.yml` (→ `ig-test-host`). Both live-post workflows also made `workflow_dispatch`-only. See handoff.md → 🤖 Auto-posting section.
+- [ ] Approval gate (Rung 3): Actions Environment required reviewer, or a preview Issue/PR the user merges from a phone. _(Deferred until the manual seed drop lands.)_
+- [ ] Rung 4: gate removed; runs on the season calendar cadence (daily cron per the posting spec in the elitesimspn-autopost-config memory).
+- [x] Own-account only (Standard Access — no App Review). Two accounts (soccer + golf `simgatour`), one Meta app, per-account tokens — all 5 GitHub secrets in + verified.
+
+## Live-run status — 2026-07-09
+- **Pipeline built** on `automation/live-content`, then **merged to `main` via PR #4** (safe: tokens are in GitHub Secrets, not code; Pages serves only `dist/`). Files: `src/headless/contentSeed.ts`, `scripts/headless-content.mjs`, `scripts/finalize-reels.mjs`, `scripts/ig-post.mjs`, `.github/workflows/content-post.yml`.
+- **Run 1** (pre-revision): golf round videos + preview carousel **posted successfully** to the golf account. Soccer step is where the operator saw the content and asked for the Reels/4:5 revision.
+- **Revision applied + verified locally** (`content2/`): soccer + golf-round posts are Reels ending with the flashed scoreboard; golf preview is a 4:5 carousel; golf-cart bed deleted + cheers removed; real SGA crest; photos resized.
+- **Run 2** (corrected, `29046645483`): Generate ✅, Finalize reels ✅, **Host assets ❌ (git push)**, Post skipped. → diagnosed (non-fast-forward + nothing-to-commit) and **fixed in `9e1143a`**.
+- **Run 3 (next):** operator fires Actions → "Post seed content (Round 1 + Event 1)" → Run workflow. Expect Generate ✅ → Finalize ✅ → Host (orphan force-push) ✅ → Post ✅ (12 items live). ← resume here.
 
 ## Open Questions
 - Confirm Meta's fetcher accepts the specific GitHub Pages MP4 URL (needs one live end-to-end test).

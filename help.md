@@ -47,15 +47,30 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 - **How:** Instagram app → Settings → **Account type and tools** → **Switch to professional account** → pick Business or Creator.
 - **Unblocks:** Stage 7 (auto-posting).
 
-### [ ] 5. Create ONE Meta developer app (leave it in "Development" mode) — serves BOTH accounts
+### [x] 5. Create ONE Meta developer app (leave it in "Development" mode) — serves BOTH accounts ✅ DONE
 - **What/Why:** The credential that lets a scheduled job post your Reels. Kept in Development mode + your own accounts = **no App Review needed**. You post golf + soccer on **two** Instagram accounts, but you only make **one** app — each account signs in and gets its own token.
-- **How:** <https://developers.facebook.com> → My Apps → **Create App** → pick an Instagram use case → add the **"Instagram (Instagram Login)"** product → **do not submit for App Review**. Copy the **App ID + App Secret** (shared). Then, in **"API setup with Instagram login,"** connect each account and **generate a long-lived token for each** — giving you a token + Instagram account ID for **golf** and again for **soccer**. (Full phone steps: **[help-instagram-phone-setup.md](help-instagram-phone-setup.md)**.)
-- **Unblocks:** Stage 7.
+- **Done:** One Meta app created (Development mode, Instagram Login product); each account connected and issued its own long-lived token + account ID. (Full phone steps kept in **[help-instagram-phone-setup.md](help-instagram-phone-setup.md)** for re-issuing a token later.)
 
-### [ ] 6. Add the automation secrets to GitHub
+### [x] 6. Add the automation secrets to GitHub ✅ DONE
 - **What/Why:** So the scheduled poster can log in to each account without exposing anything publicly.
-- **How:** In the `SportsSims` repo → Settings → **Secrets and variables → Actions** → add the shared `IG_APP_SECRET`, plus per-account `IG_USER_ID_GOLF` / `IG_ACCESS_TOKEN_GOLF` and `IG_USER_ID_SOCCER` / `IG_ACCESS_TOKEN_SOCCER`, plus a second fine-grained GitHub token with **"Secrets: write"** (so the monthly auto-refresh can update the IG tokens). Claude will tell you the exact values when we build Stage 7.
-- **Unblocks:** Stage 7 (hands-off posting + the 60-day token auto-refresh).
+- **Done:** All 5 secrets are in the `SportsSims` repo and **verified working** (an Actions check confirmed both accounts authenticate): `IG_APP_SECRET`, `IG_USER_ID_GOLF` / `IG_ACCESS_TOKEN_GOLF`, `IG_USER_ID_SOCCER` / `IG_ACCESS_TOKEN_SOCCER`.
+- **Later (only when we build the auto-refresh):** you'll add one more secret — a fine-grained GitHub token with **"Secrets: write"** — so the monthly job can refresh the 60-day IG tokens itself. Claude will tell you the exact steps then.
+
+---
+
+## 🟠 Two one-click merges — do these to update the LIVE app (Stage 7)
+
+> These are GitHub **Pull Requests** Claude prepared. Merging = one green button on github.com. Until you merge them, the automation content is correct but the *live web app* (frankyface.github.io/SportsSims) still has the old behaviour.
+
+### [ ] 7. Merge the **golf audio** update (drops the golf-cart sound + cheers)
+- **What/Why:** You flagged the awful golf-cart noise and the cheering on golf videos. That fix lives on the `feature/golf-audio` branch — golf now uses quiet rotating ambient beds, no cheers. It's not on the live app until you merge it.
+- **How:** Go to <https://github.com/Frankyface/SportsSims/branches> → find **`feature/golf-audio`** → **"New pull request"** (base `main`) → **Create** → **Merge pull request** → **Confirm**. (Or tell Claude "merge golf-audio" and Claude will walk you through the exact button.)
+- **Unblocks:** the LIVE golf videos losing the cart sound + cheers.
+
+### [ ] 8. Merge the **season seed control** tool
+- **What/Why:** The in-app tool to see/copy/roll/load a season's seed (so you can hunt good seeds for Season 2) lives on `feature/seed-control`. Same one-button merge.
+- **How:** Same as #7 but for the **`feature/seed-control`** branch.
+- **Unblocks:** the seed picker showing up in the live app.
 
 ---
 
