@@ -60,7 +60,7 @@ const names = await Promise.all(saves)
 console.log(`[runner] saved ${names.length} files in ${((Date.now() - t0) / 1000).toFixed(0)}s`)
 const posts = JSON.parse(manifest || '{"posts":[]}').posts
 console.log(`[runner] manifest: ${posts.length} posts`)
-for (const p of posts) console.log(`  #${p.order} ${p.account}: ${p.items.map((i) => i.file).join(' + ')}`)
+for (const p of posts) console.log(`  #${p.order} ${p.account} (${p.kind}): ${p.kind === 'carousel' ? p.images.length + ' images' : p.video + ' + ' + p.board}`)
 
 await browser.close()
 await server.close()

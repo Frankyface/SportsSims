@@ -10,7 +10,8 @@ on:
   push:
     paths:
       - '.github/workflows/content-post.yml'
-      - 'scripts/ig-post-carousel.mjs'
+      - 'scripts/ig-post.mjs'
+      - 'scripts/finalize-reels.mjs'
 
 jobs:
   post:
@@ -34,16 +35,10 @@ jobs:
       - name: Generate content
         run: node scripts/headless-content.mjs content-out
 
-      - name: Mux audio into each video
+      - name: Finalize reels (mux audio + scoreboard end-card)
         run: |
-          cd content-out
-          for v in *.mp4; do
-            b="${v%.mp4}"
-            if [ -f "$b.wav" ]; then
-              ffmpeg -y -i "$v" -i "$b.wav" -c:v copy -c:a aac -b:a 128k "m-$v" && mv "m-$v" "$v" && rm "$b.wav"
-            fi
-          done
-          ls -la
+          node scripts/finalize-reels.mjs content-out
+          ls -la content-out
 
       - name: Host assets (commit + push to this branch)
         id: host
@@ -61,4 +56,4 @@ jobs:
           IG_ACCESS_TOKEN_SOCCER: ${{ secrets.IG_ACCESS_TOKEN_SOCCER }}
           IG_USER_ID_GOLF: ${{ secrets.IG_USER_ID_GOLF }}
           IG_ACCESS_TOKEN_GOLF: ${{ secrets.IG_ACCESS_TOKEN_GOLF }}
-        run: node scripts/ig-post-carousel.mjs content-out "https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.host.outputs.sha }}/content-out"
+        run: node scripts/ig-post.mjs content-out "https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.host.outputs.sha }}/content-out"

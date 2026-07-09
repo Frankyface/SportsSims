@@ -13,7 +13,7 @@ const SGA_GREEN_DK = '#0c2c19'
 const SGA_GOLD = '#c9a227'
 const SGA_CREAM = '#f4f1e6'
 
-const SGA_URL = `${import.meta.env.BASE_URL}logos/sga.png`
+const SGA_URL = `${import.meta.env.BASE_URL}logos/SGATour.png`
 let sgaImg: HTMLImageElement | null = null
 let loadPromise: Promise<void> | null = null
 

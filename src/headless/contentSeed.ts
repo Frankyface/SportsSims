@@ -1,8 +1,11 @@
 // Headless content generator for the seed drop: Round 1 (Crown League) + Event 1
 // (SGA Tour). Reuses the app's own export functions so output is genuine app
-// content. Videos are rendered VIDEO-ONLY + a WAV sidecar (CI has no AAC
-// encoder); the workflow ffmpeg-muxes each pair. Everything is downloaded by the
-// runner; a manifest describes the posts (account, order, carousel items, caption).
+// content.
+//
+// Videos render VIDEO-ONLY + a WAV sidecar (CI has no AAC encoder). The workflow
+// (finalize-reels.mjs) ffmpeg-muxes the audio AND appends the scoreboard image as
+// a ~2.5s end-card, producing a single Reel per match/round. The golf preview is
+// an image carousel. The manifest describes each post (account, order, kind, caption).
 //
 // Locked season seeds: soccer crown-alpha, golf sga-mrdklysr-2qbfer.
 
@@ -30,15 +33,16 @@ import { exportGolfLeaderboardPng } from '../render/golfLeaderboardCard'
 import { buildGolfAmbientAudio } from '../export/golfAudio'
 import { golfGroupVideoCaption, golfPreviewCaption } from '../content/golfCaptions'
 
-interface PostItem {
-  file: string
-  type: 'video' | 'image'
-}
+/** A Reel = a video-only <video> + implicit <video>.wav + a <board> PNG flashed at
+ * the end. A carousel = a list of image files. */
 interface Post {
   account: 'soccer' | 'golf'
   order: number
   caption: string
-  items: PostItem[]
+  kind: 'reel' | 'carousel'
+  video?: string
+  board?: string
+  images?: string[]
 }
 
 declare global {
@@ -50,10 +54,12 @@ declare global {
   }
 }
 
+type Bank = Awaited<ReturnType<typeof loadAudioAssets>>
 const SOCCER_SEED = 'crown-alpha'
+const GOLF_SEED = 'sga-mrdklysr-2qbfer'
 
-/** Soccer Round 1: 3 match posts, each carousel = [match video + progressive "as it stands" table]. */
-async function soccerRound1(bank: Awaited<ReturnType<typeof loadAudioAssets>>): Promise<Post[]> {
+/** Soccer Round 1: 3 Reels — the match video ending with its progressive "as it stands" table. */
+async function soccerRound1(bank: Bank): Promise<Post[]> {
   let state = createLeague(SOCCER_SEED, 'Crown League', 6, 'live-crown')
   const fixtures = state.fixtures
     .filter((f) => f.round === 0 && f.stage === 'regular')
@@ -65,7 +71,6 @@ async function soccerRound1(bank: Awaited<ReturnType<typeof loadAudioAssets>>): 
     window.__STAGE__ = `soccer match ${i + 1}/${fixtures.length}`
     const match = fixtureMatch(state, f.id)
 
-    // Match video: video-only MP4 + a WAV sidecar (ffmpeg adds AAC in CI).
     const video = await exportMatchMp4(match, undefined, { audio: false })
     const model = buildRenderModel(match, RENDER_W, RENDER_H)
     const wav = pcmToWav(buildMatchAudio(model, bank), AUDIO_SR)
@@ -73,30 +78,26 @@ async function soccerRound1(bank: Awaited<ReturnType<typeof loadAudioAssets>>): 
     downloadBlob(video, `${vid}.mp4`)
     downloadBlob(wav, `${vid}.wav`)
 
-    // Progressive "as it stands" table: standings AFTER only the matches posted so far.
+    // Progressive standings AFTER only the matches posted so far → the end-card.
     state = playFixture(state, f.id)
-    const tablePng = await exportStandingsPng(state, 'AS IT STANDS')
-    const table = `soccer-r1-m${i + 1}-table`
-    downloadBlob(tablePng, `${table}.png`)
+    const board = `${vid}-table`
+    downloadBlob(await exportStandingsPng(state, 'AS IT STANDS'), `${board}.png`)
 
     posts.push({
       account: 'soccer',
       order: i + 1,
+      kind: 'reel',
       caption: matchCaption(state, f, state.results[f.id]!),
-      items: [
-        { file: `${vid}.mp4`, type: 'video' },
-        { file: `${table}.png`, type: 'image' },
-      ],
+      video: `${vid}.mp4`,
+      board: `${board}.png`,
     })
   }
   return posts
 }
 
-const GOLF_SEED = 'sga-mrdklysr-2qbfer'
-
-/** Golf Event 1: the course-preview carousel (title + 9 holes), then each round's
- * two group posts — each carousel = [group video + that round's whole-field leaderboard]. */
-async function golfEvent1(bank: Awaited<ReturnType<typeof loadAudioAssets>>): Promise<Post[]> {
+/** Golf Event 1: the preview carousel, then each round's two group Reels (video ending
+ * with that round's whole-field leaderboard). */
+async function golfEvent1(bank: Bank): Promise<Post[]> {
   let state = createGolfSeason(GOLF_SEED, 'SGA Tour', 'live-sga')
   const eventId = state.current.eventId
   const eventIndex = state.current.eventIndex
@@ -105,36 +106,35 @@ async function golfEvent1(bank: Awaited<ReturnType<typeof loadAudioAssets>>): Pr
   const course = golfCourseById(event.courseId)
   const brand = golfEventBrand(eventId)
 
-  // Post 1: the course-preview carousel (title card + 9 holes = 10 images).
   window.__STAGE__ = 'golf preview carousel'
   const previewModel = buildGolfPreviewModel(brand, course, golfPreviewSeed(state.seedKey, season, eventIndex))
   const previewImgs = await exportGolfPreviewImages(previewModel)
-  const previewItems: PostItem[] = []
+  const images: string[] = []
   for (let i = 0; i < previewImgs.length; i++) {
     const file = `golf-e1-preview-${String(i).padStart(2, '0')}.png`
     downloadBlob(previewImgs[i].blob, file)
-    previewItems.push({ file, type: 'image' })
+    images.push(file)
   }
-  const posts: Post[] = [{ account: 'golf', order: 1, caption: golfPreviewCaption(eventId), items: previewItems }]
+  const posts: Post[] = [{ account: 'golf', order: 1, kind: 'carousel', caption: golfPreviewCaption(eventId), images }]
 
-  // Sim event 1 to completion to get its frozen record.
   while (state.completed.length === 0 && !golfSeasonComplete(state)) {
     state = playNextGolfRound(state).state
   }
   const record = state.completed[0]
 
-  // Each round: one whole-field leaderboard (shared by both group posts) + 2 group posts.
   let order = 2
   for (let round = 1; round <= ROUNDS_PER_EVENT; round++) {
     window.__STAGE__ = `golf round ${round}`
-    const lb = await exportGolfLeaderboardPng({
-      event,
-      season: record.season,
-      field: record.field,
-      toParByRound: record.toParByRound.slice(0, round),
-    })
-    const lbFile = `golf-e1-r${round}-lb.png`
-    downloadBlob(lb, lbFile)
+    const board = `golf-e1-r${round}-lb.png`
+    downloadBlob(
+      await exportGolfLeaderboardPng({
+        event,
+        season: record.season,
+        field: record.field,
+        toParByRound: record.toParByRound.slice(0, round),
+      }),
+      board,
+    )
 
     const result = golfRecordRoundResult(state, record, round)
     for (const group of [0, 1] as const) {
@@ -147,11 +147,10 @@ async function golfEvent1(bank: Awaited<ReturnType<typeof loadAudioAssets>>): Pr
       posts.push({
         account: 'golf',
         order: order++,
+        kind: 'reel',
         caption: golfGroupVideoCaption(state, record, round, group),
-        items: [
-          { file: `${vid}.mp4`, type: 'video' },
-          { file: lbFile, type: 'image' },
-        ],
+        video: `${vid}.mp4`,
+        board,
       })
     }
   }
