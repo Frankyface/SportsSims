@@ -10,6 +10,7 @@ export interface AudioAssetBank {
   music: Float32Array[]
   cheer: Float32Array[]
   boo: Float32Array[]
+  golfAmb: Float32Array[] // golf-only ambient course beds (golfamb-*)
 }
 
 // Vite turns each matching asset into a URL we can fetch at runtime.
@@ -26,6 +27,7 @@ function roleOf(path: string): keyof AudioAssetBank | null {
   if (name.startsWith('music-')) return 'music'
   if (name.startsWith('cheer-')) return 'cheer'
   if (name.startsWith('boo-')) return 'boo'
+  if (name.startsWith('golfamb-')) return 'golfAmb'
   return null
 }
 
@@ -56,7 +58,7 @@ async function decodeToMono(url: string): Promise<Float32Array | null> {
 export function loadAudioAssets(): Promise<AudioAssetBank> {
   if (!bankPromise) {
     bankPromise = (async () => {
-      const bank: AudioAssetBank = { music: [], cheer: [], boo: [] }
+      const bank: AudioAssetBank = { music: [], cheer: [], boo: [], golfAmb: [] }
       const entries = Object.entries(ASSET_URLS).sort(([a], [b]) => (a < b ? -1 : 1))
       for (const [path, url] of entries) {
         const role = roleOf(path)
