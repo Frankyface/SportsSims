@@ -6,7 +6,6 @@
 // golfCoursePreview.ts.)
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import type { GolfMoment } from '../render/golfDirector'
 import {
   drawGolfFrame,
   GOLF_RENDER_W,
@@ -16,96 +15,12 @@ import {
 import { ensureFontsLoaded } from '../render/fonts'
 import { ensureSgaLogo } from '../render/golfBrand'
 import { ensureEventLogo } from '../render/golfEventLogos'
-import type { Moment, MomentKind, RenderPlan } from '../render/director'
-import type { RenderModel } from '../render/renderMatch'
-import type { TeamRating } from '../sim/types'
-import { buildMatchAudio, AUDIO_SR } from './audio'
+import { AUDIO_SR } from './audio'
 import { loadAudioAssets } from './audioAssets'
+import { buildGolfAmbientAudio } from './golfAudio'
 
 const FPS = 30
 const BITRATE = 10_000_000
-
-/**
- * Map golf moments onto the audio mixer's cue vocabulary: aces/eagles/the
- * winning putt roar like goals, birdies and lead changes earn the mid-size
- * cheer, water balls and disasters draw the gallery groan. Golf has NO
- * whistles — the kickoff/halftime/fulltime kinds are never emitted.
- */
-function audioKindFor(m: GolfMoment): MomentKind {
-  switch (m.kind) {
-    case 'ace':
-    case 'eagle':
-    case 'winner':
-      return 'goal'
-    case 'birdie':
-    case 'longPutt':
-      return 'bigChance'
-    case 'splash':
-    case 'double':
-      return 'card'
-    default:
-      return 'miss' // bogey — silent
-  }
-}
-
-/** A golfer presented as the mixer's team shape (it only reads plan+seed). */
-function neutralTeam(model: GolfRenderModel, idx: number): TeamRating {
-  const g = model.m.config.golfers[idx]
-  return {
-    id: g.id,
-    name: g.name,
-    abbr: g.abbr,
-    city: '',
-    color: g.color,
-    colorAlt: g.colorAlt,
-    attack: 1,
-    defense: 1,
-    finishing: 1,
-    discipline: 1,
-    formSpread: g.formSpread,
-  }
-}
-
-/**
- * Present the golf model to the shared audio mixer as a REAL RenderModel — no
- * casts. Moments are re-keyed into the cue vocabulary; cheers ride the 'home'
- * gain (full-throated gallery), groans the 'away' gain (a murmur of pain).
- */
-function audioModelFor(model: GolfRenderModel): RenderModel {
-  const moments: Moment[] = model.plan.moments.map((m) => {
-    const kind = audioKindFor(m)
-    return {
-      t: m.t,
-      dur: m.dur,
-      kind,
-      team: kind === 'card' ? ('away' as const) : ('home' as const),
-      minute: m.hole + 1,
-      label: m.label,
-    }
-  })
-  const plan: RenderPlan = {
-    total: model.plan.total,
-    introDur: model.plan.introDur,
-    playStart: model.plan.playStart,
-    playEnd: model.plan.playEnd,
-    resultStart: model.plan.resultStart,
-    resultDur: model.plan.resultDur,
-    segs: [],
-    clockPts: [],
-    scorePts: [],
-    moments,
-    sendOffs: [],
-  }
-  return {
-    plan,
-    home: neutralTeam(model, 0),
-    away: neutralTeam(model, 1),
-    finalScore: [0, 0],
-    width: model.width,
-    height: model.height,
-    seed: model.seed,
-  }
-}
 
 async function pickCodec(): Promise<string | null> {
   const candidates = ['avc1.640034', 'avc1.4d0034', 'avc1.42e034', 'avc1.640033', 'avc1.4d0033']
@@ -132,7 +47,7 @@ async function encodeAudio(
   onError: (e: unknown) => void,
 ): Promise<void> {
   const bank = await loadAudioAssets()
-  const pcm = buildMatchAudio(audioModelFor(model), bank)
+  const pcm = buildGolfAmbientAudio(model.plan.total, bank, model.seed >>> 0)
   const encoder = new AudioEncoder({
     output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
     error: onError,

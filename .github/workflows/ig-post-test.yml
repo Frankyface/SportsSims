@@ -1,0 +1,55 @@
+name: IG test post (club cards + golf hole)
+
+# Generates the 7 test images headlessly, hosts them publicly (raw.githubusercontent,
+# pinned to the pushed commit), then posts them: 6 club cards -> soccer account (one at
+# a time), 1 golf hole -> golf account. Runs when pushed or triggered by hand.
+# NOTE: running this PUBLISHES real posts.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/ig-post-test.yml'
+      - 'scripts/ig-post.mjs'
+      - 'scripts/headless-images.mjs'
+      - 'src/headless/exportImages.ts'
+      - 'headless-images.html'
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to push the generated images to the branch for hosting
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: |
+          npm ci
+          npm i -D playwright
+          npx playwright install --with-deps chromium
+
+      - name: Generate the 7 images
+        run: node scripts/headless-images.mjs ig-out
+
+      - name: Publish images for hosting (commit + push to this branch)
+        id: host
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f ig-out
+          git commit -m "chore: test post assets [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Post to Instagram
+        env:
+          IG_USER_ID_SOCCER: ${{ secrets.IG_USER_ID_SOCCER }}
+          IG_ACCESS_TOKEN_SOCCER: ${{ secrets.IG_ACCESS_TOKEN_SOCCER }}
+          IG_USER_ID_GOLF: ${{ secrets.IG_USER_ID_GOLF }}
+          IG_ACCESS_TOKEN_GOLF: ${{ secrets.IG_ACCESS_TOKEN_GOLF }}
+        run: node scripts/ig-post.mjs ig-out "https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.host.outputs.sha }}/ig-out"

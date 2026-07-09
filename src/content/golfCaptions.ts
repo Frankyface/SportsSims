@@ -71,7 +71,7 @@ export function golfPreviewCaption(eventId: string): string {
   const course = golfCourseById(event.courseId)
   return [
     `🎬 COURSE PREVIEW — ${event.name}${event.major ? ' · A MAJOR' : ''}`,
-    `First look at all 9 holes of ${course.name} (par ${course.par}). Play begins Thursday.`,
+    `First look at all 9 holes of ${course.name} (par ${course.par}). Play begins tomorrow.`,
     'Where does this week get won? 👇',
     `${GOLF_HASHTAGS} #${event.short.replace(/\s/g, '')}`,
   ].join('\n')

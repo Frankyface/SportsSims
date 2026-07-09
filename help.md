@@ -36,23 +36,25 @@ Legend: `[ ]` = to do · `[x]` = done
 
 ---
 
-## 🟠 NEXT UP — Instagram auto-posting setup (Stage 7 is now the active build)
+## 🟡 Needed later — Instagram auto-posting (Stage 7 only; ignore for now)
 
-**This is the current direction.** The content engine is now deep enough to auto-post — Soccer and Golf each export a whole season's videos + posts in one click. So the next thing I need from you is the three items below; they unblock the scheduled auto-poster. Until they're in, keep downloading the finished videos and posting them yourself. Once they're done, Claude builds the GitHub Actions pipeline that renders and posts for you — first with a **one-tap approval on your phone**, then fully hands-off on a schedule.
+You do **not** need any of this for v1. In v1 you'll just download each finished video and post it to Instagram yourself. These are for when we automate posting.
 
-### [ ] 4. Convert @EliteSimSPN to a Professional account
+> 📱 **Doing this on your phone?** Follow **[help-instagram-phone-setup.md](help-instagram-phone-setup.md)** — it turns items 4–6 below into click-by-click phone steps and tells you exactly what to screenshot/send if a screen looks different.
+
+### [x] 4. Convert @EliteSimSPN to a Professional account
 - **What/Why:** The Instagram API can only post from Business/Creator accounts, and posting to *your own* account skips Meta's long review process.
 - **How:** Instagram app → Settings → **Account type and tools** → **Switch to professional account** → pick Business or Creator.
 - **Unblocks:** Stage 7 (auto-posting).
 
-### [ ] 5. Create a Meta developer app (leave it in "Development" mode)
-- **What/Why:** The credential that lets a scheduled job post your Reels. Kept in Development mode + your own account = **no App Review needed**.
-- **How:** <https://developers.facebook.com> → My Apps → **Create App** → pick an Instagram use case → add the **"Instagram (Instagram Login)"** product → **do not submit for App Review**. Add yourself and @EliteSimSPN under **App Roles** as Admin/Developer/Tester. Then generate a **long-lived access token** and copy it + your Instagram user ID.
+### [ ] 5. Create ONE Meta developer app (leave it in "Development" mode) — serves BOTH accounts
+- **What/Why:** The credential that lets a scheduled job post your Reels. Kept in Development mode + your own accounts = **no App Review needed**. You post golf + soccer on **two** Instagram accounts, but you only make **one** app — each account signs in and gets its own token.
+- **How:** <https://developers.facebook.com> → My Apps → **Create App** → pick an Instagram use case → add the **"Instagram (Instagram Login)"** product → **do not submit for App Review**. Copy the **App ID + App Secret** (shared). Then, in **"API setup with Instagram login,"** connect each account and **generate a long-lived token for each** — giving you a token + Instagram account ID for **golf** and again for **soccer**. (Full phone steps: **[help-instagram-phone-setup.md](help-instagram-phone-setup.md)**.)
 - **Unblocks:** Stage 7.
 
 ### [ ] 6. Add the automation secrets to GitHub
-- **What/Why:** So the scheduled poster can log in without exposing anything publicly.
-- **How:** In the `SportsSims` repo → Settings → **Secrets and variables → Actions** → add `IG_ACCESS_TOKEN`, `IG_USER_ID`, `IG_APP_SECRET`, plus a second fine-grained token with **"Secrets: write"** (so the monthly auto-refresh can update the IG token). Claude will tell you the exact values when we build Stage 7.
+- **What/Why:** So the scheduled poster can log in to each account without exposing anything publicly.
+- **How:** In the `SportsSims` repo → Settings → **Secrets and variables → Actions** → add the shared `IG_APP_SECRET`, plus per-account `IG_USER_ID_GOLF` / `IG_ACCESS_TOKEN_GOLF` and `IG_USER_ID_SOCCER` / `IG_ACCESS_TOKEN_SOCCER`, plus a second fine-grained GitHub token with **"Secrets: write"** (so the monthly auto-refresh can update the IG tokens). Claude will tell you the exact values when we build Stage 7.
 - **Unblocks:** Stage 7 (hands-off posting + the 60-day token auto-refresh).
 
 ---
@@ -63,17 +65,23 @@ Legend: `[ ]` = to do · `[x]` = done
 - **Done:** Your crowd recordings are wired in and live — 2 cheers (`cheer-1/2`), 3 boos (`boo-1/2/3`), and an ambient bed (`music-1`), trimmed to 5-7s and converted to deterministic 48kHz mono WAV. Cheers play on goals/big saves, boos on cards + away goals, the bed loops quietly under everything (all side-aware: louder for the home crowd).
 - **To add or swap sounds later:** get royalty-free files (WAV preferred; MP3/OGG fine), name them by role — `music-*` (loopable bed), `cheer-*` (crowd roars), `boo-*` (jeers) — drop them in `src/assets/audio/` and tell Claude. The exporter finds them by name automatically.
 
-### [ ] Add the SGA (golf) logo
+### [x] Add the SGA (golf) logo
 - **What:** Save the SGA crest you made as **`public/logos/sga.png`** in the `SportsSims` repo.
 - **Why:** It shows on the golf rankings card and stands in on any event that doesn't yet have its own crest. Until it's there, the app draws a stand-in shield crest — nothing breaks, it just isn't your artwork.
 - **How:** Put the PNG (transparent background, roughly square, ~1024px is ideal) at `public/logos/sga.png` and tell Claude (or commit it). Anything in `public/` is published automatically — no code change needed.
 - **Unblocks:** nothing — pure branding polish.
 
-### [x] Add the four Major logos ✅ DONE
-- **Done (2026-07-09):** Your 4 major crests are in `public/logos/` (`evergreen-invitational.png`, `saltmarsh-open.png`, `redrock-classic.png`, `pinnacle-championship.png`) and now render on each major's **course-preview title card**, its **round-video intro**, and the **Majors book** cards in the app. Confirmed on the live dark cards.
-- **To add crests for other tournaments later:** drop a PNG named exactly `<event-id>.png` in `public/logos/` and tell Claude — the id list is in `src/ratings/golfCourses.ts`.
+### [x] Add the four Major logos (you already made these)
+- **What:** Save the 4 major crests you generated, one PNG each, with these exact names:
+  - `public/logos/evergreen-invitational.png` (The Evergreen Invitational)
+  - `public/logos/saltmarsh-open.png` (The Saltmarsh Open)
+  - `public/logos/redrock-classic.png` (The Redrock Classic)
+  - `public/logos/pinnacle-championship.png` (The Pinnacle Championship)
+- **Why:** Each shows on that major's **course-preview title card** and **round intro** automatically. Until the file is there, the drawn SGA crest stands in — nothing breaks.
+- **How:** Drop the PNGs (transparent background ideal) at those paths and tell Claude (or commit them). The filename must match the event id exactly. Other tournaments can get crests the same way later — the id list is in `src/ratings/golfCourses.ts`.
+- **Unblocks:** nothing — pure branding polish (but these four are worth it, they're the marquee events).
 
-### [ ] Regenerate the Highmoor "Stags" rugby crest on a transparent background
+### [x] Regenerate the Highmoor "Stags" rugby crest on a transparent background
 - **What:** Re-export the Highmoor RFC crest with a transparent (or dark) background instead of the grey one.
 - **Why:** Its grey background shows as a grey square on the app's dark club cards. (The other five rugby crests blend fine; the Bastion league logo's *flat-white* background Claude can knock out automatically.)
 - **How:** In your image tool, make the background transparent, save as PNG, drop it in a folder and tell Claude — Claude downscales + wires it in.
