@@ -11,7 +11,7 @@ import {
   type GolfEventRecord,
   type GolfSeasonState,
 } from '../league/golfSeason'
-import { golfEventByIndex } from '../ratings/golfCourses'
+import { eventById } from '../ratings/golfCourses'
 import { formatToPar } from '../render/golfDirector'
 
 export const GOLF_HASHTAGS = '#ESSPN #SimGolf'
@@ -22,7 +22,7 @@ function first(name: string): string {
 
 /** Caption for a single round video (uses the round's own field ordering). */
 export function golfRoundCaption(state: GolfSeasonState, result: GolfRoundResult): string {
-  const event = golfEventByIndex(state.current.eventIndex)
+  const event = eventById(state.current.eventId)
   const round = result.config.round
   const lead = result.leaderboard[0]
   const leader = result.config.golfers[lead]
@@ -56,7 +56,7 @@ export function golfRoundCaption(state: GolfSeasonState, result: GolfRoundResult
 
 /** Caption for a completed event (posted with the final-round video). */
 export function golfEventCaption(state: GolfSeasonState, record: GolfEventRecord): string {
-  const event = golfEventByIndex(record.eventIndex)
+  const event = eventById(record.eventId)
   const winner = golferById(state, record.winnerId)
   const career = state.career[record.winnerId]
   const lines: string[] = [
@@ -82,7 +82,7 @@ export function golfRankingsCaption(state: GolfSeasonState): string {
   const gap = rankings[0].points - rankings[1].points
   const played = state.completed.length
   return [
-    `📊 APEX TOUR RANKINGS — after ${played} of 14 events, Season ${state.season}`,
+    `📊 SGA RANKINGS — after ${played} of 14 events, Season ${state.season}`,
     gap > 400
       ? `${leader.identity.name} is running away with the season.`
       : `${leader.identity.name} leads, ${second.identity.name} within a swing (${gap} pts).`,

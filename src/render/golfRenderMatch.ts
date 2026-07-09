@@ -27,6 +27,7 @@ import {
   type GolfHoleLayout,
 } from './golfCourseArt'
 import { drawWordmark } from './wordmark'
+import { drawSgaMark } from './golfBrand'
 import { HOLES_PER_ROUND } from '../sim/golfTypes'
 
 export interface GolfEventBrand {
@@ -498,13 +499,16 @@ function drawIntro(ctx: Ctx, model: GolfRenderModel, progress: number): void {
   ctx.fillStyle = grad
   ctx.fillRect(0, 260, model.width, 1240)
 
+  // the SGA crest presides over the intro
+  drawSgaMark(ctx, cx, 215, 150)
+
   ctx.fillStyle = model.event.major ? '#d4af37' : '#ff5566'
   ctx.font = 'bold 38px system-ui, sans-serif'
   const kicker = model.event.championship
     ? 'THE CHAMPIONSHIP · FINAL MAJOR'
     : model.event.major
       ? 'A MAJOR CHAMPIONSHIP'
-      : 'APEX TOUR'
+      : 'SGA TOUR EVENT'
   ctx.fillText(kicker, cx, 360 + 30 * clamp01(progress * 3))
 
   ctx.fillStyle = '#f2f4f3'

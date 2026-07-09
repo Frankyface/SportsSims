@@ -6,9 +6,11 @@ import {
   golfSeasonComplete,
   playNextGolfRound,
   ROUNDS_PER_EVENT,
+  type GolfEventRecord,
   type GolfSeasonState,
 } from '../league/golfSeason'
-import { golfCourseById, golfEventByIndex } from '../ratings/golfCourses'
+import { golfCourseById, eventById, golfMajors } from '../ratings/golfCourses'
+import type { GolferRating } from '../sim/golfTypes'
 import { GOLFERS, GOLF_TOUR } from '../ratings/golfers'
 import { buildGolfRenderModel, type GolfRenderModel } from '../render/golfRenderMatch'
 import { exportGolfRankingsPng } from '../render/golfRankingsCard'
@@ -22,9 +24,9 @@ import { GolfRankingsTable } from './GolfRankingsTable'
 import { GolfFriendlyTab } from './GolfFriendlyTab'
 import { PackPanel } from './PackPanel'
 
-type GolfView = 'season' | 'friendly' | 'golfers'
+type GolfView = 'season' | 'friendly' | 'majors' | 'golfers'
 
-/** The Apex Tour home: the season calendar + the golfer book. */
+/** The SGA home: the season calendar, the majors book + the golfer book. */
 export function GolfTab({
   state,
   setState,
@@ -45,6 +47,9 @@ export function GolfTab({
         <button className={view === 'friendly' ? 'on' : ''} onClick={() => setView('friendly')}>
           Friendly
         </button>
+        <button className={view === 'majors' ? 'on' : ''} onClick={() => setView('majors')}>
+          Majors
+        </button>
         <button className={view === 'golfers' ? 'on' : ''} onClick={() => setView('golfers')}>
           Golfers
         </button>
@@ -52,7 +57,43 @@ export function GolfTab({
 
       {view === 'season' && <GolfSeasonView state={state} setState={setState} onReset={onReset} />}
       {view === 'friendly' && <GolfFriendlyTab />}
+      {view === 'majors' && <MajorsBook />}
       {view === 'golfers' && <GolferBook state={state} />}
+    </div>
+  )
+}
+
+/** The four majors, with their character write-ups + logo art direction. */
+function MajorsBook() {
+  const majors = golfMajors()
+  return (
+    <div>
+      <p className="hint">
+        The four crowns of the SGA season — 4 rounds each, double ranking points, and their own courses on the calendar every year.
+      </p>
+      <div className="clubGrid">
+        {majors.map((m) => (
+          <div
+            className="clubCard"
+            key={m.id}
+            style={{ borderTopColor: m.championship ? '#d4af37' : m.color }}
+          >
+            <div className="clubHead">
+              <span className="chip big" style={{ background: m.color }} />
+              <div>
+                <b>{m.name}</b>
+                <div className="nick">
+                  🏆 {m.championship ? 'THE CHAMPIONSHIP · SEASON FINALE' : 'MAJOR'} · plays {m.short}
+                </div>
+              </div>
+            </div>
+            {m.description && <p>{m.description}</p>}
+            <p className="stats">
+              <b>Crest:</b> {m.logo.replace(/^MAJOR[^—]*—\s*/, '')}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -67,50 +108,59 @@ function GolfSeasonView({
   onReset: () => void
 }) {
   const [models, setModels] = useState<[GolfRenderModel, GolfRenderModel] | null>(null)
-  const [viewEventIndex, setViewEventIndex] = useState(0)
+  const [view, setView] = useState<{ eventId: string; field: GolferRating[]; toParByRound: number[][]; season: number } | null>(null)
   const [viewLabel, setViewLabel] = useState('')
   const [playKey, setPlayKey] = useState(0)
   const [pack, setPack] = useState<MatchdayPack | null>(null)
   const [packProgress, setPackProgress] = useState<string | null>(null)
 
   const done = golfSeasonComplete(state)
-  const event = golfEventByIndex(state.current.eventIndex)
+  const event = eventById(state.current.eventId)
   const course = golfCourseById(event.courseId)
   const nextRound = state.current.roundsPlayed + 1
 
   function showRound(
-    eventIndex: number,
+    eventId: string,
+    src: { field: GolferRating[]; toParByRound: number[][]; season: number },
     result: ReturnType<typeof golfRecordRoundResult>,
     chips: string[],
     label: string,
   ): void {
-    const ev = golfEventByIndex(eventIndex)
+    const ev = eventById(eventId)
     const courseName = golfCourseById(ev.courseId).name
-    const brand = golfEventBrand(eventIndex)
+    const brand = golfEventBrand(eventId)
     setModels([
       buildGolfRenderModel(result, 0, brand, courseName, chips),
       buildGolfRenderModel(result, 1, brand, courseName, chips),
     ])
-    setViewEventIndex(eventIndex)
+    setView({ eventId, ...src })
     setViewLabel(label)
     setPlayKey((k) => k + 1)
   }
 
   function playRound(): void {
     const chips = golfStoryChips(state)
-    const eventIndex = state.current.eventIndex
+    const eventId = state.current.eventId
     const out = playNextGolfRound(state)
     setState(out.state)
-    showRound(eventIndex, out.result, chips, `${event.short} · Round ${out.result.config.round}`)
+    // the just-played round lives in the ongoing event, or the last record if it finished it
+    const finished = out.state.completed.length > state.completed.length
+    const src = finished ? out.state.completed[out.state.completed.length - 1] : out.state.current
+    showRound(
+      eventId,
+      { field: src.field, toParByRound: src.toParByRound, season: state.season },
+      out.result,
+      chips,
+      `${event.short} · Round ${out.result.config.round}`,
+    )
     setPack(null)
   }
 
-  function watchPast(eventIndex: number, round: number): void {
-    const record = state.completed.find((r) => r.eventIndex === eventIndex)
-    if (!record) return
-    const ev = golfEventByIndex(eventIndex)
+  function watchPast(record: GolfEventRecord, round: number): void {
+    const ev = eventById(record.eventId)
     showRound(
-      eventIndex,
+      record.eventId,
+      { field: record.field, toParByRound: record.toParByRound, season: record.season },
       golfRecordRoundResult(state, record, round),
       [],
       `${ev.short} · Round ${round} (replay)`,
@@ -122,23 +172,19 @@ function GolfSeasonView({
     downloadBlob(png, `esspn-golf-rankings-s${state.season}.png`)
   }
 
-  async function downloadLeaderboardPng(eventIndex: number, throughRound: number): Promise<void> {
-    const ev = golfEventByIndex(eventIndex)
-    const record = state.completed.find((r) => r.eventIndex === eventIndex)
-    const src = record ?? (state.current.eventIndex === eventIndex ? state.current : null)
-    if (!src) return
+  async function downloadLeaderboardPng(throughRound: number): Promise<void> {
+    if (!view) return
+    const ev = eventById(view.eventId)
     const png = await exportGolfLeaderboardPng({
       event: ev,
-      season: record?.season ?? state.season,
-      field: src.field,
-      toParByRound: src.toParByRound.slice(0, throughRound),
+      season: view.season,
+      field: view.field,
+      toParByRound: view.toParByRound.slice(0, throughRound),
     })
     downloadBlob(png, `esspn-golf-${ev.short.replace(/\s/g, '').toLowerCase()}-r${throughRound}-leaderboard.png`)
   }
 
-  async function buildPack(eventIndex: number): Promise<void> {
-    const record = state.completed.find((r) => r.eventIndex === eventIndex)
-    if (!record) return
+  async function buildPack(record: GolfEventRecord): Promise<void> {
     setPackProgress('starting…')
     try {
       const p = await buildGolfEventPack(state, record, (prog, label) =>
@@ -182,7 +228,7 @@ function GolfSeasonView({
           <div className="controls">
             <button
               className="btn ghost"
-              onClick={() => void downloadLeaderboardPng(viewEventIndex, models[0].m.config.round)}
+              onClick={() => void downloadLeaderboardPng(models[0].m.config.round)}
             >
               ⬇ Round leaderboard PNG
             </button>
@@ -215,7 +261,7 @@ function GolfSeasonView({
           <h3>Completed events</h3>
           <ul className="packItems">
             {state.completed.map((r) => {
-              const e = golfEventByIndex(r.eventIndex)
+              const e = eventById(r.eventId)
               const w = golferById(state, r.winnerId)
               return (
                 <li key={r.eventIndex}>
@@ -229,14 +275,14 @@ function GolfSeasonView({
                         <button
                           key={round}
                           className="btn ghost small2"
-                          onClick={() => watchPast(r.eventIndex, round)}
+                          onClick={() => watchPast(r, round)}
                         >
                           R{round}
                         </button>
                       ))}
                       <button
                         className="btn ghost small2"
-                        onClick={() => void buildPack(r.eventIndex)}
+                        onClick={() => void buildPack(r)}
                         disabled={packProgress !== null}
                       >
                         {packProgress ?? '📦 Pack'}

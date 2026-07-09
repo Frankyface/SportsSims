@@ -11,7 +11,7 @@ import {
   ROUNDS_PER_EVENT,
   type GolfSeasonState,
 } from '../league/golfSeason'
-import { golfEventByIndex } from '../ratings/golfCourses'
+import { eventById } from '../ratings/golfCourses'
 import { formatToPar } from '../render/golfDirector'
 
 interface Chip {
@@ -29,7 +29,7 @@ function surname(name: string): string {
  */
 export function golfStoryChips(state: GolfSeasonState): string[] {
   const ev = state.current
-  const event = golfEventByIndex(ev.eventIndex)
+  const event = eventById(ev.eventId)
   const round = ev.roundsPlayed + 1
   const chips: Chip[] = []
 

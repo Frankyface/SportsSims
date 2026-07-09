@@ -17,7 +17,7 @@ import {
 import { updateGlicko, offseasonAdjust, type GameResult } from '../ratings/glicko2'
 import { generateGolfTour, type TourGolfer } from '../ratings/golfers'
 import { toGolferRating } from '../ratings/golfStrength'
-import { GOLF_SCHEDULE, golfCourseById, golfEventByIndex } from '../ratings/golfCourses'
+import { EVENTS_PER_SEASON, eventById, golfCourseById, seasonSchedule } from '../ratings/golfCourses'
 
 export const ROUNDS_PER_EVENT = 4
 
@@ -39,7 +39,8 @@ export interface GolferCareer {
 }
 
 export interface GolfEventRecord {
-  eventIndex: number
+  eventIndex: number // schedule position 0..13 (for ordering/display)
+  eventId: string // the event def id — the venue actually played this season
   season: number
   finishOrder: string[] // golfer ids, best -> worst
   totalToPar: number[] // aligned with finishOrder
@@ -53,7 +54,8 @@ export interface GolfEventRecord {
 }
 
 export interface GolfEventState {
-  eventIndex: number
+  eventIndex: number // schedule position 0..13
+  eventId: string // the event def id (this season's venue at that position)
   roundsPlayed: number // 0..4
   /**
    * The field's playing strengths, SNAPSHOTTED when the event starts. Glicko
@@ -95,14 +97,20 @@ function freshCareer(): GolferCareer {
   }
 }
 
-function freshEvent(eventIndex: number, golfers: TourGolfer[]): GolfEventState {
+function freshEvent(eventIndex: number, eventId: string, golfers: TourGolfer[]): GolfEventState {
   return {
     eventIndex,
+    eventId,
     roundsPlayed: 0,
     field: golfers.map(toGolferRating),
     toParByRound: [],
     totalToPar: Array(FIELD_SIZE).fill(0),
   }
+}
+
+/** The event id at a schedule position for a tour's given season. */
+function scheduledEventId(seedKey: string, season: number, eventIndex: number): string {
+  return seasonSchedule(seedKey, season)[eventIndex]
 }
 
 export function createGolfSeason(seedKey: string, name: string, id: string = seedKey): GolfSeasonState {
@@ -117,7 +125,7 @@ export function createGolfSeason(seedKey: string, name: string, id: string = see
     id, name, seedKey,
     season: 1,
     golfers,
-    current: freshEvent(0, golfers),
+    current: freshEvent(0, scheduledEventId(seedKey, 1, 0), golfers),
     completed: [],
     points, career,
     history: [],
@@ -132,7 +140,7 @@ export function golferById(state: GolfSeasonState, id: string): TourGolfer {
 }
 
 export function golfSeasonComplete(state: GolfSeasonState): boolean {
-  return state.completed.length >= GOLF_SCHEDULE.length
+  return state.completed.length >= EVENTS_PER_SEASON
 }
 
 /**
@@ -167,7 +175,7 @@ export function golfRoundConfig(
   round: number,
   season = state.season,
 ): GolfRoundConfig {
-  const event = golfEventByIndex(ev.eventIndex)
+  const event = eventById(ev.eventId)
   const order = golfFieldOrder(state, ev, round)
   return {
     seedKey: `${state.seedKey}:s${season}:e${ev.eventIndex}:r${round}`,
@@ -188,6 +196,7 @@ export function golfRoundResult(
   // Rebuild the event state as it stood BEFORE `round` so the config matches.
   const before: GolfEventState = {
     eventIndex: ev.eventIndex,
+    eventId: ev.eventId,
     roundsPlayed: round - 1,
     field: ev.field,
     toParByRound: ev.toParByRound.slice(0, round - 1),
@@ -206,6 +215,7 @@ export function golfRecordRoundResult(
 ): GolfRoundResult {
   const ev: GolfEventState = {
     eventIndex: record.eventIndex,
+    eventId: record.eventId,
     roundsPlayed: ROUNDS_PER_EVENT,
     field: record.field,
     toParByRound: record.toParByRound,
@@ -266,7 +276,7 @@ export function playNextGolfRound(state: GolfSeasonState): { state: GolfSeasonSt
 
 /** Event over: points, Glicko, the career stats book, and the next tee time. */
 function completeGolfEvent(state: GolfSeasonState, ev: GolfEventState): GolfSeasonState {
-  const event = golfEventByIndex(ev.eventIndex)
+  const event = eventById(ev.eventId)
   const order = finishOrderOf(state, ev)
   const ids = order.map((i) => state.golfers[i].identity.id)
   const winnerIdx = order[0]
@@ -327,6 +337,7 @@ function completeGolfEvent(state: GolfSeasonState, ev: GolfEventState): GolfSeas
 
   const record: GolfEventRecord = {
     eventIndex: ev.eventIndex,
+    eventId: ev.eventId,
     season: state.season,
     finishOrder: ids,
     totalToPar: order.map((i) => ev.totalToPar[i]),
@@ -347,8 +358,8 @@ function completeGolfEvent(state: GolfSeasonState, ev: GolfEventState): GolfSeas
     career,
     completed,
     current:
-      nextIndex < GOLF_SCHEDULE.length
-        ? freshEvent(nextIndex, golfers)
+      nextIndex < EVENTS_PER_SEASON
+        ? freshEvent(nextIndex, scheduledEventId(state.seedKey, state.season, nextIndex), golfers)
         : { ...ev, roundsPlayed: ROUNDS_PER_EVENT },
   }
 }
@@ -373,7 +384,7 @@ export function advanceGolfSeason(state: GolfSeasonState): GolfSeasonState {
     season: state.season,
     rankingsChampionId: championId,
     majorWinners: state.completed
-      .filter((r) => golfEventByIndex(r.eventIndex).major)
+      .filter((r) => eventById(r.eventId).major)
       .map((r) => ({ eventIndex: r.eventIndex, golferId: r.winnerId })),
     points: { ...state.points },
   }
@@ -393,11 +404,12 @@ export function advanceGolfSeason(state: GolfSeasonState): GolfSeasonState {
 
   const points: Record<string, number> = {}
   for (const g of golfers) points[g.identity.id] = 0
+  const nextSeason = state.season + 1
   return {
     ...state,
-    season: state.season + 1,
+    season: nextSeason,
     golfers,
-    current: freshEvent(0, golfers),
+    current: freshEvent(0, scheduledEventId(state.seedKey, nextSeason, 0), golfers),
     completed: [],
     points,
     career,

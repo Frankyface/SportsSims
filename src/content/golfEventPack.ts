@@ -14,13 +14,13 @@ import {
   type GolfEventRecord,
   type GolfSeasonState,
 } from '../league/golfSeason'
-import { golfCourseById, golfEventByIndex } from '../ratings/golfCourses'
+import { golfCourseById, eventById } from '../ratings/golfCourses'
 import type { MatchdayPack, PackItem } from './matchdayPack'
 import { golfEventCaption, golfRankingsCaption, GOLF_HASHTAGS } from './golfCaptions'
 import { formatToPar } from '../render/golfDirector'
 
-export function golfEventBrand(eventIndex: number): GolfEventBrand {
-  const e = golfEventByIndex(eventIndex)
+export function golfEventBrand(eventId: string): GolfEventBrand {
+  const e = eventById(eventId)
   return {
     name: e.name,
     short: e.short,
@@ -46,7 +46,7 @@ function groupVideoCaption(
   round: number,
   group: 0 | 1,
 ): string {
-  const event = golfEventByIndex(record.eventIndex)
+  const event = eventById(record.eventId)
   const lines = [
     `⛳ ${event.name} — Round ${round}, ${group === 1 ? 'Group 2' : 'Group 1'}${event.major ? ' · A MAJOR' : ''}`,
     group === 1 && round > 1 ? 'The leaders, every shot, all nine holes.' : 'Every shot, all nine holes.',
@@ -67,8 +67,8 @@ export async function buildGolfEventPack(
   record: GolfEventRecord,
   onProgress?: (p: number, label: string) => void,
 ): Promise<MatchdayPack> {
-  const event = golfEventByIndex(record.eventIndex)
-  const brand = golfEventBrand(record.eventIndex)
+  const event = eventById(record.eventId)
+  const brand = golfEventBrand(record.eventId)
   const course = golfCourseById(event.courseId)
   const items: PackItem[] = []
   const totalSteps = ROUNDS_PER_EVENT * 3 + 1

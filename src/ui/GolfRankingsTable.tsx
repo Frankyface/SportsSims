@@ -1,7 +1,7 @@
 import { golferById, golfRankings, type GolfSeasonState } from '../league/golfSeason'
-import { GOLF_SCHEDULE } from '../ratings/golfCourses'
+import { eventById } from '../ratings/golfCourses'
 
-/** The Apex Tour season rankings, on-page. Majors pay double points. */
+/** The SGA season rankings, on-page. Majors pay double points. */
 export function GolfRankingsTable({ state }: { state: GolfSeasonState }) {
   const rankings = golfRankings(state)
   return (
@@ -20,7 +20,7 @@ export function GolfRankingsTable({ state }: { state: GolfSeasonState }) {
         {rankings.map((r, i) => {
           const g = golferById(state, r.golferId)
           const majors = state.completed.filter(
-            (rec) => rec.winnerId === r.golferId && GOLF_SCHEDULE[rec.eventIndex].major,
+            (rec) => rec.winnerId === r.golferId && eventById(rec.eventId).major,
           ).length
           const top3 = state.completed.filter((rec) => rec.finishOrder.indexOf(r.golferId) <= 2).length
           return (

@@ -6,7 +6,7 @@
 
 import type { GolfSeasonState } from '../league/golfSeason'
 import { golfRankings, golferById } from '../league/golfSeason'
-import { GOLF_SCHEDULE } from '../ratings/golfCourses'
+import { EVENTS_PER_SEASON, eventById } from '../ratings/golfCourses'
 import {
   DATA,
   GOLD,
@@ -27,6 +27,7 @@ import {
   type CompetitionAccent,
 } from './theme'
 import { ensureFontsLoaded } from './fonts'
+import { drawSgaMark, ensureSgaLogo } from './golfBrand'
 
 export const GOLF_CARD_W = 1080
 export const GOLF_CARD_H = 1920
@@ -59,6 +60,9 @@ export function drawGolfRankingsCard(ctx: CanvasRenderingContext2D, state: GolfS
   ctx.font = f('700', 26)
   ctx.fillText(`SEASON ${state.season}`, MARGIN_R, 72)
 
+  // the SGA crest presides over the header
+  drawSgaMark(ctx, cx, 168, 96)
+
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
   ctx.save()
@@ -72,7 +76,7 @@ export function drawGolfRankingsCard(ctx: CanvasRenderingContext2D, state: GolfS
   ctx.fillStyle = MUTED
   ctx.font = f('600', 30)
   const played = state.completed.length
-  ctx.fillText(`THE APEX TOUR · ${played}/${GOLF_SCHEDULE.length} EVENTS PLAYED`, cx, 346)
+  ctx.fillText(`THE SGA · ${played}/${EVENTS_PER_SEASON} EVENTS PLAYED`, cx, 346)
   drawTitleRule(ctx, cx, 376, 320, APEX.accent)
 
   // column headers
@@ -99,7 +103,7 @@ export function drawGolfRankingsCard(ctx: CanvasRenderingContext2D, state: GolfS
     const g = golferById(state, r.golferId)
     const seasonWins = r.wins
     const seasonMajors = state.completed.filter(
-      (rec) => rec.winnerId === r.golferId && GOLF_SCHEDULE[rec.eventIndex].major,
+      (rec) => rec.winnerId === r.golferId && eventById(rec.eventId).major,
     ).length
     const seasonTop3 = state.completed.filter((rec) => rec.finishOrder.indexOf(r.golferId) <= 2).length
     const center = TOP + i * ROW_H + ROW_H / 2
@@ -189,7 +193,7 @@ export function drawGolfRankingsCard(ctx: CanvasRenderingContext2D, state: GolfS
 }
 
 export async function exportGolfRankingsPng(state: GolfSeasonState): Promise<Blob> {
-  await ensureFontsLoaded()
+  await Promise.all([ensureFontsLoaded(), ensureSgaLogo()])
   const canvas = document.createElement('canvas')
   canvas.width = GOLF_CARD_W
   canvas.height = GOLF_CARD_H

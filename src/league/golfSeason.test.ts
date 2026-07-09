@@ -13,7 +13,7 @@ import {
   ROUNDS_PER_EVENT,
   type GolfSeasonState,
 } from './golfSeason'
-import { GOLF_SCHEDULE } from '../ratings/golfCourses'
+import { EVENTS_PER_SEASON, MAJOR_IDS, TOURNAMENT_IDS, eventById, seasonSchedule } from '../ratings/golfCourses'
 import { FIELD_SIZE } from '../sim/golfTypes'
 
 function playEvent(state: GolfSeasonState): GolfSeasonState {
@@ -46,8 +46,8 @@ describe('golf season engine', () => {
     for (let i = 1; i < rec.totalToPar.length; i++) {
       expect(rec.totalToPar[i - 1]).toBeLessThanOrEqual(rec.totalToPar[i])
     }
-    // winner earned exactly the P1 purse (event 0 is not a major)
-    expect(GOLF_SCHEDULE[0].major).toBe(false)
+    // winner earned exactly the P1 purse (event 0 is always a tournament)
+    expect(eventById(rec.eventId).major).toBe(false)
     expect(s.points[rec.winnerId]).toBe(GOLF_POINTS[0])
     // everyone made a start; the winner's streak reset, others' grew
     for (const g of s.golfers) {
@@ -102,13 +102,13 @@ describe('golf season engine', () => {
   })
 
   it('a full season: 14 events, majors pay double, rollover crowns a champion', () => {
-    let s = createGolfSeason('tour-season', 'The Apex Tour')
-    for (let e = 0; e < GOLF_SCHEDULE.length; e++) s = playEvent(s)
+    let s = createGolfSeason('tour-season', 'The SGA')
+    for (let e = 0; e < EVENTS_PER_SEASON; e++) s = playEvent(s)
     expect(golfSeasonComplete(s)).toBe(true)
     expect(s.completed).toHaveLength(14)
 
     // every major paid double
-    const majorRecs = s.completed.filter((r) => GOLF_SCHEDULE[r.eventIndex].major)
+    const majorRecs = s.completed.filter((r) => eventById(r.eventId).major)
     expect(majorRecs).toHaveLength(4)
     const totalAwarded = Object.values(s.points).reduce((a, b) => a + b, 0)
     const purse = GOLF_POINTS.reduce((a, b) => a + b, 0)
@@ -132,5 +132,30 @@ describe('golf season engine', () => {
       (g, i) => Math.abs(g.glicko.rating - s.golfers[i].glicko.rating) > 0.001,
     )
     expect(changed).toBe(true)
+  })
+
+  it('a season rotates 10 of the 20 tournaments; the 4 majors sit at fixed slots', () => {
+    expect(TOURNAMENT_IDS).toHaveLength(20)
+    expect(MAJOR_IDS).toHaveLength(4)
+    const sched = seasonSchedule('rot-tour', 3)
+    expect(sched).toHaveLength(EVENTS_PER_SEASON)
+    // majors at slots 3,7,10,13 in order; Pinnacle (championship) last
+    expect(sched[3]).toBe('evergreen-invitational')
+    expect(sched[7]).toBe('saltmarsh-open')
+    expect(sched[10]).toBe('redrock-classic')
+    expect(sched[13]).toBe('pinnacle-championship')
+    // the 10 non-major slots are distinct tournaments from the pool
+    const tourneys = sched.filter((id) => !eventById(id).major)
+    expect(tourneys).toHaveLength(10)
+    expect(new Set(tourneys).size).toBe(10)
+    for (const id of tourneys) expect(TOURNAMENT_IDS).toContain(id)
+    // deterministic
+    expect(seasonSchedule('rot-tour', 3)).toEqual(sched)
+    // different seasons visit different venues, and over enough seasons ALL 20 appear
+    const seen = new Set<string>()
+    for (let season = 1; season <= 12; season++) {
+      for (const id of seasonSchedule('rot-tour', season)) if (!eventById(id).major) seen.add(id)
+    }
+    expect(seen.size).toBe(20)
   })
 })

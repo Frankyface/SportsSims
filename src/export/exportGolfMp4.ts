@@ -12,6 +12,7 @@ import {
   type GolfRenderModel,
 } from '../render/golfRenderMatch'
 import { ensureFontsLoaded } from '../render/fonts'
+import { ensureSgaLogo } from '../render/golfBrand'
 import type { Moment, MomentKind, RenderPlan } from '../render/director'
 import type { RenderModel } from '../render/renderMatch'
 import type { TeamRating } from '../sim/types'
@@ -166,7 +167,7 @@ export async function exportGolfRoundMp4(
   if (!codec) throw new Error('No supported H.264 encoder configuration was found on this device.')
 
   const totalFrames = Math.max(1, Math.ceil(model.plan.total * FPS))
-  await ensureFontsLoaded()
+  await Promise.all([ensureFontsLoaded(), ensureSgaLogo()])
   const withAudio = typeof AudioEncoder !== 'undefined' && typeof AudioData !== 'undefined'
 
   const canvas = document.createElement('canvas')

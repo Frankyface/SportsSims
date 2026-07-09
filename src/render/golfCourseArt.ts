@@ -1167,15 +1167,15 @@ export function drawGolfHole(ctx: Ctx, l: GolfHoleLayout): void {
   // decoration
   for (const d of l.decos) drawDeco(ctx, d, pal)
 
-  // the cup + flagstick + flag LAST
+  // the cup sits ON the green (so balls roll OVER it); the flagstick + flag
+  // go on top so the hole is always locatable.
+  drawCup(ctx, l.pin)
   drawFlagstick(ctx, l.pin)
 }
 
-/** The cup (hole), flagstick and flag at the pin. Exported so the match
- * renderer can re-draw it OVER the players — keeping the hole visible even when
- * a group of balls is clustered around it. */
-export function drawFlagstick(ctx: Ctx, pin: Pt): void {
-  // the hole itself: a dark cup with a thin rim so "the hole" is always visible
+/** The hole itself: a dark cup with a thin rim, drawn on the green surface so
+ * balls (drawn later) sit ON TOP of it rather than vanishing underneath. */
+export function drawCup(ctx: Ctx, pin: Pt): void {
   ctx.fillStyle = '#0d1a12'
   ctx.beginPath()
   ctx.ellipse(pin[0], pin[1], 8, 5, 0, 0, TAU)
@@ -1183,7 +1183,12 @@ export function drawFlagstick(ctx: Ctx, pin: Pt): void {
   ctx.strokeStyle = 'rgba(255,255,255,0.4)'
   ctx.lineWidth = 1.5
   ctx.stroke()
-  // flagstick + flag
+}
+
+/** The flagstick + flag at the pin. Exported so the match renderer can re-draw
+ * it OVER the players — keeping the pin locatable even in a crowd of balls. The
+ * cup is NOT drawn here (it lives under the balls, via drawCup). */
+export function drawFlagstick(ctx: Ctx, pin: Pt): void {
   ctx.strokeStyle = '#f2f4f3'
   ctx.lineWidth = 5
   ctx.beginPath()

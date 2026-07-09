@@ -24,7 +24,9 @@ import { SettingsTab } from './ui/SettingsTab'
 const LEAGUE_ID = 'crown-league'
 const LEAGUE_NAME = 'Crown League'
 const RUGBY_LEAGUE_ID = 'bastion-championships'
-const GOLF_TOUR_ID = 'apex-tour'
+// 'sga-tour' (was 'apex-tour') — the id change resets old saves onto the new
+// SGA branding, 20-course rotation, and tighter ratings.
+const GOLF_TOUR_ID = 'sga-tour'
 type Tab = 'soccer' | 'rugby' | 'golf' | 'settings'
 
 // A fresh random seed each time a league is created, so every new league plays
@@ -45,13 +47,15 @@ export default function App() {
       createRugbyLeague(newSeed('bastion'), RUGBY_LEAGUE.name, 6, RUGBY_LEAGUE_ID),
   )
   const [golfSeason, setGolfSeason] = useState<GolfSeasonState>(() => {
-    // A saved tour from an older roster (renamed golfers) starts fresh.
+    // A saved tour from an older roster/schema starts fresh (needs the SGA
+    // schedule format: current.eventId present + a known roster).
     const saved = loadGolfLocal(GOLF_TOUR_ID)
     const rosterCurrent =
       saved?.golfers.every((g) => GOLFERS.some((d) => d.id === g.identity.id)) ?? false
-    return rosterCurrent && saved
+    const schemaCurrent = typeof saved?.current?.eventId === 'string'
+    return rosterCurrent && schemaCurrent && saved
       ? saved
-      : createGolfSeason(newSeed('apex'), GOLF_TOUR.name, GOLF_TOUR_ID)
+      : createGolfSeason(newSeed('sga'), GOLF_TOUR.name, GOLF_TOUR_ID)
   })
 
   useEffect(() => {
@@ -79,8 +83,8 @@ export default function App() {
   }
 
   function resetGolfSeason() {
-    if (window.confirm('Start a brand-new Apex Tour? This clears the current one on this device.')) {
-      setGolfSeason(createGolfSeason(newSeed('apex'), GOLF_TOUR.name, GOLF_TOUR_ID))
+    if (window.confirm('Start a brand-new SGA tour? This clears the current one on this device.')) {
+      setGolfSeason(createGolfSeason(newSeed('sga'), GOLF_TOUR.name, GOLF_TOUR_ID))
     }
   }
 
