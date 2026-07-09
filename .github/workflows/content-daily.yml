@@ -1,0 +1,104 @@
+name: Daily post (auto cadence)
+
+# The hands-off newsroom: once per day, render the NEXT day's content for each
+# account (soccer match / round table / playoff; golf preview / round) from the
+# per-account cursor in state.json (on the automation-state branch), host it, and
+# post it. Reuses the same render → finalize → host(orphan) → post spine as
+# content-post.yml. See src/headless/dailyCalendar.ts for the day→content mapping.
+#
+# SAFETY: the scheduled run only posts when state.json `enabled` is true (the
+# one-switch pause). Manual runs offer dry-run (generate + host, NO post) so a
+# day's content can be eyeballed before going live.
+
+on:
+  schedule:
+    - cron: '0 16 * * *' # 16:00 UTC daily (operator can retune)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run = generate + host, do NOT post or advance. live = post + advance the cursor.'
+        type: choice
+        options: [dry-run, live]
+        default: dry-run
+
+permissions:
+  contents: write
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Read cadence state
+        id: state
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/cadence-state.mjs read
+
+      - name: Plan run
+        id: plan
+        run: |
+          EVENT="${{ github.event_name }}"
+          MODE="${{ github.event.inputs.mode }}"
+          ENABLED="${{ steps.state.outputs.enabled }}"
+          RUN=false; POST=false
+          if [ "$EVENT" = "schedule" ]; then
+            if [ "$ENABLED" = "true" ]; then RUN=true; POST=true; else echo "⏸ cadence paused (enabled=false) — skipping."; fi
+          else
+            RUN=true
+            [ "$MODE" = "live" ] && POST=true
+          fi
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "post=$POST" >> "$GITHUB_OUTPUT"
+          echo "plan: event=$EVENT mode=${MODE:-scheduled} enabled=$ENABLED → run=$RUN post=$POST (soccerDay=${{ steps.state.outputs.soccer }} golfDay=${{ steps.state.outputs.golf }})"
+
+      - name: Install deps + Chromium + ffmpeg
+        if: steps.plan.outputs.run == 'true'
+        run: |
+          npm ci
+          npm i -D playwright
+          npx playwright install --with-deps chromium
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Generate today's content
+        if: steps.plan.outputs.run == 'true'
+        run: node scripts/daily-content.mjs content-out "${{ steps.state.outputs.soccer }}" "${{ steps.state.outputs.golf }}"
+
+      - name: Finalize reels (mux audio + scoreboard end-card)
+        if: steps.plan.outputs.run == 'true'
+        run: |
+          node scripts/finalize-reels.mjs content-out
+          ls -la content-out
+
+      - name: Host assets (force-push to orphan content-host branch)
+        id: host
+        if: steps.plan.outputs.run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan content-host
+          git reset -q
+          git add -f content-out
+          git commit -q -m "daily content [skip ci]"
+          git push -f origin content-host
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Post to Instagram
+        if: steps.plan.outputs.post == 'true'
+        env:
+          IG_USER_ID_SOCCER: ${{ secrets.IG_USER_ID_SOCCER }}
+          IG_ACCESS_TOKEN_SOCCER: ${{ secrets.IG_ACCESS_TOKEN_SOCCER }}
+          IG_USER_ID_GOLF: ${{ secrets.IG_USER_ID_GOLF }}
+          IG_ACCESS_TOKEN_GOLF: ${{ secrets.IG_ACCESS_TOKEN_GOLF }}
+        run: node scripts/ig-post.mjs content-out "https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.host.outputs.sha }}/content-out"
+
+      - name: Advance cadence cursor
+        if: steps.plan.outputs.post == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/cadence-state.mjs advance content-out/manifest.json

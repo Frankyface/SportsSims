@@ -65,6 +65,14 @@ async function postReel(acct, post) {
   await sleep(2000)
   return publish(acct.id, acct.tok, c.id)
 }
+async function postPhoto(acct, post) {
+  const url = `${baseUrl}/${post.image}`
+  if (!(await reachable(url))) throw new Error(`unreachable ${post.image}`)
+  const c = await api(`${acct.id}/media`, { image_url: url, caption: post.caption, access_token: acct.tok })
+  if (!c.id) throw new Error(`photo container: ${JSON.stringify(c.error || c)}`)
+  await sleep(2000)
+  return publish(acct.id, acct.tok, c.id)
+}
 async function postCarousel(acct, post) {
   const children = []
   for (const img of post.images) {
@@ -88,7 +96,10 @@ for (const post of posts) {
   console.log(`\n=== ${post.account.toUpperCase()} #${post.order} (${post.kind}) ===`)
   if (!acct || !acct.id || !acct.tok) { console.log(`   ❌ missing secrets for ${post.account}`); failures++; continue }
   try {
-    const id = post.kind === 'reel' ? await postReel(acct, post) : await postCarousel(acct, post)
+    const id =
+      post.kind === 'reel' ? await postReel(acct, post)
+      : post.kind === 'photo' ? await postPhoto(acct, post)
+      : await postCarousel(acct, post)
     console.log(`   ✅ PUBLISHED ${id}`)
   } catch (e) {
     console.log(`   ❌ FAILED: ${e.message}`)
