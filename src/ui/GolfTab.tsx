@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   advanceGolfSeason,
+  createGolfSeason,
   golferById,
   golfRecordRoundResult,
   golfSeasonComplete,
@@ -25,6 +26,8 @@ import type { MatchdayPack } from '../content/matchdayPack'
 import { downloadBlob } from '../export/exportMp4'
 import { GolfRoundView } from './GolfRoundView'
 import { GolfPreviewView } from './GolfPreviewView'
+import { SeedControl } from './SeedControl'
+import { randomSeed } from '../league/randomSeed'
 import { GolfRankingsTable } from './GolfRankingsTable'
 import { GolfFriendlyTab } from './GolfFriendlyTab'
 import { PackPanel } from './PackPanel'
@@ -263,6 +266,12 @@ function GolfSeasonView({
           </button>
         </div>
       )}
+
+      <SeedControl
+        seed={state.seedKey}
+        onRandom={() => setState(createGolfSeason(randomSeed('sga'), state.name, state.id))}
+        onLoad={(s) => setState(createGolfSeason(s, state.name, state.id))}
+      />
 
       <h3 className="sectionH">📦 Full-season content</h3>
       <p className="hint">

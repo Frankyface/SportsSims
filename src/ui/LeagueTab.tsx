@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { LeagueState } from '../league/types'
 import {
+  createLeague,
   teamById,
   playRound,
   startPlayoffs,
@@ -14,6 +15,8 @@ import {
 import { buildMatchdayPack, type MatchdayPack } from '../content/matchdayPack'
 import { leagueLogoUrl } from '../render/logos'
 import { StandingsTable } from './StandingsTable'
+import { SeedControl } from './SeedControl'
+import { randomSeed } from '../league/randomSeed'
 import { MatchView } from './MatchView'
 import { PackPanel } from './PackPanel'
 import { buildSeasonContent } from '../content/seasonContent'
@@ -130,6 +133,12 @@ export function LeagueTab({ state, setState }: { state: LeagueState; setState: (
           </span>
         </div>
       </div>
+
+      <SeedControl
+        seed={state.seedKey}
+        onRandom={() => setState(createLeague(randomSeed('crown'), state.name, state.teams.length, state.id))}
+        onLoad={(s) => setState(createLeague(s, state.name, state.teams.length, state.id))}
+      />
 
       {state.offseasonBig && state.offseasonBig.length > 0 && (
         <div className="offseason">
