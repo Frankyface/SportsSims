@@ -63,7 +63,7 @@ export function drawGolfLeaderboardCard(ctx: CanvasRenderingContext2D, data: Gol
   ctx.textAlign = 'right'
   ctx.fillStyle = MUTED
   ctx.font = f('700', 26)
-  ctx.fillText(`SEASON ${data.season} · SGA`, MARGIN_R, 72)
+  ctx.fillText(`SEASON ${data.season} · SGA TOUR`, MARGIN_R, 72)
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'

@@ -138,8 +138,19 @@ export function drawSgaCrest(ctx: Ctx, cx: number, cy: number, size: number): vo
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.font = `900 ${w * 0.34}px "Arial Black", system-ui, sans-serif`
-  ctx.fillText('SGA', cx, cy + h * 0.06)
-  ctx.strokeText('SGA', cx, cy + h * 0.06)
+  ctx.fillText('SGA', cx, cy)
+  ctx.strokeText('SGA', cx, cy)
+
+  // divider + "TOUR"
+  ctx.strokeStyle = SGA_GOLD
+  ctx.lineWidth = w * 0.01
+  ctx.beginPath()
+  ctx.moveTo(cx - w * 0.22, cy + h * 0.16)
+  ctx.lineTo(cx + w * 0.22, cy + h * 0.16)
+  ctx.stroke()
+  ctx.fillStyle = SGA_GOLD
+  ctx.font = `800 ${w * 0.11}px "Arial Black", system-ui, sans-serif`
+  ctx.fillText('T O U R', cx, cy + h * 0.24)
 
   // laurel hint at the base
   ctx.strokeStyle = SGA_GOLD

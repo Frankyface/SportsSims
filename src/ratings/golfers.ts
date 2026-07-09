@@ -9,18 +9,18 @@
 import { makeRng, randNormal } from '../sim/prng'
 import type { Glicko } from './glicko2'
 
-/** ESSPN golf competition brand — the Simulated Golf Association. */
+/** ESSPN golf competition brand — the SGA Tour. */
 export const GOLF_TOUR = {
   id: 'sga',
-  name: 'The Simulated Golf Association',
-  short: 'SGA',
-  tagline: 'ESSPN presents the SGA',
+  name: 'The SGA Tour',
+  short: 'SGA Tour',
+  tagline: 'ESSPN presents the SGA Tour',
   // Real crest lives at public/logos/sga.png (see render/golfBrand.ts); a drawn
   // shield is the fallback until it's added.
   logo:
     'A dark forest-green shield with a gold double border, a white golf ball on a ' +
     'gold tee with a gold swoosh, a gold flag by the hole, "SGA" in white collegiate ' +
-    'block letters, and gold laurel branches at the base.',
+    'block letters over "TOUR" in gold, and gold laurel branches at the base.',
 }
 
 export interface GolferIdentity {

@@ -76,7 +76,7 @@ export function drawGolfRankingsCard(ctx: CanvasRenderingContext2D, state: GolfS
   ctx.fillStyle = MUTED
   ctx.font = f('600', 30)
   const played = state.completed.length
-  ctx.fillText(`THE SGA · ${played}/${EVENTS_PER_SEASON} EVENTS PLAYED`, cx, 346)
+  ctx.fillText(`THE SGA TOUR · ${played}/${EVENTS_PER_SEASON} EVENTS PLAYED`, cx, 346)
   drawTitleRule(ctx, cx, 376, 320, APEX.accent)
 
   // column headers

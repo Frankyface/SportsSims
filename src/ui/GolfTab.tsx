@@ -69,7 +69,7 @@ function MajorsBook() {
   return (
     <div>
       <p className="hint">
-        The four crowns of the SGA season — 4 rounds each, double ranking points, and their own courses on the calendar every year.
+        The four crowns of the SGA Tour season — 4 rounds each, double ranking points, and their own courses on the calendar every year.
       </p>
       <div className="clubGrid">
         {majors.map((m) => (

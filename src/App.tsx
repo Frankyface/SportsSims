@@ -83,7 +83,7 @@ export default function App() {
   }
 
   function resetGolfSeason() {
-    if (window.confirm('Start a brand-new SGA tour? This clears the current one on this device.')) {
+    if (window.confirm('Start a brand-new SGA Tour season? This clears the current one on this device.')) {
       setGolfSeason(createGolfSeason(newSeed('sga'), GOLF_TOUR.name, GOLF_TOUR_ID))
     }
   }

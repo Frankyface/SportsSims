@@ -82,7 +82,7 @@ export function golfRankingsCaption(state: GolfSeasonState): string {
   const gap = rankings[0].points - rankings[1].points
   const played = state.completed.length
   return [
-    `📊 SGA RANKINGS — after ${played} of 14 events, Season ${state.season}`,
+    `📊 SGA TOUR RANKINGS — after ${played} of 14 events, Season ${state.season}`,
     gap > 400
       ? `${leader.identity.name} is running away with the season.`
       : `${leader.identity.name} leads, ${second.identity.name} within a swing (${gap} pts).`,
