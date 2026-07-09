@@ -210,8 +210,8 @@ function drawPreviewTitle(ctx: Ctx, model: GolfPreviewModel): void {
   ctx.font = 'bold 34px system-ui, sans-serif'
   ctx.fillText(`ALL 9 HOLES · PAR ${model.coursePar}`, cx, 952)
 
-  // "play begins Thursday" pill
-  const label = 'PLAY BEGINS THURSDAY'
+  // "playing tomorrow" pill (previews post the day before the round)
+  const label = 'PLAYING TOMORROW'
   ctx.font = 'bold 32px system-ui, sans-serif'
   const pw = ctx.measureText(label).width + 96
   roundRect(ctx, cx - pw / 2, 1024, pw, 68, 12)
