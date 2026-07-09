@@ -1,24 +1,22 @@
 // Spike runner: start a Vite dev server, drive /headless.html in a headless
-// browser, wait for the export to finish, and capture the downloaded MP4.
-//
-// Proves a headless browser can run the app's own deterministic sim + WebCodecs
-// MP4 export with zero UI — the linchpin for hands-off Rung-4 auto-posting.
+// browser, and capture the outputs it downloads — a VIDEO-ONLY MP4 plus the
+// soundtrack as a WAV. (The workflow ffmpeg-muxes them into a final MP4 with
+// AAC audio, because Linux CI Chromium can't encode AAC.)
 //
 // Usage:
-//   node scripts/headless-export.mjs            # bundled Chromium (mirrors GitHub Actions)
-//   PW_CHANNEL=chrome node scripts/headless-export.mjs   # installed Chrome/Edge (guaranteed H.264)
+//   node scripts/headless-export.mjs                       # bundled Chromium (mirrors CI)
+//   PW_CHANNEL=chrome node scripts/headless-export.mjs     # installed Chrome/Edge
 //
-// Exit 0 + a saved headless-export.mp4 = pass. Non-zero = the harness reported an error.
+// Exit 0 + headless-export.mp4 + headless-export.wav = pass.
 
 import { chromium } from 'playwright'
 import { createServer } from 'vite'
 import { fileURLToPath } from 'node:url'
+import fs from 'node:fs'
 import path from 'node:path'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const outFile = path.join(projectRoot, 'headless-export.mp4')
 const TIMEOUT_MS = 10 * 60 * 1000
-
 const channel = process.env.PW_CHANNEL || null
 
 const server = await createServer({
@@ -46,7 +44,16 @@ const page = await context.newPage()
 page.on('console', (m) => console.log(`[page:${m.type()}]`, m.text()))
 page.on('pageerror', (e) => console.log('[page:error]', e.message))
 
-const downloadPromise = page.waitForEvent('download', { timeout: TIMEOUT_MS }).catch(() => null)
+const saves = []
+page.on('download', (d) => {
+  const name = d.suggestedFilename()
+  saves.push(
+    d
+      .saveAs(path.join(projectRoot, name))
+      .then(() => name)
+      .catch((e) => `FAILED ${name}: ${e.message}`),
+  )
+})
 
 const t0 = Date.now()
 await page.goto(`${base}/headless.html`, { waitUntil: 'load', timeout: 60000 })
@@ -59,21 +66,21 @@ const info = await page.evaluate(() => ({
   score: window.__SCORE__,
   progress: window.__PROGRESS__,
 }))
-const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-console.log(`[runner] harness finished in ${elapsed}s:`, JSON.stringify(info))
+console.log(`[runner] harness finished in ${((Date.now() - t0) / 1000).toFixed(1)}s:`, JSON.stringify(info))
 
 let exitCode = 0
 if (info.error) {
   console.error('[runner] EXPORT FAILED:\n' + info.error)
   exitCode = 1
 } else {
-  const download = await downloadPromise
-  if (!download) {
-    console.error('[runner] export reported success but no download was captured')
+  await new Promise((r) => setTimeout(r, 1500)) // let both download events register + save
+  console.log('[runner] saved:', (await Promise.all(saves)).join(', '))
+  const ok = ['headless-export.mp4', 'headless-export.wav'].every((f) => fs.existsSync(path.join(projectRoot, f)))
+  if (!ok) {
+    console.error('[runner] missing an expected output file')
     exitCode = 1
   } else {
-    await download.saveAs(outFile)
-    console.log(`[runner] PASS — saved ${outFile} (score ${info.score?.join('-')}, ~${(info.size / 1e6).toFixed(1)} MB)`)
+    console.log(`[runner] PASS — video (${(info.size / 1e6).toFixed(1)} MB, score ${info.score?.join('-')}) + WAV`)
   }
 }
 

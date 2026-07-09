@@ -65,7 +65,7 @@ async function encodeAudio(muxer: Muxer<ArrayBufferTarget>, model: RenderModel, 
 }
 
 /** Render `match` to an Instagram-ready MP4 Blob (video + audio). Reports 0..1 progress. */
-export async function exportMatchMp4(match: MatchResult, onProgress?: (p: number) => void): Promise<Blob> {
+export async function exportMatchMp4(match: MatchResult, onProgress?: (p: number) => void, opts?: { audio?: boolean }): Promise<Blob> {
   if (typeof VideoEncoder === 'undefined') {
     throw new Error('This browser has no WebCodecs support. Use Chrome or Edge to export.')
   }
@@ -75,7 +75,18 @@ export async function exportMatchMp4(match: MatchResult, onProgress?: (p: number
   const model = buildRenderModel(match, RENDER_W, RENDER_H)
   const totalFrames = Math.max(1, Math.ceil(model.plan.total * FPS))
   await ensureLogosLoaded()
-  const withAudio = typeof AudioEncoder !== 'undefined' && typeof AudioData !== 'undefined'
+  let withAudio = opts?.audio !== false && typeof AudioEncoder !== 'undefined' && typeof AudioData !== 'undefined'
+  if (withAudio) {
+    // Some environments (e.g. Linux CI Chromium) expose AudioEncoder but have no
+    // AAC encoder — probe first so we degrade to a video-only MP4 instead of
+    // throwing "Unsupported codec type" mid-export. (CI adds the audio via ffmpeg.)
+    try {
+      const sup = await AudioEncoder.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: AUDIO_SR, numberOfChannels: 1, bitrate: 128_000 })
+      withAudio = sup.supported === true
+    } catch {
+      withAudio = false
+    }
+  }
 
   const canvas = document.createElement('canvas')
   canvas.width = RENDER_W

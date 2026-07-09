@@ -1,19 +1,22 @@
 // Spike-only headless export harness.
 //
-// Purpose: prove a headless browser (Playwright/Chromium locally, GitHub Actions
-// later) can run the app's *own* deterministic sim + WebCodecs MP4 export with no
-// UI and no clicks — the technical linchpin for hands-off Rung-4 auto-posting.
+// Proves a headless browser (Playwright/Chromium locally, GitHub Actions later)
+// can run the app's own deterministic sim + WebCodecs export with no UI — the
+// linchpin for hands-off Rung-4 auto-posting.
 //
-// This is dev tooling, NOT part of the shipped app bundle. It mirrors the exact
-// single-match recipe used by FriendlyTab so the output is real app output.
-//
-// A Playwright runner (scripts/headless-export.mjs) loads /headless.html, waits for
-// window.__DONE__, and captures the browser download the harness triggers.
+// CI-safe audio: renders a VIDEO-ONLY MP4 (H.264 always encodes) plus the
+// soundtrack as a raw WAV (no codec). The runner captures both; the workflow
+// uses ffmpeg to encode the WAV to AAC and mux it into the MP4 — because Linux
+// CI Chromium has no AAC encoder.
 
 import { simulateMatch } from '../sim/simulateMatch'
 import { generateLeague } from '../ratings/teams'
 import { toTeamRating } from '../ratings/strength'
 import { exportMatchMp4, downloadBlob } from '../export/exportMp4'
+import { buildRenderModel, RENDER_W, RENDER_H } from '../render/renderMatch'
+import { buildMatchAudio, AUDIO_SR } from '../export/audio'
+import { loadAudioAssets } from '../export/audioAssets'
+import { pcmToWav } from './wav'
 
 declare global {
   interface Window {
@@ -29,7 +32,6 @@ declare global {
 async function main(): Promise<void> {
   window.__HAS_WEBCODECS__ = typeof VideoEncoder !== 'undefined'
   try {
-    // Same recipe as FriendlyTab: a fresh 6-team pool, pick two, sim one match.
     const teams = generateLeague('friendly-pool', 6)
     const home = teams[0]
     const away = teams[3]
@@ -41,14 +43,20 @@ async function main(): Promise<void> {
     })
 
     window.__PROGRESS__ = 0
-    const blob = await exportMatchMp4(match, (p) => {
+    // Video-only MP4 (audio added by ffmpeg in CI from the WAV below).
+    const video = await exportMatchMp4(match, (p) => {
       window.__PROGRESS__ = p
-    })
+    }, { audio: false })
 
-    window.__SIZE__ = blob.size
+    // The soundtrack as a raw WAV — no codec, so it works even where AAC can't encode.
+    const model = buildRenderModel(match, RENDER_W, RENDER_H)
+    const bank = await loadAudioAssets()
+    const wav = pcmToWav(buildMatchAudio(model, bank), AUDIO_SR)
+
+    window.__SIZE__ = video.size
     window.__SCORE__ = match.score
-    // Trigger a browser download; the Playwright runner captures it to disk.
-    downloadBlob(blob, 'headless-export.mp4')
+    downloadBlob(video, 'headless-export.mp4')
+    downloadBlob(wav, 'headless-export.wav')
     window.__DONE__ = true
   } catch (err) {
     window.__ERROR__ = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)

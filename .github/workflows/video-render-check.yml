@@ -29,13 +29,19 @@ jobs:
           npm i -D playwright
           npx playwright install --with-deps chromium
 
-      - name: Render one match headlessly
+      - name: Render one match (video-only MP4 + WAV) headlessly
         run: node scripts/headless-export.mjs
 
-      - name: Validate the MP4
+      - name: Mux audio with ffmpeg + validate
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
-          test -s headless-export.mp4 || { echo "❌ no MP4 produced"; exit 1; }
-          echo "size: $(stat -c%s headless-export.mp4) bytes"
-          ffprobe -v error -show_entries stream=codec_name,codec_type,width,height -show_entries format=duration -of default=noprint_wrappers=1 headless-export.mp4
-          echo "✅ MP4 rendered + valid in the cloud"
+          test -s headless-export.mp4 || { echo "❌ no video MP4"; exit 1; }
+          test -s headless-export.wav || { echo "❌ no WAV"; exit 1; }
+          ffmpeg -y -i headless-export.mp4 -i headless-export.wav -c:v copy -c:a aac -b:a 128k -shortest headless-final.mp4
+          echo "final size: $(stat -c%s headless-final.mp4) bytes"
+          ffprobe -v error -show_entries stream=codec_name,codec_type,width,height -show_entries format=duration -of default=noprint_wrappers=1 headless-final.mp4
+          types=$(ffprobe -v error -show_entries stream=codec_type -of default=nokey=1:noprint_wrappers=1 headless-final.mp4 | tr '\n' ' ')
+          echo "streams: $types"
+          echo "$types" | grep -q audio || { echo "❌ no audio stream"; exit 1; }
+          echo "$types" | grep -q video || { echo "❌ no video stream"; exit 1; }
+          echo "✅ video + AAC audio — rendered and muxed in the cloud"
