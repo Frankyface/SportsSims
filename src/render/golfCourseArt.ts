@@ -327,8 +327,15 @@ export function buildHoleLayout(course: GolfCourseDef, holeIdx: number, renderSe
 
   const cfg = configureArchetype(archetype, rng, bendSign, tee, [greenX0, greenY], hole)
 
-  // clamp the green anchor so the green + its extent clears the rail
-  let greenC: Pt = [clamp(cfg.greenC[0], 340, 620), cfg.greenC[1]]
+  // Clamp the green anchor: (x) clear the leaderboard rail, and (y) push tall
+  // greens far enough DOWN that the blob's top stays below the horizon band —
+  // otherwise a tall/rotated green (Biarritz, Redan) pastes over the sky.
+  // Vertical extent is rotation-aware (a rotated wide green reaches up via ax),
+  // times the harmonic cap (1.22) and the fringe scale ((R+16)/R).
+  const rotUp = Math.abs(Math.sin(cfg.green.phi)) * cfg.green.ax + Math.abs(Math.cos(cfg.green.phi)) * cfg.green.ay
+  const blobUp = 1.24 * rotUp * (cfg.green.R + 16) + 6
+  const minGreenY = GOLF_ART.y + 118 + 24 + blobUp
+  let greenC: Pt = [clamp(cfg.greenC[0], 340, 620), Math.max(cfg.greenC[1], minGreenY)]
   if (greenC[1] > RAIL.y0 - 40 && greenC[1] < RAIL.y1) {
     greenC = [Math.min(greenC[0], RAIL.x - cfg.green.R * 1.5 - 12), greenC[1]]
   }
@@ -1160,23 +1167,35 @@ export function drawGolfHole(ctx: Ctx, l: GolfHoleLayout): void {
   // decoration
   for (const d of l.decos) drawDeco(ctx, d, pal)
 
-  // flagstick + flag + shadow LAST
+  // the cup + flagstick + flag LAST
+  drawFlagstick(ctx, l.pin)
+}
+
+/** The cup (hole), flagstick and flag at the pin. Exported so the match
+ * renderer can re-draw it OVER the players — keeping the hole visible even when
+ * a group of balls is clustered around it. */
+export function drawFlagstick(ctx: Ctx, pin: Pt): void {
+  // the hole itself: a dark cup with a thin rim so "the hole" is always visible
+  ctx.fillStyle = '#0d1a12'
+  ctx.beginPath()
+  ctx.ellipse(pin[0], pin[1], 8, 5, 0, 0, TAU)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+  // flagstick + flag
   ctx.strokeStyle = '#f2f4f3'
   ctx.lineWidth = 5
   ctx.beginPath()
-  ctx.moveTo(l.pin[0], l.pin[1])
-  ctx.lineTo(l.pin[0], l.pin[1] - 62)
+  ctx.moveTo(pin[0], pin[1])
+  ctx.lineTo(pin[0], pin[1] - 62)
   ctx.stroke()
   ctx.fillStyle = '#e5322e'
   ctx.beginPath()
-  ctx.moveTo(l.pin[0], l.pin[1] - 62)
-  ctx.lineTo(l.pin[0] + 34, l.pin[1] - 52)
-  ctx.lineTo(l.pin[0], l.pin[1] - 42)
+  ctx.moveTo(pin[0], pin[1] - 62)
+  ctx.lineTo(pin[0] + 34, pin[1] - 52)
+  ctx.lineTo(pin[0], pin[1] - 42)
   ctx.closePath()
-  ctx.fill()
-  ctx.fillStyle = 'rgba(10,14,20,0.5)'
-  ctx.beginPath()
-  ctx.ellipse(l.pin[0], l.pin[1] + 3, 7, 3.4, 0, 0, TAU)
   ctx.fill()
 }
 

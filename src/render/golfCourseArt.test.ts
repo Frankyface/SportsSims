@@ -139,4 +139,13 @@ describe('golf hole art', () => {
       }
     })
   })
+
+  it('greens stay below the horizon band (never paste over the sky)', () => {
+    const horizon = GOLF_ART.y + 118
+    everyHole((l) => {
+      for (const v of [...l.green, ...l.fringe]) {
+        expect(v[1]).toBeGreaterThanOrEqual(horizon)
+      }
+    })
+  })
 })

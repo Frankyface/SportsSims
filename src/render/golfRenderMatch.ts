@@ -21,6 +21,7 @@ import {
 import {
   buildHoleLayout,
   drawGolfHole,
+  drawFlagstick,
   holeToScreen,
   GOLF_ART,
   type GolfHoleLayout,
@@ -145,6 +146,41 @@ function drawGolferChip(ctx: Ctx, x: number, y: number, r: number, color: string
   ctx.restore()
 }
 
+/**
+ * Draw a golfer's colour chip pushed radially AWAY from the pin, with a thin
+ * stem back to the ball, so the crowd of players never covers the hole. The
+ * white ball itself stays exactly on its true spot (drawn by the caller).
+ */
+function drawGolferMarker(ctx: Ctx, ball: [number, number], pin: [number, number], color: string, r: number, dim: boolean, pulseT?: number): void {
+  let dx = ball[0] - pin[0]
+  let dy = ball[1] - pin[1]
+  const m = Math.hypot(dx, dy)
+  if (m < 1) {
+    dx = 0
+    dy = 1
+  } else {
+    dx /= m
+    dy /= m
+  }
+  const off = 20 + r
+  const cx = ball[0] + dx * off
+  const cy = ball[1] + dy * off
+  ctx.strokeStyle = dim ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.6)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(ball[0], ball[1])
+  ctx.lineTo(cx, cy)
+  ctx.stroke()
+  if (pulseT !== undefined) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(cx, cy, r + 7 + Math.sin(pulseT * 6) * 2, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  drawGolferChip(ctx, cx, cy, r, color, dim)
+}
+
 /** Waiting golfers: small chip + ball at their current lie (nudged apart). */
 function drawWaitingGolfers(
   ctx: Ctx,
@@ -167,7 +203,8 @@ function drawWaitingGolfers(
     ctx.beginPath()
     ctx.arc(x, y, 6, 0, Math.PI * 2)
     ctx.fill()
-    drawGolferChip(ctx, x, y - 19, 11, g.color, true)
+    // chip pushed away from the pin so it never covers the hole; ball stays put
+    drawGolferMarker(ctx, [x, y], l.pin, g.color, 11, true)
   })
 }
 
@@ -224,13 +261,8 @@ function drawActiveShot(ctx: Ctx, model: GolfRenderModel, l: GolfHoleLayout, seg
     ctx.stroke()
   }
 
-  // the player, highlighted
-  drawGolferChip(ctx, from[0], from[1] + 2, 16, g.color)
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.arc(from[0], from[1] + 2, 23 + Math.sin(t * 6) * 2, 0, Math.PI * 2)
-  ctx.stroke()
+  // the active player's chip — pushed off the pin, pulsing, stem to the ball
+  drawGolferMarker(ctx, [from[0], from[1] + 2], l.pin, g.color, 14, false, t)
 
   if (fp < 1) {
     ctx.fillStyle = 'rgba(10,14,20,0.35)'
@@ -644,6 +676,8 @@ export function drawGolfFrame(ctx: Ctx, model: GolfRenderModel, t: number): void
   const activeGolfer = active && active.shot.hole === hole.hole ? active.shot.golfer : null
   drawWaitingGolfers(ctx, model, layout, hole.hole, t, activeGolfer)
   if (active && active.shot.hole === hole.hole) drawActiveShot(ctx, model, layout, active, t)
+  // re-draw the flag OVER the players so the hole is never hidden by the crowd
+  drawFlagstick(ctx, layout.pin)
   ctx.restore()
 
   const cardProg = (t - hole.t0) / 1.1

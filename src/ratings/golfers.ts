@@ -157,6 +157,15 @@ function clamp(x: number, lo: number, hi: number): number {
 }
 
 /**
+ * Starting-rating spread (std, rating points). Kept DELIBERATELY TIGHT so the
+ * field starts near-even and any golfer has a real shot at any event — the
+ * week-to-week form swing (formSpread) can out-punch the small talent gap.
+ * Glicko then does the separating: a golfer on a heater sees their rating climb
+ * over the season, so hot streaks still create genuine favourites.
+ */
+const RATING_SPREAD = 66
+
+/**
  * Build a rated tour field from a seed. Mirrors generateLeague (football):
  * skill is a random draw — NOT tied to the golfer's archetype — so any golfer
  * can be world #1 or the tour's whipping post, and ratings then carry over
@@ -168,7 +177,7 @@ export function generateGolfTour(seedKey: string, count = 8): TourGolfer[] {
   return chosen.map((g) => {
     const { description, ...identity } = g
     void description
-    const rating = clamp(1500 + randNormal(rng) * 120, 1250, 1780)
+    const rating = clamp(1500 + randNormal(rng) * RATING_SPREAD, 1330, 1670)
     const rd = 70 + rng() * 50
     const vol = 0.05 + rng() * 0.03
     const clutch = clamp(randNormal(rng) * 0.5, -1, 1)

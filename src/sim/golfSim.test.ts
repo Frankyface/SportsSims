@@ -161,6 +161,37 @@ describe('golf sim Monte-Carlo calibration (N=600 rounds)', () => {
     expect(sd).toBeLessThan(4.5)
   })
 
+  it('tightened field gives real parity — several winners, no runaway favourite', () => {
+    // one fixed field, many independent 4-round events (grouping is score-neutral)
+    const field = generateGolfTour('parity-field').map(toGolferRating)
+    const skillOrder = field.map((_, i) => i).sort((a, b) => field[b].skill - field[a].skill)
+    const wins = Array(FIELD_SIZE).fill(0) as number[]
+    const N = 60
+    const eventCourses = ['harborlight', 'saltmarsh', 'redrock', 'mirrorlake']
+    for (let e = 0; e < N; e++) {
+      let totals = Array(FIELD_SIZE).fill(0) as number[]
+      for (let r = 1; r <= 4; r++) {
+        totals = simulateGolfRound({
+          seedKey: `parity:e${e}:r${r}`,
+          course: golfCourseById(eventCourses[e % eventCourses.length]),
+          golfers: field,
+          round: r,
+          startToPar: totals,
+        }).totalToPar
+      }
+      let w = 0
+      for (let i = 1; i < FIELD_SIZE; i++) if (totals[i] < totals[w]) w = i
+      wins[w]++
+    }
+    const distinct = wins.filter((x) => x > 0).length
+    // the field is genuinely open: lots of different winners, and the favourite
+    // does NOT run away with it
+    expect(distinct).toBeGreaterThanOrEqual(4)
+    expect(wins[skillOrder[0]] / N).toBeLessThan(0.5)
+    // ...but skill still counts: the best golfer wins at least as often as the worst
+    expect(wins[skillOrder[0]]).toBeGreaterThanOrEqual(wins[skillOrder[FIELD_SIZE - 1]])
+  })
+
   it('skill wins out over a big sample, but never deterministically', () => {
     const bestSkillMeanFinish = finishBySkillRank[0] / N
     const worstSkillMeanFinish = finishBySkillRank[FIELD_SIZE - 1] / N
