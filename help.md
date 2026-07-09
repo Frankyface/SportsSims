@@ -63,6 +63,12 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 - **Done:** Your crowd recordings are wired in and live — 2 cheers (`cheer-1/2`), 3 boos (`boo-1/2/3`), and an ambient bed (`music-1`), trimmed to 5-7s and converted to deterministic 48kHz mono WAV. Cheers play on goals/big saves, boos on cards + away goals, the bed loops quietly under everything (all side-aware: louder for the home crowd).
 - **To add or swap sounds later:** get royalty-free files (WAV preferred; MP3/OGG fine), name them by role — `music-*` (loopable bed), `cheer-*` (crowd roars), `boo-*` (jeers) — drop them in `src/assets/audio/` and tell Claude. The exporter finds them by name automatically.
 
+### [ ] Add the SGA (golf) logo
+- **What:** Save the SGA crest you made as **`public/logos/sga.png`** in the `SportsSims` repo.
+- **Why:** It shows on the golf intro card and the rankings card. Until it's there, the app draws a stand-in shield crest — nothing breaks, it just isn't your artwork.
+- **How:** Put the PNG (transparent background, roughly square, ~1024px is ideal) at `public/logos/sga.png` and tell Claude (or commit it). Anything in `public/` is published automatically — no code change needed.
+- **Unblocks:** nothing — pure branding polish.
+
 ### [ ] Regenerate the Highmoor "Stags" rugby crest on a transparent background
 - **What:** Re-export the Highmoor RFC crest with a transparent (or dark) background instead of the grey one.
 - **Why:** Its grey background shows as a grey square on the app's dark club cards. (The other five rugby crests blend fine; the Bastion league logo's *flat-white* background Claude can knock out automatically.)
