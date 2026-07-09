@@ -1,0 +1,70 @@
+name: IG token check
+
+# Read-only sanity check for the Instagram posting secrets.
+# Runs ONLY when triggered by hand (workflow_dispatch). Publishes NOTHING —
+# it just asks graph.instagram.com whether each token is valid and can publish.
+
+on:
+  # Auto-runs when this file is pushed, and can be re-run by hand from the Actions tab.
+  push:
+    paths:
+      - '.github/workflows/ig-token-check.yml'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check golf + soccer tokens
+        env:
+          IG_USER_ID_GOLF: ${{ secrets.IG_USER_ID_GOLF }}
+          IG_ACCESS_TOKEN_GOLF: ${{ secrets.IG_ACCESS_TOKEN_GOLF }}
+          IG_USER_ID_SOCCER: ${{ secrets.IG_USER_ID_SOCCER }}
+          IG_ACCESS_TOKEN_SOCCER: ${{ secrets.IG_ACCESS_TOKEN_SOCCER }}
+        run: |
+          set -uo pipefail
+          API="https://graph.instagram.com"
+          fail=0
+
+          check() {
+            label="$1"; uid="$2"; tok="$3"
+            echo "::group::$label account"
+            if [ -z "$uid" ] || [ -z "$tok" ]; then
+              echo "❌ $label: a secret is empty (user id or token missing)"; fail=1
+              echo "::endgroup::"; return
+            fi
+
+            # 1) Is the token valid? Who does it belong to?
+            me=$(curl -s "$API/me?fields=user_id,username&access_token=$tok")
+            if echo "$me" | jq -e '.error' >/dev/null 2>&1; then
+              echo "❌ $label token rejected: $(echo "$me" | jq -c '.error | {message,code}')"
+              fail=1; echo "::endgroup::"; return
+            fi
+            uname=$(echo "$me" | jq -r '.username // "unknown"')
+            tokid=$(echo "$me" | jq -r '.user_id // .id // "unknown"')
+            echo "✅ $label token valid → @$uname (account id $tokid)"
+            if [ "$tokid" != "unknown" ] && [ "$tokid" != "$uid" ]; then
+              echo "⚠️  $label: the stored IG_USER_ID ($uid) does not match this token's account ($tokid). We'll use the token's real account, but double-check you pasted the right pair."
+            fi
+
+            # 2) Can it publish? (read-only quota check — needs the content-publish scope)
+            lim=$(curl -s "$API/$uid/content_publishing_limit?access_token=$tok")
+            if echo "$lim" | jq -e '.error' >/dev/null 2>&1; then
+              echo "❌ $label cannot publish — likely missing the 'content publish' permission: $(echo "$lim" | jq -c '.error | {message,code}')"
+              fail=1
+            else
+              used=$(echo "$lim" | jq -r '.data[0].quota_usage // "0"')
+              echo "✅ $label can publish (used $used of 100 posts in the last 24h)"
+            fi
+            echo "::endgroup::"
+          }
+
+          check "GOLF"   "$IG_USER_ID_GOLF"   "$IG_ACCESS_TOKEN_GOLF"
+          check "SOCCER" "$IG_USER_ID_SOCCER" "$IG_ACCESS_TOKEN_SOCCER"
+
+          echo "----------------------------------------"
+          if [ "$fail" != "0" ]; then
+            echo "❌ One or more checks failed — see the ❌ lines above."
+            exit 1
+          fi
+          echo "✅ All good: both tokens are valid and can publish."
