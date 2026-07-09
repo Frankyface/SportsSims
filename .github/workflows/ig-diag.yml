@@ -1,0 +1,36 @@
+name: IG diag
+
+# Fast diagnostic (no rendering): tries to make Instagram ingest an already-hosted
+# video and writes IG's exact response to diag-result.txt (committed so it can be
+# read without auth). Creates containers only — publishes nothing.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/ig-diag.yml'
+      - 'scripts/ig-diag.mjs'
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run diagnostic
+        env:
+          IG_USER_ID_SOCCER: ${{ secrets.IG_USER_ID_SOCCER }}
+          IG_ACCESS_TOKEN_SOCCER: ${{ secrets.IG_ACCESS_TOKEN_SOCCER }}
+        run: node scripts/ig-diag.mjs "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/content-out" || true
+      - name: Commit result
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f diag-result.txt
+          git commit -m "diag result [skip ci]" || echo "no change"
+          git push origin HEAD:${{ github.ref_name }}
