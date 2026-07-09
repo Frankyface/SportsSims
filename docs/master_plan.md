@@ -38,7 +38,7 @@ Rugby & Golf (fast-follows), named star players (data model keeps the slot; UI s
 
 ## Future roadmap (6–12 months)
 
-- **Multiply sports:** Rugby, then Golf (individual — foursomes, majors, season-long rankings), then American Football / Basketball / Hockey. _(Rugby (**Bastion Championships**) is fully built but its match *look* is parked. Golf (the **SGA Tour**) is built & live — 8 golfers in two foursomes, a 20-course pool rotating 10-of-20 per season with 4 majors, a career stats book, and group-play videos.)_
+- **Multiply sports:** Rugby, then Golf (individual — foursomes, majors, season-long rankings), then American Football / Basketball / Hockey. _(Rugby (**Bastion Championships**) is fully built but its match *look* is parked. Golf (the **SGA Tour**) is built, live & **content-complete** — 8 golfers in two foursomes, a 20-course pool rotating 10-of-20 per season with 4 majors, a career stats book, group-play videos, a **one-click full-season content `.zip`** (by tournament → round, with **10-image course-preview carousels** + **rankings after every event**), live major crests, and a **"career day" boost**.)_ **→ With the content engine this deep, the active build has now turned to the automation ladder (auto-posting).**
 - **Turn on star players:** ~4 named stars per team, scorers, streaks, rivalry- and persona-driven captions; a public standings/records page in the IG bio.
 - **Automation ladder → the "self-running newsroom":** batch/queue (Rung 2) → scheduled auto-posting with one-tap approval via GitHub Actions + the official Instagram API (Rung 3) → fully hands-off, running to a real-sports-style calendar (Rung 4).
 - **Possible later:** promotion/relegation across two divisions; a cross-sport shared universe (a team you love in Soccer shows up in Rugby); sport sub-accounts under the network brand (@EliteSimSPN → …Golf, …Rugby), ESPN-style.
@@ -91,9 +91,9 @@ _Stages 1–4 (v1) are **shipped & live**. Stage 3 shrank from 10 teams to the 6
 | 2 | Watchable soccer | Make the match genuinely fun to watch | Calibrated sim (drama, upsets, believable scores) + **broadcast overlay** + the **"Friendly" tab** → a dramatic, legible clip. _(Post-V1: upgraded to ~55-70s **continuous play** — see the status note at top.)_ | ✅ |
 | 3 | Leagues & standings | Persistent seasons | 10-team season + playoffs; standings **persist to `elitesim-data`** across reloads/devices; friendlies stay ephemeral | ✅ |
 | 4 | Matchday content drop | One click = a day's content | Batch-sim a matchday → all game videos + a **standings-update post + captions** on an **ESPN-style calendar** | ✅ **(v1 finish line)** |
-| 5 | Rugby & Golf | Multiply the engine | Rugby (team) + Golf (foursomes, majors, season rankings) via the same pipeline. _Rugby: fully built, match **look parked**. Golf (**SGA Tour**): **built & live** — group-play videos, 24 courses / 10-of-20 rotation, 4 majors, career stats book; awaiting real logos + look sign-off._ | Golf ✅ live |
+| 5 | Rugby & Golf | Multiply the engine | Rugby (team) + Golf (foursomes, majors, season rankings) via the same pipeline. _Rugby: fully built, match **look parked**. Golf (**SGA Tour**): **built, live & content-complete** — group-play videos, 24 courses / 10-of-20 rotation, 4 majors, career stats book, one-click full-season `.zip` (course-preview carousels + per-event rankings), live major crests, "career day" boost; only the SGA network logo + look sign-off remain._ | Golf ✅ live |
 | 6 | Star players & drama | Deepen fandom | ~4 named stars/team, scorers, streaks, rivalry/persona captions, public standings page | — |
-| 7 | Automation ladder | The self-running newsroom | Rung 2 (batch/queue) → Rung 3 (scheduled auto-post + one-tap approval) → Rung 4 (hands-off) | — |
+| 7 | Automation ladder | The self-running newsroom | Rung 2 (batch/queue) → Rung 3 (scheduled auto-post + one-tap approval) → Rung 4 (hands-off) | **← ACTIVE next** |
 
 ## Open questions & risks
 

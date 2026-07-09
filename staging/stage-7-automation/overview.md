@@ -1,5 +1,7 @@
 # Stage 7 — Automation ladder
 
+> **Status (2026-07-09): NOW THE ACTIVE STAGE.** The content engine is deep enough to feed auto-posting — Soccer and Golf each export a whole season's videos + posts in one click, and the deterministic sim makes headless server-side re-render possible. **First action = the human unblock: `help.md` #4–6** (convert @EliteSimSPN to Professional, create a Meta dev app in Development mode, add the GitHub secrets) — surface those to the operator BEFORE building the Actions workflow.
+
 ## Goal
 Climb from "you tap post" (Rung 1) to the self-running newsroom (Rung 4): batch/queue polish → scheduled auto-posting with a one-tap human-approval gate → fully hands-off posting on the ESPN calendar.
 

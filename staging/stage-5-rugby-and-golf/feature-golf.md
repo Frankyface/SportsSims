@@ -1,4 +1,4 @@
-# Feature — Golf ⛳ THE SGA TOUR — BUILT & LIVE (2026-07-08), heavily iterated
+# Feature — Golf ⛳ THE SGA TOUR — BUILT, LIVE & CONTENT-COMPLETE (2026-07-09)
 
 ## What
 Golf as an individual sport: **the SGA Tour** (Simulated Golf Association) — 8 persistent golfer
@@ -13,7 +13,7 @@ Validates the engine for an individual (non-team) sport and adds a distinct cont
 
 ## Acceptance criteria
 - [x] Deterministic shot-by-shot sim for a field of 8 in two groups of 4 → a leaderboard.
-      (`sim/golfSim.ts`, **GOLF_SIM_VERSION 2**, golden + Monte-Carlo + parity tests.)
+      (`sim/golfSim.ts`, **GOLF_SIM_VERSION 3**, golden + Monte-Carlo + parity + "having a day" tests.)
 - [x] Season: 14 events (4 majors, finale = championship) + season points ranking (majors ×2), with
       **10-of-20 tournament venue rotation per season** (`league/golfSeason.ts`, `seasonSchedule`).
 - [x] Group-play overlay: leaderboard, hole/score scorebug, group scoreboard, per-shot ball flights,
@@ -26,8 +26,13 @@ Validates the engine for an individual (non-team) sport and adds a distinct cont
       water shimmer, one-map island green) across 14 environments / 24 courses.
 - [x] SGA Tour branding (crest on intro + rankings cards, drawn fallback + `public/logos/sga.png` loader).
 - [x] Majors book: character write-ups + crest art direction, in a Golf → Majors sub-tab.
-- [ ] **Real logos** — `public/logos/sga.png` (SGA crest) + the 4 major marks (drawn/colour fallbacks live).
-- [ ] **Operator look sign-off** on the LIVE site (my in-session screenshot capture failed environmentally).
+- [x] **Full-season download** (`content/golfSeasonContent.ts`): one `.zip` organised **by tournament → round** — a Tuesday **course-preview carousel**, Rounds 1–4 (both group videos + that round's leaderboard), and the **updated season rankings after every event**; final table at root; `POSTING_ORDER.txt` walks it. `simGolfSeasonToEnd()` drives the one click.
+- [x] **Course preview** — a **10-image carousel** (title card + all 9 holes as stills, reusing the real hole art) per event (`render/golfCoursePreview.ts`); shown in-app as a slideshow + a "⬇ Download 10 images (.zip)" button (`ui/GolfPreviewView.tsx`). Operator chose images over a video.
+- [x] **Rankings after every event** — `golfRankingsSnapshot()` renders point-in-time standings (sliced events, cumulative points).
+- [x] **"A guy having a day"** — each round a 9% chance one of the field's four weakest golfers (by skill) gets a temporary +75-rating (+0.25 skill) boost for that round only (**GOLF_SIM_VERSION 3**, `:day` sub-stream, `hotHand` on the result).
+- [x] **4 major logos LIVE** — `public/logos/{evergreen-invitational,saltmarsh-open,redrock-classic,pinnacle-championship}.png`, painted on the course-preview title cards, round intros, and the Majors-book crests (`render/golfEventLogos.ts` + `golfEventLogoUrl()`).
+- [ ] **SGA network logo** — `public/logos/sga.png` (drawn shield fallback live until dropped).
+- [ ] **Operator look sign-off** on the LIVE site (Majors crests confirmed on-screen this session; still want an eyeball of the round videos).
 
 ## Decisions locked (operator)
 - 8 golfers / two foursomes; rounds 2-4 regroup by leaderboard, leaders out last.
@@ -54,6 +59,7 @@ in the **Golf → Majors** tab. Logo art direction is in the same file's `logo` 
 4. **The Pinnacle Championship** — Pinnacle Head (cliffs), THE finale. Black #14141a + gold #d4af37. Crown jewel, belongs to the closer.
 
 ## Open questions / follow-ups
-- Real **SGA logo** (`public/logos/sga.png`) + the 4 major logos — drawn/colour fallbacks live until then.
-- Golf **season-zip download** (mirror `content/seasonContent.ts`) — not yet built (rugby's isn't either).
-- Possible polish: putts even slower/tenser on the final hole of round 4.
+- Real **SGA network logo** (`public/logos/sga.png`) — drawn shield fallback live until then. _(The 4 **major** logos are ✅ live.)_
+- Operator **look sign-off** on the LIVE golf round videos.
+- Possible polish: putts even slower/tenser on the final hole of round 4; a visible on-screen **"🔥 career day" callout** for the boosted golfer (`hotHand` is already exposed on the round result — left off the render to avoid a concurrent edit).
+- ✅ Golf **season-zip download** — DONE this session (`content/golfSeasonContent.ts`). Rugby's still isn't built.

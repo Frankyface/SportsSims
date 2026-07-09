@@ -36,9 +36,9 @@ Legend: `[ ]` = to do · `[x]` = done
 
 ---
 
-## 🟡 Needed later — Instagram auto-posting (Stage 7 only; ignore for now)
+## 🟠 NEXT UP — Instagram auto-posting setup (Stage 7 is now the active build)
 
-You do **not** need any of this for v1. In v1 you'll just download each finished video and post it to Instagram yourself. These are for when we automate posting.
+**This is the current direction.** The content engine is now deep enough to auto-post — Soccer and Golf each export a whole season's videos + posts in one click. So the next thing I need from you is the three items below; they unblock the scheduled auto-poster. Until they're in, keep downloading the finished videos and posting them yourself. Once they're done, Claude builds the GitHub Actions pipeline that renders and posts for you — first with a **one-tap approval on your phone**, then fully hands-off on a schedule.
 
 ### [ ] 4. Convert @EliteSimSPN to a Professional account
 - **What/Why:** The Instagram API can only post from Business/Creator accounts, and posting to *your own* account skips Meta's long review process.
@@ -69,15 +69,9 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 - **How:** Put the PNG (transparent background, roughly square, ~1024px is ideal) at `public/logos/sga.png` and tell Claude (or commit it). Anything in `public/` is published automatically — no code change needed.
 - **Unblocks:** nothing — pure branding polish.
 
-### [ ] Add the four Major logos (you already made these)
-- **What:** Save the 4 major crests you generated, one PNG each, with these exact names:
-  - `public/logos/evergreen-invitational.png` (The Evergreen Invitational)
-  - `public/logos/saltmarsh-open.png` (The Saltmarsh Open)
-  - `public/logos/redrock-classic.png` (The Redrock Classic)
-  - `public/logos/pinnacle-championship.png` (The Pinnacle Championship)
-- **Why:** Each shows on that major's **course-preview title card** and **round intro** automatically. Until the file is there, the drawn SGA crest stands in — nothing breaks.
-- **How:** Drop the PNGs (transparent background ideal) at those paths and tell Claude (or commit them). The filename must match the event id exactly. Other tournaments can get crests the same way later — the id list is in `src/ratings/golfCourses.ts`.
-- **Unblocks:** nothing — pure branding polish (but these four are worth it, they're the marquee events).
+### [x] Add the four Major logos ✅ DONE
+- **Done (2026-07-09):** Your 4 major crests are in `public/logos/` (`evergreen-invitational.png`, `saltmarsh-open.png`, `redrock-classic.png`, `pinnacle-championship.png`) and now render on each major's **course-preview title card**, its **round-video intro**, and the **Majors book** cards in the app. Confirmed on the live dark cards.
+- **To add crests for other tournaments later:** drop a PNG named exactly `<event-id>.png` in `public/logos/` and tell Claude — the id list is in `src/ratings/golfCourses.ts`.
 
 ### [ ] Regenerate the Highmoor "Stags" rugby crest on a transparent background
 - **What:** Re-export the Highmoor RFC crest with a transparent (or dark) background instead of the grey one.
