@@ -4,14 +4,11 @@ name: Post seed content (Round 1 + Event 1)
 # each video, hosts everything (raw.githubusercontent, pinned to the pushed commit),
 # then posts the carousels in order to the two accounts.
 # NOTE: running this PUBLISHES real posts (12 of them).
+# MANUAL ONLY — this posts to LIVE Instagram accounts, so it must never fire on a
+# push/merge. The operator runs it from the Actions tab: "Run workflow".
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/content-post.yml'
-      - 'scripts/ig-post.mjs'
-      - 'scripts/finalize-reels.mjs'
 
 jobs:
   post:
@@ -40,14 +37,22 @@ jobs:
           node scripts/finalize-reels.mjs content-out
           ls -la content-out
 
-      - name: Host assets (commit + push to this branch)
+      - name: Host assets (force-push to orphan content-host branch)
         id: host
+        # Publish content-out to a throwaway orphan branch and force-push it. This
+        # avoids the two failure modes of committing onto the running branch:
+        #   1) non-fast-forward push rejection (a concurrent/prior push moved the ref)
+        #   2) "nothing to commit" exit 1 when the deterministic content is unchanged
+        # A fresh root commit each run always commits and always force-pushes clean.
+        # The poster pins to this commit's SHA, so raw.githubusercontent still resolves.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan content-host
+          git reset -q
           git add -f content-out
-          git commit -m "chore: seed content assets [skip ci]"
-          git push origin HEAD:${{ github.ref_name }}
+          git commit -q -m "content assets [skip ci]"
+          git push -f origin content-host
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Post carousels to Instagram

@@ -25,6 +25,12 @@ exports/
 *.webm
 # (keep sample/branding assets by whitelisting them explicitly if needed)
 
+# Auto-posting host dirs — generated per CI run and force-pushed to orphan
+# hosting branches (content-host / ig-test-host), NEVER committed to main.
+content-out/
+ig-out/
+headless-export.wav
+
 # Editor / OS junk
 .DS_Store
 Thumbs.db

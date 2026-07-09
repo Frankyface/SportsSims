@@ -4,16 +4,11 @@ name: IG test post (club cards + golf hole)
 # pinned to the pushed commit), then posts them: 6 club cards -> soccer account (one at
 # a time), 1 golf hole -> golf account. Runs when pushed or triggered by hand.
 # NOTE: running this PUBLISHES real posts.
+# MANUAL ONLY — posts to LIVE Instagram accounts, so it must never fire on a
+# push/merge. Run it from the Actions tab: "Run workflow".
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/ig-post-test.yml'
-      - 'scripts/ig-post.mjs'
-      - 'scripts/headless-images.mjs'
-      - 'src/headless/exportImages.ts'
-      - 'headless-images.html'
 
 jobs:
   post:
@@ -36,14 +31,19 @@ jobs:
       - name: Generate the 7 images
         run: node scripts/headless-images.mjs ig-out
 
-      - name: Publish images for hosting (commit + push to this branch)
+      - name: Publish images for hosting (force-push to orphan ig-test-host branch)
         id: host
+        # Same rationale as content-post.yml: a fresh orphan root commit avoids
+        # non-fast-forward rejections and "nothing to commit" exit 1. Its own branch
+        # so it can't clobber content-host.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan ig-test-host
+          git reset -q
           git add -f ig-out
-          git commit -m "chore: test post assets [skip ci]"
-          git push origin HEAD:${{ github.ref_name }}
+          git commit -q -m "test post assets [skip ci]"
+          git push -f origin ig-test-host
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Post to Instagram
