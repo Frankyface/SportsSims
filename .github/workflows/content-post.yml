@@ -1,0 +1,59 @@
+name: Post seed content (Round 1 + Event 1)
+
+# Generates Round 1 (soccer) + Event 1 (golf) headlessly, ffmpeg-muxes audio into
+# each video, hosts everything (raw.githubusercontent, pinned to the pushed commit),
+# then posts the carousels in order to the two accounts.
+# NOTE: running this PUBLISHES real posts (12 of them).
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/content-post.yml'
+      - 'scripts/ig-post.mjs'
+      - 'scripts/finalize-reels.mjs'
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps + Chromium + ffmpeg
+        run: |
+          npm ci
+          npm i -D playwright
+          npx playwright install --with-deps chromium
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Generate content
+        run: node scripts/headless-content.mjs content-out
+
+      - name: Finalize reels (mux audio + scoreboard end-card)
+        run: |
+          node scripts/finalize-reels.mjs content-out
+          ls -la content-out
+
+      - name: Host assets (commit + push to this branch)
+        id: host
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f content-out
+          git commit -m "chore: seed content assets [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Post carousels to Instagram
+        env:
+          IG_USER_ID_SOCCER: ${{ secrets.IG_USER_ID_SOCCER }}
+          IG_ACCESS_TOKEN_SOCCER: ${{ secrets.IG_ACCESS_TOKEN_SOCCER }}
+          IG_USER_ID_GOLF: ${{ secrets.IG_USER_ID_GOLF }}
+          IG_ACCESS_TOKEN_GOLF: ${{ secrets.IG_ACCESS_TOKEN_GOLF }}
+        run: node scripts/ig-post.mjs content-out "https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.host.outputs.sha }}/content-out"

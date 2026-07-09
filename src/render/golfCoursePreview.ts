@@ -271,7 +271,9 @@ export async function exportGolfPreviewImage(model: GolfPreviewModel, index: num
   await Promise.all([ensureFontsLoaded(), ensureSgaLogo(), ensureEventLogo(model.event.id)])
   const canvas = document.createElement('canvas')
   canvas.width = model.width
-  canvas.height = model.height
+  // 4:5 Instagram-feed crop (top-anchored): the header, hole card and green sit in
+  // the upper frame, so cropping the 9:16 composition to 4:5 keeps what matters.
+  canvas.height = Math.round((model.width * 5) / 4)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not create a 2D canvas context for the course preview.')
   drawGolfPreviewImage(ctx, model, index)
