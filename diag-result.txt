@@ -1,0 +1,7 @@
+base: https://raw.githubusercontent.com/Frankyface/SportsSims/b5fbaccea049504323247cee3cbcff5362ced0ea/content-out
+video reachability: 200 ct=application/octet-stream len=42171092
+image reachability: 200 ct=image/png len=256274
+--- create VIDEO carousel-item container from raw video ---
+{"id":"18140425576510418"}
+--- create REELS container from raw video ---
+{"id":"18140425579510418"}
