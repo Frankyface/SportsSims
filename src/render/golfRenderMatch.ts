@@ -332,7 +332,7 @@ function drawScorebug(ctx: Ctx, model: GolfRenderModel, t: number): void {
   ctx.fillText(model.event.short, x + 26, y + hgt / 2 - 16)
   ctx.fillStyle = 'rgba(255,255,255,0.55)'
   ctx.font = 'bold 20px system-ui, sans-serif'
-  const groupLbl = plan.group === 1 ? 'FINAL GROUP' : 'GROUP 1'
+  const groupLbl = plan.group === 1 ? 'GROUP 2' : 'GROUP 1'
   ctx.fillText(
     `${model.event.major ? (model.event.championship ? 'THE CHAMPIONSHIP · ' : 'MAJOR · ') : ''}${groupLbl}`,
     x + 26,
@@ -485,7 +485,7 @@ function drawIntro(ctx: Ctx, model: GolfRenderModel, progress: number): void {
   ctx.fillText(model.courseName.toUpperCase(), cx, 552)
   ctx.fillStyle = 'rgba(255,255,255,0.65)'
   ctx.font = 'bold 28px system-ui, sans-serif'
-  const groupLbl = model.plan.group === 1 ? 'THE FINAL GROUP' : 'GROUP 1'
+  const groupLbl = model.plan.group === 1 ? 'GROUP 2' : 'GROUP 1'
   ctx.fillText(`ROUND ${model.m.config.round} OF 4 · ${groupLbl} · ALL 9 HOLES`, cx, 610)
 
   model.storyChips.forEach((chip, i) => {
@@ -551,7 +551,7 @@ function drawResult(ctx: Ctx, model: GolfRenderModel, progress: number): void {
     ? model.event.major
       ? 'MAJOR CHAMPION'
       : 'TOURNAMENT WINNER'
-    : `${model.plan.group === 1 ? 'FINAL GROUP' : 'GROUP 1'} · ROUND ${model.m.config.round} COMPLETE`
+    : `${model.plan.group === 1 ? 'GROUP 2' : 'GROUP 1'} · ROUND ${model.m.config.round} COMPLETE`
   ctx.fillText(kicker, cx, 430)
 
   if (champInGroup && winnerEv && winnerEv.golfer !== null) {

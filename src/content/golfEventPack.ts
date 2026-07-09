@@ -48,7 +48,7 @@ function groupVideoCaption(
 ): string {
   const event = golfEventByIndex(record.eventIndex)
   const lines = [
-    `⛳ ${event.name} — Round ${round}, ${group === 1 ? 'the FINAL GROUP' : 'Group 1'}${event.major ? ' · A MAJOR' : ''}`,
+    `⛳ ${event.name} — Round ${round}, ${group === 1 ? 'Group 2' : 'Group 1'}${event.major ? ' · A MAJOR' : ''}`,
     group === 1 && round > 1 ? 'The leaders, every shot, all nine holes.' : 'Every shot, all nine holes.',
   ]
   if (round === ROUNDS_PER_EVENT && group === 1) {

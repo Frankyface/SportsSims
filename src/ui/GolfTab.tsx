@@ -190,7 +190,7 @@ function GolfSeasonView({
           {([0, 1] as const).map((grp) => (
             <div key={grp}>
               <h3>
-                {grp === 0 ? '⛳ Group 1' : `🏁 Final group${models[1].m.config.round > 1 ? ' (leaders)' : ''}`}
+                {grp === 0 ? '⛳ Group 1' : `🏁 Group 2${models[1].m.config.round > 1 ? ' (leaders)' : ''}`}
               </h3>
               <GolfRoundView
                 model={models[grp]}
