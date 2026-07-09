@@ -30,6 +30,14 @@ export interface GolfPalette {
 
 type DecoKind =
   | 'pine' | 'tree' | 'palm' | 'cactus' | 'rock' | 'heather' | 'dunegrass' | 'reed' | 'stone' | 'frostpine'
+  | 'bigtree'
+
+/** A larger, theme-defining "signature" element placed a few times per hole in
+ * addition to the ground scatter — this is what makes a theme feel alive. */
+const SIGNATURE: Partial<Record<GolfEnv, { kind: DecoKind; count: number; scale: number }>> = {
+  forest: { kind: 'bigtree', count: 6, scale: 2.7 },
+  parkland: { kind: 'bigtree', count: 3, scale: 2.0 },
+}
 
 const PALETTES: Record<GolfEnv, GolfPalette & { deco1: DecoKind; deco2: DecoKind }> = {
   coast: { sky: '#bfe0ee', horizon: '#2a6f97', rough: '#4e8f5c', fairway: '#6fbf73', green: '#8fdf8f', fringe: '#5da963', sand: '#e8d8a8', water: '#2a6f97', deco: '#3c7350', decoAlt: '#d8c890', deco1: 'dunegrass', deco2: 'rock' },
@@ -260,19 +268,24 @@ export interface GolfHoleLayout {
   decos: Deco[]
 }
 
-/** Pick this hole's archetype from an eligibility set (deterministic draw). */
+// The island green is a SIGNATURE — it appears on exactly ONE course + hole,
+// Mirror Lake's par-3 over the water, and nowhere else on the whole tour.
+const ISLAND_COURSE = 'mirrorlake'
+const ISLAND_HOLE = 5 // 0-based
+
+/** Pick this hole's archetype from an eligibility set (deterministic draw).
+ * 'island' is intentionally absent from every pool — it is force-set on the one
+ * signature hole in buildHoleLayout so it stays special. */
 function drawArchetype(rng: () => number, par: number, water: boolean, hazard: number): ArchetypeId {
   let pool: ArchetypeId[]
   if (par === 3) {
     pool = ['redan', 'biarritz', 'punchbowl']
-    if (water) pool.push('island', 'island') // weight water par 3s toward islands
   } else if (par === 5) {
     pool = ['hourglass', 'dogleg', 'elbow', 'doubleS']
     if (water || hazard >= 0.4) pool.push('cape')
   } else {
     pool = ['hourglass', 'dogleg', 'elbow', 'trumpet', 'punchbowl']
     if (water || hazard >= 0.4) pool.push('cape')
-    if (water) pool.push('island')
   }
   return pool[Math.floor(rng() * pool.length)]
 }
@@ -297,6 +310,8 @@ export function buildHoleLayout(course: GolfCourseDef, holeIdx: number, renderSe
   let archetype = drawArchetype(rng, hole.par, hole.water, hole.hazard)
   const prev = peekArchetype(course, holeIdx - 1, renderSeed)
   if (prev && prev === archetype) archetype = drawArchetype(rng, hole.par, hole.water, hole.hazard)
+  // the one signature island hole overrides everything
+  if (course.id === ISLAND_COURSE && holeIdx === ISLAND_HOLE) archetype = 'island'
 
   // dogleg / spine direction alternates hole-to-hole (deterministic)
   const seedBit = (renderSeed >>> (holeIdx % 24)) & 1
@@ -767,19 +782,34 @@ function placeWater(l: GolfHoleLayout, cfg: ArchetypeConfig, rng: () => number, 
   }
 }
 
-/** Environment decoration scattered outside the fairway + green. */
+/** Environment decoration: a few large signature elements + a ground scatter,
+ * all in the rough outside the fairway + green. */
 function placeDecos(l: GolfHoleLayout, cfg: ArchetypeConfig, rng: () => number): void {
   const pal = PALETTES[l.env]
-  const nDeco = 30
-  for (let i = 0; i < nDeco; i++) {
+  const sig = SIGNATURE[l.env]
+  if (sig) placeScatter(l, cfg, rng, sig.count, () => sig.kind, sig.scale, 0.5, DecoInside + sig.scale * 26)
+  placeScatter(l, cfg, rng, 36, () => (rng() < 0.72 ? pal.deco1 : pal.deco2), 1, 0.7, DecoInside)
+}
+
+/** Scatter `count` decos in the rough, rejecting anything on grass/hazard/rail. */
+function placeScatter(
+  l: GolfHoleLayout,
+  cfg: ArchetypeConfig,
+  rng: () => number,
+  count: number,
+  kindFn: () => DecoKind,
+  baseScale: number,
+  sizeVar: number,
+  margin: number,
+): void {
+  for (let i = 0; i < count; i++) {
     const t = rng()
     const c = pointOnPath(l, t)
     const side = rng() < 0.5 ? -1 : 1
     // horizontal spread off the centreline (the hole is drawn mostly vertical);
-    // start beyond the widest this edge could be, then reject anything that
-    // still lands on grass/hazard.
+    // start beyond the widest this edge could be, then reject on-grass/hazard.
     const edge = halfWidthSide(cfg.profile, t, side > 0 ? 1 : -1)
-    const x = c[0] + side * (edge + DecoInside + rng() * 230)
+    const x = c[0] + side * (edge + margin + rng() * 220)
     const y = c[1] + (rng() * 2 - 1) * 26
     if (x < GOLF_ART.x + 18 || x > GOLF_ART.x + GOLF_ART.w - 18) continue
     if (y < GOLF_ART.y + 150 || y > GOLF_ART.y + GOLF_ART.h - 40) continue
@@ -793,7 +823,7 @@ function placeDecos(l: GolfHoleLayout, cfg: ArchetypeConfig, rng: () => number):
       if (dx * dx + dy * dy < 1.35) continue
     }
     if (x > RAIL.x - 20 && y > RAIL.y0 && y < RAIL.y1) continue
-    l.decos.push({ x, y, s: 0.7 + rng() * 0.7, kind: rng() < 0.72 ? pal.deco1 : pal.deco2 })
+    l.decos.push({ x, y, s: baseScale * (0.7 + rng() * sizeVar), kind: kindFn() })
   }
 }
 
@@ -894,6 +924,31 @@ function drawDeco(ctx: Ctx, d: Deco, pal: GolfPalette): void {
       ctx.arc(6 * s, -20 * s, 8 * s, 0, TAU)
       ctx.fill()
       break
+    case 'bigtree': {
+      // a large layered canopy tree with a trunk + soft cast shadow
+      ctx.fillStyle = 'rgba(10,14,20,0.16)'
+      ctx.beginPath()
+      ctx.ellipse(4 * s, 6 * s, 22 * s, 7 * s, 0, 0, TAU)
+      ctx.fill()
+      ctx.fillStyle = '#5a4632'
+      ctx.fillRect(-4 * s, -8 * s, 8 * s, 20 * s)
+      ctx.fillStyle = pal.deco
+      for (const [ox, oy, r] of [
+        [0, -30, 22], [-15, -20, 15], [15, -22, 16], [0, -46, 15], [-8, -38, 13], [9, -40, 12],
+      ] as const) {
+        ctx.beginPath()
+        ctx.arc(ox * s, oy * s, r * s, 0, TAU)
+        ctx.fill()
+      }
+      ctx.fillStyle = pal.decoAlt
+      ctx.beginPath()
+      ctx.arc(9 * s, -36 * s, 10 * s, 0, TAU)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(-4 * s, -50 * s, 7 * s, 0, TAU)
+      ctx.fill()
+      break
+    }
     case 'palm':
       ctx.strokeStyle = pal.decoAlt
       ctx.lineWidth = 4 * s
@@ -995,8 +1050,14 @@ export function drawGolfHole(ctx: Ctx, l: GolfHoleLayout): void {
     const x = l.waterSide < 0 ? A.x : A.x + A.w - w
     ctx.fillStyle = pal.water
     ctx.fillRect(x, A.y + 118, w, A.h - 118)
-    ctx.fillStyle = 'rgba(255,255,255,0.25)'
-    ctx.fillRect(l.waterSide < 0 ? x + w - 8 : x, A.y + 118, 8, A.h - 118)
+    seaShimmer(ctx, x, A.y + 118, w, A.h - 118)
+    const bx = l.waterSide < 0 ? A.x + w : A.x + A.w - w
+    if (l.env === 'cliffs') {
+      drawCliffEdge(ctx, bx, l.waterSide, A.y + 118, A.y + A.h)
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'
+      ctx.fillRect(l.waterSide < 0 ? x + w - 8 : x, A.y + 118, 8, A.h - 118)
+    }
   }
 
   // hazard water UNDER everything: inland body + moat (island/cape)
@@ -1008,6 +1069,7 @@ export function drawGolfHole(ctx: Ctx, l: GolfHoleLayout): void {
     ctx.strokeStyle = 'rgba(255,255,255,0.22)'
     ctx.lineWidth = 4
     ctx.stroke()
+    waterShimmer(ctx, l.water.x, l.water.y, l.water.rx, l.water.ry)
   }
   if (l.moat) {
     // sand collar then water, so the green (drawn later) sits on an island
@@ -1022,6 +1084,7 @@ export function drawGolfHole(ctx: Ctx, l: GolfHoleLayout): void {
     ctx.strokeStyle = 'rgba(255,255,255,0.22)'
     ctx.lineWidth = 4
     ctx.stroke()
+    waterShimmer(ctx, l.moat.cx, l.moat.cy, l.moat.r * 0.8, l.moat.r * 0.8)
   }
 
   // fairway: variable-width filled polygon (nonzero winding) + mow sheen
@@ -1125,4 +1188,70 @@ function drawBunker(ctx: Ctx, pal: GolfPalette, b: { x: number; y: number; rx: n
   ctx.strokeStyle = 'rgba(10,14,20,0.18)'
   ctx.lineWidth = 3
   ctx.stroke()
+}
+
+/** A jagged, faceted ROCK EDGE where the clifftop meets the sea (cliffs env).
+ * seaDir = +1 if the open sea lies to the +x side of the boundary bx. */
+function drawCliffEdge(ctx: Ctx, bx: number, seaDir: number, top: number, bottom: number): void {
+  const depth = 42
+  const jag = (y: number): number => bx + seaDir * (4 + 9 * Math.abs(Math.sin(y * 0.11 + 1.3)))
+  const landX = bx - seaDir * depth
+  // rock body (jagged waterline, straight land side)
+  ctx.beginPath()
+  ctx.moveTo(landX, top)
+  for (let y = top; y <= bottom; y += 20) ctx.lineTo(jag(y), y)
+  ctx.lineTo(jag(bottom), bottom)
+  ctx.lineTo(landX, bottom)
+  ctx.closePath()
+  ctx.fillStyle = '#59626d'
+  ctx.fill()
+  ctx.fillStyle = 'rgba(10,14,20,0.25)' // shaded land-side base
+  ctx.fillRect(Math.min(landX, landX - seaDir * 12), top, 12, bottom - top)
+  // lit facets toward the water
+  ctx.fillStyle = '#828e9b'
+  for (let y = top + 12; y < bottom - 22; y += 58) {
+    const jx = jag(y)
+    ctx.beginPath()
+    ctx.moveTo(jx, y)
+    ctx.lineTo(jx - seaDir * 17, y + 11)
+    ctx.lineTo(jx - seaDir * 5, y + 24)
+    ctx.closePath()
+    ctx.fill()
+  }
+  // white surf breaking on the rocks
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'
+  ctx.lineWidth = 4
+  ctx.beginPath()
+  for (let y = top; y <= bottom; y += 20) {
+    const px = jag(y) + seaDir * 3
+    if (y === top) ctx.moveTo(px, y)
+    else ctx.lineTo(px, y)
+  }
+  ctx.stroke()
+}
+
+/** A few light shimmer streaks on an inland water ellipse. Static but reads as life. */
+function waterShimmer(ctx: Ctx, cx: number, cy: number, rx: number, ry: number): void {
+  ctx.strokeStyle = 'rgba(255,255,255,0.16)'
+  ctx.lineWidth = 3
+  for (let i = 0; i < 3; i++) {
+    const yy = cy - ry * 0.4 + i * ry * 0.42
+    const half = rx * (0.45 - i * 0.1)
+    ctx.beginPath()
+    ctx.moveTo(cx - half, yy)
+    ctx.lineTo(cx - half + rx * 0.35, yy)
+    ctx.stroke()
+  }
+}
+
+/** Rolling shimmer bands down the coastal sea strip. */
+function seaShimmer(ctx: Ctx, x: number, y: number, w: number, h: number): void {
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+  ctx.lineWidth = 3
+  for (let yy = y + 40; yy < y + h; yy += 74) {
+    ctx.beginPath()
+    ctx.moveTo(x + w * 0.15, yy)
+    ctx.lineTo(x + w * 0.72, yy + 6)
+    ctx.stroke()
+  }
 }

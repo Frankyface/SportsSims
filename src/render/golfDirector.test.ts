@@ -150,7 +150,8 @@ describe('golf group director — every shot, all nine holes', () => {
     expect(bannersSeen).toBe(1)
   })
 
-  it('greenT marks the shared putting phase: inside the hole span, only putts after it', () => {
+  it('greenT marks the short-game phase: inside the hole span, only chips/putts after it', () => {
+    const shortGame = new Set(['putt', 'chip', 'recovery', 'penaltyDrop'])
     let seen = 0
     for (const i of seeds.slice(0, 20)) {
       const m = simulateGolfRound(cfg(`green-${i}`, 'gorsewood', (i % 4) + 1))
@@ -161,9 +162,10 @@ describe('golf group director — every shot, all nine holes', () => {
           seen++
           expect(h.greenT).toBeGreaterThan(h.t0)
           expect(h.greenT).toBeLessThanOrEqual(h.t1)
+          // after the zoom fires, the group is around the green — no full swings
           for (const s of plan.segs) {
             if (s.shot.hole === h.hole && s.t0 >= h.greenT - 1e-9) {
-              expect(s.shot.kind).toBe('putt')
+              expect(shortGame.has(s.shot.kind)).toBe(true)
             }
           }
         }

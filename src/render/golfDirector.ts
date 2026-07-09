@@ -249,16 +249,24 @@ export function buildGolfGroupPlan(m: GolfRoundResult, group: 0 | 1): GolfGroupP
     const h0 = t
     const lastShotEnd = new Map<number, number>() // golfer -> t1 of their final shot this hole
     const lies = new Map<number, string>(golfers.map((gi) => [gi, 'tee']))
+    const ballY = new Map<number, number>(golfers.map((gi) => [gi, 0])) // latest ball's progress-to-pin
     let greenT: number | undefined
+    // "at the green complex": holed, on the green, or a greenside chip away from the pin.
+    const nearGreen = (gi: number): boolean => {
+      const lie = lies.get(gi)
+      return lie === 'green' || lie === 'holed' || 1 - (ballY.get(gi) ?? 0) < 0.12
+    }
     for (const shot of holeShots[holeIdx]) {
       const dur = shotWeight(shot, holeIdx) * k
       segs.push({ t0: t, t1: t + dur, shot })
       lastShotEnd.set(shot.golfer, t + dur)
       t += dur
       lies.set(shot.golfer, shot.toLie)
-      if (greenT === undefined && golfers.every((gi) => lies.get(gi) === 'green' || lies.get(gi) === 'holed')) {
-        // the last ball just found the green — but only zoom if putts remain
-        if (golfers.some((gi) => lies.get(gi) === 'green')) greenT = t
+      ballY.set(shot.golfer, shot.to[1])
+      // Zoom in the moment the WHOLE group is around the green — including
+      // chips from just off it — as long as someone still has a shot to watch.
+      if (greenT === undefined && golfers.every(nearGreen) && golfers.some((gi) => lies.get(gi) !== 'holed')) {
+        greenT = t
       }
     }
     holes.push({ hole: holeIdx, t0: h0, t1: t, greenT })

@@ -618,17 +618,18 @@ export function drawGolfFrame(ctx: Ctx, model: GolfRenderModel, t: number): void
   const hole = golfHoleAt(plan, t)
   const layout = model.layouts[hole.hole]
 
-  // Green zoom: once the whole group is putting, push RIGHT in on the green
-  // so every putt — and every miss — is readable.
+  // Green zoom: the moment the group is around the green (chips + putts), push
+  // RIGHT in so every putt — and every miss — is readable. The green sits high
+  // in the frame so greenside chips coming up from below stay in shot.
   let zoomP = 0
   if (hole.greenT !== undefined && t >= hole.greenT && t < hole.t1 + 0.2) {
-    zoomP = ease(clamp01((t - hole.greenT) / 0.7))
+    zoomP = ease(clamp01((t - hole.greenT) / 0.55))
   }
-  const scale = 1 + 1.6 * zoomP
+  const scale = 1 + 2.2 * zoomP // ~3.2× — tight enough to read the break
   ctx.save()
   if (zoomP > 0) {
-    const anchorX = GOLF_ART.x + GOLF_ART.w / 2 - 60
-    const anchorY = GOLF_ART.y + 620
+    const anchorX = GOLF_ART.x + GOLF_ART.w / 2 - 80
+    const anchorY = GOLF_ART.y + 430
     ctx.translate(
       anchorX * zoomP + layout.greenC[0] * (1 - zoomP),
       anchorY * zoomP + layout.greenC[1] * (1 - zoomP),
