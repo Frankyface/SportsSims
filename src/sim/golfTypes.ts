@@ -14,8 +14,14 @@
  * take a visible penalty DROP (non-stroke 'penaltyDrop' shot record); bunker
  * shots come out short and rarely hole out; shots from the rough roll an extra
  * variance die (flyers AND chunks). Score stream regenerated — golden updated.
+ *
+ * v3 (2026-07-09, "a guy having a day"): each round, a 9% chance that ONE of the
+ * field's four weakest golfers (by skill) gets a temporary +75-rating boost for
+ * that round only — an underdog's career round. Rolled on a dedicated
+ * `:day` sub-stream so rounds where it does NOT fire stay byte-identical to v2;
+ * only a boosted golfer's scores move. Golden regenerated.
  */
-export const GOLF_SIM_VERSION = 2
+export const GOLF_SIM_VERSION = 3
 
 /** Eight golfers, two groups of four: indices 0..3 tee first, 4..7 after. */
 export const FIELD_SIZE = 8
@@ -142,5 +148,9 @@ export interface GolfRoundResult {
   /** golfer indices sorted best-to-worst on totalToPar (ties: lower index first) */
   leaderboard: number[]
   events: GolfEvent[]
+  /** Field index of the golfer "having a day" this round (temporary rating
+   * boost), or null when no boost fired. Cosmetic/narrative — the boost's
+   * effect is already baked into the scores. */
+  hotHand: number | null
   renderSeed: number // separate stream for cosmetic-only render randomness
 }

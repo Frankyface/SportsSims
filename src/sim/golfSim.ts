@@ -34,6 +34,14 @@ function clamp01(x: number): number {
   return x < 0 ? 0 : x > 1 ? 1 : x
 }
 
+// "A guy having a day": each round, a 9% chance ONE of the field's four weakest
+// golfers (by skill) plays with a temporary rating bump — a career round from
+// an underdog. +75 rating ≈ +0.25 skill (golfStrength: skill = (rating-1500)/300).
+// Temporary only: it never touches stored ratings/Glicko, just this round's perf.
+const HOT_DAY_PROB = 0.09
+const HOT_DAY_POOL = 4 // the bottom 4 by skill
+const HOT_DAY_BOOST = 0.25 // +75 Elo, expressed in the sim's skill units
+
 /** Putt make probability by normalized pin distance (piecewise linear). */
 function puttMakeProb(d: number, puttSkill: number): number {
   let base: number
@@ -228,6 +236,21 @@ export function simulateGolfRound(config: GolfRoundConfig): GolfRoundResult {
   if (config.course.holes.length !== HOLES_PER_ROUND) throw new Error(`Golf courses are ${HOLES_PER_ROUND} holes`)
   const rng = makeRng(config.seedKey)
 
+  // "Having a day" boost — rolled on a DEDICATED sub-stream so the main scoring
+  // stream stays byte-aligned with rounds where no boost fires; only a boosted
+  // golfer's perf (and thus scores) moves.
+  const dayRng = makeRng(`${config.seedKey}:day`)
+  const skillBoost: number[] = config.golfers.map(() => 0)
+  let hotHand: number | null = null
+  const weakestFirst = config.golfers
+    .map((_, i) => i)
+    .sort((a, b) => config.golfers[a].skill - config.golfers[b].skill || a - b)
+    .slice(0, HOT_DAY_POOL)
+  if (dayRng() < HOT_DAY_PROB) {
+    hotHand = weakestFirst[Math.floor(dayRng() * weakestFirst.length)]
+    skillBoost[hotHand] = HOT_DAY_BOOST
+  }
+
   // Today's form: one draw per golfer, in field order (frozen stream layout).
   const form = config.golfers.map((g) => randNormal(rng) * g.formSpread * 2.2)
 
@@ -256,7 +279,7 @@ export function simulateGolfRound(config: GolfRoundConfig): GolfRoundResult {
       // Momentum: riding a hot round loosens the shoulders a touch.
       const roundSoFar = strokes[gi].reduce((s, x, i) => s + x - config.course.holes[i].par, 0)
       const heat = roundSoFar <= -2 ? 0.08 : roundSoFar >= 3 ? -0.06 : 0
-      const perf = g.skill + form[gi] + pressure + heat
+      const perf = g.skill + skillBoost[gi] + form[gi] + pressure + heat
       const played = playHole(rng, gi, holeIdx, hole, perf, g.riskTilt)
       strokes[gi].push(played.strokes)
       allShots.push(...played.shots)
@@ -309,6 +332,7 @@ export function simulateGolfRound(config: GolfRoundConfig): GolfRoundResult {
     totalToPar,
     leaderboard,
     events,
+    hotHand,
     renderSeed: seedFromKey(`${config.seedKey}:render`),
   }
 }

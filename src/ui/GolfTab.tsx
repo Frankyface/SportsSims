@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   advanceGolfSeason,
   golferById,
   golfRecordRoundResult,
   golfSeasonComplete,
   playNextGolfRound,
+  simGolfSeasonToEnd,
   ROUNDS_PER_EVENT,
   type GolfEventRecord,
   type GolfSeasonState,
@@ -13,13 +14,16 @@ import { golfCourseById, eventById, golfMajors } from '../ratings/golfCourses'
 import type { GolferRating } from '../sim/golfTypes'
 import { GOLFERS, GOLF_TOUR } from '../ratings/golfers'
 import { buildGolfRenderModel, type GolfRenderModel } from '../render/golfRenderMatch'
+import { buildGolfPreviewModel, golfPreviewSeed } from '../render/golfCoursePreview'
 import { exportGolfRankingsPng } from '../render/golfRankingsCard'
 import { exportGolfLeaderboardPng } from '../render/golfLeaderboardCard'
 import { golfStoryChips } from '../content/golfStorylines'
 import { buildGolfEventPack, golfEventBrand } from '../content/golfEventPack'
+import { buildGolfSeasonContent } from '../content/golfSeasonContent'
 import type { MatchdayPack } from '../content/matchdayPack'
 import { downloadBlob } from '../export/exportMp4'
 import { GolfRoundView } from './GolfRoundView'
+import { GolfPreviewView } from './GolfPreviewView'
 import { GolfRankingsTable } from './GolfRankingsTable'
 import { GolfFriendlyTab } from './GolfFriendlyTab'
 import { PackPanel } from './PackPanel'
@@ -113,11 +117,33 @@ function GolfSeasonView({
   const [playKey, setPlayKey] = useState(0)
   const [pack, setPack] = useState<MatchdayPack | null>(null)
   const [packProgress, setPackProgress] = useState<string | null>(null)
+  const [seasonBusy, setSeasonBusy] = useState<{ p: number; label: string } | null>(null)
 
   const done = golfSeasonComplete(state)
   const event = eventById(state.current.eventId)
   const course = golfCourseById(event.courseId)
   const nextRound = state.current.roundsPlayed + 1
+
+  // The upcoming event's Tuesday course-preview flyover (title card + 9 holes).
+  const previewModel = useMemo(() => {
+    if (done) return null
+    const seed = golfPreviewSeed(state.seedKey, state.season, state.current.eventIndex)
+    return buildGolfPreviewModel(golfEventBrand(state.current.eventId), course, seed)
+  }, [done, state.seedKey, state.season, state.current.eventIndex, state.current.eventId, course])
+
+  async function downloadSeason(): Promise<void> {
+    setSeasonBusy({ p: 0, label: 'simming the season' })
+    try {
+      const complete = simGolfSeasonToEnd(state)
+      setState(complete)
+      const zip = await buildGolfSeasonContent(complete, (p, label) => setSeasonBusy({ p, label }))
+      downloadBlob(zip, `ESSPN-SGA-Tour-S${complete.season}.zip`)
+    } catch (e) {
+      window.alert('Season download failed: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setSeasonBusy(null)
+    }
+  }
 
   function showRound(
     eventId: string,
@@ -220,6 +246,36 @@ function GolfSeasonView({
             Start Season {state.season + 1} ▸
           </button>
         </div>
+      )}
+
+      <h3 className="sectionH">📦 Full-season content</h3>
+      <p className="hint">
+        One click sims the rest of the season and downloads a .zip organised by tournament and by
+        round — each event's Tuesday course-preview carousel (10 images), then Rounds 1–4 (Thu–Sun)
+        with both group videos and the leaderboard, plus the season rankings card. It encodes over
+        100 videos in your browser, so it can take several minutes.
+      </p>
+      <div className="controls">
+        <button className="btn" onClick={() => void downloadSeason()} disabled={seasonBusy !== null}>
+          {seasonBusy
+            ? `Building… ${Math.round(seasonBusy.p * 100)}% · ${seasonBusy.label}`
+            : '⬇ Sim & Download Full Season'}
+        </button>
+      </div>
+
+      {previewModel && (
+        <>
+          <h3 className="sectionH">🎬 Course preview — {event.name}</h3>
+          <p className="hint">
+            A 10-image carousel to post on Tuesday: the title card + all 9 holes of {course.name}{' '}
+            (par {course.par}). The rounds play Thursday–Sunday.
+          </p>
+          <GolfPreviewView
+            model={previewModel}
+            filename={`esspn-golf-${event.short.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-course-preview.zip`}
+            playKey={state.current.eventIndex}
+          />
+        </>
       )}
 
       {models && (

@@ -88,9 +88,15 @@ export function drawGolfLeaderboardCard(ctx: CanvasRenderingContext2D, data: Gol
   ctx.fillText(rounds >= 4 ? 'FINAL LEADERBOARD' : `LEADERBOARD — AFTER ROUND ${rounds}`, cx, 402)
   drawTitleRule(ctx, cx, 434, 320, accent)
 
-  // totals + finish order (ties by tour index — the countback lives in the engine)
+  // totals + finish order. On the FINAL board, break ties by final-round score —
+  // the same countback the engine uses to crown the winner — so the #1 badge here
+  // matches the recorded champion. Intermediate boards keep genuine co-leaders tied.
+  const isFinal = rounds >= 4
+  const lastRound = data.toParByRound[rounds - 1]
   const totals = data.field.map((_, i) => data.toParByRound.reduce((s, r) => s + r[i], 0))
-  const order = data.field.map((_, i) => i).sort((a, b) => totals[a] - totals[b] || a - b)
+  const order = data.field
+    .map((_, i) => i)
+    .sort((a, b) => totals[a] - totals[b] || (isFinal ? lastRound[a] - lastRound[b] : 0) || a - b)
 
   // column headers: R1..Rn then TOT
   const rColX = (r: number): number => 620 + r * 92

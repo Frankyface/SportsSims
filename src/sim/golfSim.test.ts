@@ -93,6 +93,56 @@ describe('golf sim invariants', () => {
   })
 })
 
+describe('golf sim — "a guy having a day" boost (v3)', () => {
+  it('fires ~9% of rounds, ALWAYS on a bottom-4 golfer, and lifts their scoring', () => {
+    const N = 4000
+    const courses = GOLF_COURSES.map((c) => c.id)
+    let fired = 0
+    let boostedSum = 0
+    let boostedN = 0
+    let baseSum = 0
+    let baseN = 0
+    for (let i = 0; i < N; i++) {
+      const cfg = configFor(`hot-${i}`, courses[i % courses.length], (i % 4) + 1)
+      const r = simulateGolfRound(cfg)
+      const bottom4 = cfg.golfers
+        .map((_, gi) => gi)
+        .sort((a, b) => cfg.golfers[a].skill - cfg.golfers[b].skill || a - b)
+        .slice(0, 4)
+      if (r.hotHand !== null) {
+        fired++
+        expect(bottom4).toContain(r.hotHand) // only ever one of the weakest four
+        boostedSum += r.roundToPar[r.hotHand]
+        boostedN++
+      } else {
+        for (const gi of bottom4) {
+          baseSum += r.roundToPar[gi]
+          baseN++
+        }
+      }
+    }
+    const rate = fired / N
+    expect(rate).toBeGreaterThan(0.06)
+    expect(rate).toBeLessThan(0.12)
+    // a boosted underdog outscores the typical un-boosted bottom-4 round
+    expect(boostedSum / boostedN).toBeLessThan(baseSum / baseN)
+  })
+
+  it('is deterministic: the boosted golfer and their scores replay identically', () => {
+    // find a seed that fires the boost, then re-sim it byte-for-byte
+    let cfg = configFor('hot-seek-0')
+    let fired = simulateGolfRound(cfg)
+    for (let i = 1; fired.hotHand === null && i < 200; i++) {
+      cfg = configFor(`hot-seek-${i}`)
+      fired = simulateGolfRound(cfg)
+    }
+    expect(fired.hotHand).not.toBeNull()
+    const again = simulateGolfRound(cfg)
+    expect(again.hotHand).toBe(fired.hotHand)
+    expect(JSON.stringify(again)).toBe(JSON.stringify(fired))
+  })
+})
+
 describe('golf sim Monte-Carlo calibration (N=600 rounds)', () => {
   // 600 rounds × 8 golfers × 9 holes = 43,200 holes — plenty for stable rates.
   const N = 600

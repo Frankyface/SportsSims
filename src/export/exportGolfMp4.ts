@@ -1,7 +1,9 @@
 // In-browser export for GOLF rounds: frame-steps the deterministic golf
 // renderer through WebCodecs H.264 + the shared AAC audio mixer, muxed to an
 // Instagram-ready 1080x1920 MP4. Mirrors exportRugbyMp4.ts — its own module so
-// the other sports' export paths never load golf art and vice-versa.
+// the other sports' export paths never load golf art and vice-versa. (The
+// Tuesday course preview is a 10-image carousel, not a video — see
+// golfCoursePreview.ts.)
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import type { GolfMoment } from '../render/golfDirector'
@@ -13,6 +15,7 @@ import {
 } from '../render/golfRenderMatch'
 import { ensureFontsLoaded } from '../render/fonts'
 import { ensureSgaLogo } from '../render/golfBrand'
+import { ensureEventLogo } from '../render/golfEventLogos'
 import type { Moment, MomentKind, RenderPlan } from '../render/director'
 import type { RenderModel } from '../render/renderMatch'
 import type { TeamRating } from '../sim/types'
@@ -155,9 +158,19 @@ async function encodeAudio(
   await encoder.flush()
 }
 
-/** Render a golf round to an Instagram-ready MP4 Blob (video + audio). Reports 0..1 progress. */
-export async function exportGolfRoundMp4(
-  model: GolfRenderModel,
+/**
+ * The shared golf WebCodecs encoder: frame-steps `draw(ctx, t)` over `total`
+ * seconds at FPS into an H.264 MP4, optionally muxing an AAC track produced by
+ * `addAudio`. Used by both the round export (with match audio) and the silent
+ * course-preview export.
+ */
+async function encodeGolfMp4(
+  opts: {
+    total: number
+    draw: (ctx: CanvasRenderingContext2D, t: number) => void
+    eventId?: string
+    addAudio?: (muxer: Muxer<ArrayBufferTarget>, onError: (e: unknown) => void) => Promise<void>
+  },
   onProgress?: (p: number) => void,
 ): Promise<Blob> {
   if (typeof VideoEncoder === 'undefined') {
@@ -166,9 +179,14 @@ export async function exportGolfRoundMp4(
   const codec = await pickCodec()
   if (!codec) throw new Error('No supported H.264 encoder configuration was found on this device.')
 
-  const totalFrames = Math.max(1, Math.ceil(model.plan.total * FPS))
-  await Promise.all([ensureFontsLoaded(), ensureSgaLogo()])
-  const withAudio = typeof AudioEncoder !== 'undefined' && typeof AudioData !== 'undefined'
+  const totalFrames = Math.max(1, Math.ceil(opts.total * FPS))
+  await Promise.all([
+    ensureFontsLoaded(),
+    ensureSgaLogo(),
+    opts.eventId ? ensureEventLogo(opts.eventId) : Promise.resolve(),
+  ])
+  const withAudio =
+    !!opts.addAudio && typeof AudioEncoder !== 'undefined' && typeof AudioData !== 'undefined'
 
   const canvas = document.createElement('canvas')
   canvas.width = GOLF_RENDER_W
@@ -195,16 +213,17 @@ export async function exportGolfRoundMp4(
   })
   video.configure({ codec, width: GOLF_RENDER_W, height: GOLF_RENDER_H, bitrate: BITRATE, framerate: FPS })
 
+  const videoShare = withAudio ? 0.9 : 1
   for (let i = 0; i < totalFrames; i++) {
     if (encodeError) throw encodeError
-    drawGolfFrame(ctx, model, i / FPS)
+    opts.draw(ctx, i / FPS)
     const frame = new VideoFrame(canvas, {
       timestamp: Math.round((i * 1_000_000) / FPS),
       duration: Math.round(1_000_000 / FPS),
     })
     video.encode(frame, { keyFrame: i % 60 === 0 })
     frame.close()
-    onProgress?.((i / totalFrames) * 0.9)
+    onProgress?.((i / totalFrames) * videoShare)
     if (video.encodeQueueSize > 8) {
       await new Promise<void>((resolve) => setTimeout(resolve, 0))
     }
@@ -212,12 +231,28 @@ export async function exportGolfRoundMp4(
   await video.flush()
   if (encodeError) throw encodeError
 
-  if (withAudio) {
-    await encodeAudio(muxer, model, onError)
+  if (withAudio && opts.addAudio) {
+    await opts.addAudio(muxer, onError)
     if (encodeError) throw encodeError
   }
 
   muxer.finalize()
   onProgress?.(1)
   return new Blob([target.buffer], { type: 'video/mp4' })
+}
+
+/** Render a golf round to an Instagram-ready MP4 Blob (video + audio). Reports 0..1 progress. */
+export function exportGolfRoundMp4(
+  model: GolfRenderModel,
+  onProgress?: (p: number) => void,
+): Promise<Blob> {
+  return encodeGolfMp4(
+    {
+      total: model.plan.total,
+      draw: (ctx, t) => drawGolfFrame(ctx, model, t),
+      eventId: model.event.id,
+      addAudio: (muxer, onError) => encodeAudio(muxer, model, onError),
+    },
+    onProgress,
+  )
 }

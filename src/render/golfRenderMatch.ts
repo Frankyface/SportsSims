@@ -27,10 +27,11 @@ import {
   type GolfHoleLayout,
 } from './golfCourseArt'
 import { drawWordmark } from './wordmark'
-import { drawSgaMark } from './golfBrand'
+import { drawEventLogo } from './golfEventLogos'
 import { HOLES_PER_ROUND } from '../sim/golfTypes'
 
 export interface GolfEventBrand {
+  id: string // event id — keys the runtime-loaded crest (public/logos/<id>.png)
   name: string
   short: string
   color: string
@@ -499,8 +500,8 @@ function drawIntro(ctx: Ctx, model: GolfRenderModel, progress: number): void {
   ctx.fillStyle = grad
   ctx.fillRect(0, 260, model.width, 1240)
 
-  // the SGA crest presides over the intro
-  drawSgaMark(ctx, cx, 215, 150)
+  // the event crest presides over the intro (its real logo, else the SGA mark)
+  drawEventLogo(ctx, model.event.id, cx, 215, 156)
 
   ctx.fillStyle = model.event.major ? '#d4af37' : '#ff5566'
   ctx.font = 'bold 38px system-ui, sans-serif'

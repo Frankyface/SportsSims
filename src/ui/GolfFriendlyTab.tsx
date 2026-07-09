@@ -7,6 +7,7 @@ import { buildGolfRenderModel, type GolfEventBrand } from '../render/golfRenderM
 import { GolfRoundView } from './GolfRoundView'
 
 const FRIENDLY_BRAND: GolfEventBrand = {
+  id: 'friendly',
   name: 'SGA Tour Friendly',
   short: 'FRIENDLY',
   color: '#1E8E5A',

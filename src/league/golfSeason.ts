@@ -48,6 +48,10 @@ export interface GolfEventRecord {
   wireToWire: boolean
   comeback: boolean
   blownLeadId?: string
+  /** Point-in-time career milestones, frozen when the event completed (so captions
+   * built later from an advanced/whole-season state stay accurate). */
+  winnerFirstWin: boolean // this win was the winner's first career win
+  winnerFirstMajor: boolean // a major, and the winner's first career major
   /** Frozen replay data: the exact field ratings + per-round scores (tour order). */
   field: GolferRating[]
   toParByRound: number[][]
@@ -335,6 +339,11 @@ function completeGolfEvent(state: GolfSeasonState, ev: GolfEventState): GolfSeas
     career[blownLeadId] = { ...career[blownLeadId], blownLeads: career[blownLeadId].blownLeads + 1 }
   }
 
+  // Milestone status of the winner BEFORE this event folds into their career.
+  const preWinner = state.career[winnerId]
+  const winnerFirstWin = preWinner.wins === 0
+  const winnerFirstMajor = event.major && preWinner.majorWins === 0
+
   const record: GolfEventRecord = {
     eventIndex: ev.eventIndex,
     eventId: ev.eventId,
@@ -345,6 +354,8 @@ function completeGolfEvent(state: GolfSeasonState, ev: GolfEventState): GolfSeas
     wireToWire,
     comeback,
     blownLeadId,
+    winnerFirstWin,
+    winnerFirstMajor,
     field: ev.field,
     toParByRound: ev.toParByRound,
   }
@@ -364,6 +375,33 @@ function completeGolfEvent(state: GolfSeasonState, ev: GolfEventState): GolfSeas
   }
 }
 
+/** Cumulative rankings points earned across a set of completed events (majors pay double). */
+function pointsThroughEvents(records: GolfEventRecord[]): Record<string, number> {
+  const points: Record<string, number> = {}
+  for (const r of records) {
+    const mult = eventById(r.eventId).major ? MAJOR_MULTIPLIER : 1
+    r.finishOrder.forEach((id, pos) => {
+      points[id] = (points[id] ?? 0) + (GOLF_POINTS[pos] ?? 0) * mult
+    })
+  }
+  return points
+}
+
+/**
+ * A season-state view AS OF the end of a given event (by schedule index): only
+ * the events up to and including it count as completed, and points are recomputed
+ * cumulatively through them. Golfer identities are unchanged — the rankings card
+ * shows names / points / wins / majors / top-3, not live ratings — so this renders
+ * the exact standings that stood after that event. Powers the "rankings after
+ * every event" posts in the season download. Pure and deterministic.
+ */
+export function golfRankingsSnapshot(state: GolfSeasonState, throughEventIndex: number): GolfSeasonState {
+  const completed = state.completed
+    .filter((r) => r.eventIndex <= throughEventIndex)
+    .sort((a, b) => a.eventIndex - b.eventIndex)
+  return { ...state, completed, points: pointsThroughEvents(completed) }
+}
+
 /** Season rankings, best first (points, then wins, then id). */
 export function golfRankings(state: GolfSeasonState): Array<{ golferId: string; points: number; wins: number }> {
   return state.golfers
@@ -373,6 +411,21 @@ export function golfRankings(state: GolfSeasonState): Array<{ golferId: string; 
       return { golferId: id, points: state.points[id] ?? 0, wins }
     })
     .sort((a, b) => b.points - a.points || b.wins - a.wins || a.golferId.localeCompare(b.golferId))
+}
+
+/**
+ * Play every remaining round of the current season, returning the fully
+ * completed state (all 14 events in `completed`). Deterministic — it just
+ * drives `playNextGolfRound` to the end. Does NOT advance to the next season,
+ * so the caller can read `completed`/`career`/`points` before the offseason
+ * reset. A no-op if the season is already complete.
+ */
+export function simGolfSeasonToEnd(state: GolfSeasonState): GolfSeasonState {
+  let s = state
+  while (!golfSeasonComplete(s)) {
+    s = playNextGolfRound(s).state
+  }
+  return s
 }
 
 /** Roll into the next season: crown the rankings champion, drift the ratings. */

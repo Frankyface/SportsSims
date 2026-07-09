@@ -4,10 +4,12 @@ import {
   createGolfSeason,
   golfFieldOrder,
   golfRankings,
+  golfRankingsSnapshot,
   golfRecordRoundResult,
   golfRoundResult,
   golfSeasonComplete,
   playNextGolfRound,
+  simGolfSeasonToEnd,
   GOLF_POINTS,
   MAJOR_MULTIPLIER,
   ROUNDS_PER_EVENT,
@@ -132,6 +134,72 @@ describe('golf season engine', () => {
       (g, i) => Math.abs(g.glicko.rating - s.golfers[i].glicko.rating) > 0.001,
     )
     expect(changed).toBe(true)
+  })
+
+  it('simGolfSeasonToEnd plays the whole season, deterministically, and is idempotent', () => {
+    const a = simGolfSeasonToEnd(createGolfSeason('tour-to-end', 'The SGA'))
+    expect(golfSeasonComplete(a)).toBe(true)
+    expect(a.completed).toHaveLength(EVENTS_PER_SEASON)
+    // identical to driving it one event at a time
+    let manual = createGolfSeason('tour-to-end', 'The SGA')
+    for (let e = 0; e < EVENTS_PER_SEASON; e++) manual = playEvent(manual)
+    expect(JSON.stringify(a)).toBe(JSON.stringify(manual))
+    // same seed → byte-identical outcome
+    expect(JSON.stringify(simGolfSeasonToEnd(createGolfSeason('tour-to-end', 'The SGA')))).toBe(
+      JSON.stringify(a),
+    )
+    // a complete season is returned untouched
+    expect(simGolfSeasonToEnd(a)).toBe(a)
+  })
+
+  it('freezes each winner’s maiden-win / first-major status point-in-time on the record', () => {
+    const s = simGolfSeasonToEnd(createGolfSeason('freeze-tour', 'The SGA'))
+    const sorted = [...s.completed].sort((a, b) => a.eventIndex - b.eventIndex)
+    const winsSoFar = new Map<string, number>()
+    const majorsSoFar = new Map<string, number>()
+    for (const r of sorted) {
+      // winnerFirstWin is true iff this is the winner's earliest win of the season
+      const priorWins = winsSoFar.get(r.winnerId) ?? 0
+      expect(r.winnerFirstWin).toBe(priorWins === 0)
+      winsSoFar.set(r.winnerId, priorWins + 1)
+      // winnerFirstMajor is true iff a major AND the winner's earliest major win
+      if (eventById(r.eventId).major) {
+        const priorMajors = majorsSoFar.get(r.winnerId) ?? 0
+        expect(r.winnerFirstMajor).toBe(priorMajors === 0)
+        majorsSoFar.set(r.winnerId, priorMajors + 1)
+      } else {
+        expect(r.winnerFirstMajor).toBe(false)
+      }
+    }
+    // the bug this guards only bites when a golfer wins 2+ events — with 14 events
+    // and 8 golfers, at least one always does (so the check above is not vacuous)
+    expect(Math.max(...winsSoFar.values())).toBeGreaterThanOrEqual(2)
+  })
+
+  it('golfRankingsSnapshot gives standings AS OF an event (sliced events, cumulative points)', () => {
+    const s = simGolfSeasonToEnd(createGolfSeason('rank-snap', 'The SGA'))
+
+    // after the first event: exactly one completed, the winner is the leader on
+    // the winner's-share of points (500 × the event multiplier)
+    const afterE0 = golfRankingsSnapshot(s, 0)
+    expect(afterE0.completed).toHaveLength(1)
+    const e0 = s.completed.find((r) => r.eventIndex === 0)!
+    const mult0 = eventById(e0.eventId).major ? MAJOR_MULTIPLIER : 1
+    expect(afterE0.points[e0.winnerId]).toBe(GOLF_POINTS[0] * mult0)
+    expect(golfRankings(afterE0)[0].golferId).toBe(e0.winnerId)
+
+    // points only accumulate as the season goes
+    const afterE6 = golfRankingsSnapshot(s, 6)
+    expect(afterE6.completed).toHaveLength(7)
+    const total = (pts: Record<string, number>): number => Object.values(pts).reduce((a, b) => a + b, 0)
+    expect(total(afterE6.points)).toBeGreaterThan(total(afterE0.points))
+
+    // the final snapshot matches the real end-of-season standings exactly
+    const afterLast = golfRankingsSnapshot(s, EVENTS_PER_SEASON - 1)
+    expect(afterLast.completed).toHaveLength(EVENTS_PER_SEASON)
+    for (const id of Object.keys(s.points)) {
+      expect(afterLast.points[id]).toBe(s.points[id])
+    }
   })
 
   it('a season rotates 10 of the 20 tournaments; the 4 majors sit at fixed slots', () => {

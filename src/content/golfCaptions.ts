@@ -11,13 +11,70 @@ import {
   type GolfEventRecord,
   type GolfSeasonState,
 } from '../league/golfSeason'
-import { eventById } from '../ratings/golfCourses'
+import { eventById, golfCourseById } from '../ratings/golfCourses'
 import { formatToPar } from '../render/golfDirector'
 
 export const GOLF_HASHTAGS = '#ESSPN #SimGolf'
 
 function first(name: string): string {
   return name.split(' ')[0]
+}
+
+/** "<leader> leads on <to-par> after N holes." — the running story line for a
+ * completed event's leaderboard/video captions. Shared by the event pack and
+ * the full-season content drop. */
+export function golfLeaderLineAfter(
+  state: GolfSeasonState,
+  record: GolfEventRecord,
+  round: number,
+): string {
+  const totals = state.golfers.map((_, i) =>
+    record.toParByRound.slice(0, round).reduce((s, r) => s + r[i], 0),
+  )
+  // On the final round, break ties by the final-round score — the same countback
+  // the engine uses to crown the winner (finishOrderOf) — so this line agrees with it.
+  const isFinal = round === ROUNDS_PER_EVENT
+  const lastRound = record.toParByRound[round - 1]
+  const order = state.golfers
+    .map((_, i) => i)
+    .sort((a, b) => totals[a] - totals[b] || (isFinal ? lastRound[a] - lastRound[b] : 0) || a - b)
+  const leader = state.golfers[order[0]]
+  return `${leader.identity.name} leads on ${formatToPar(totals[order[0]])} after ${round * 9} holes.`
+}
+
+/** Caption for one round's group video of a COMPLETED event. Group 2 of the
+ * final round crowns the winner; every other clip sells the ongoing race. */
+export function golfGroupVideoCaption(
+  state: GolfSeasonState,
+  record: GolfEventRecord,
+  round: number,
+  group: 0 | 1,
+): string {
+  const event = eventById(record.eventId)
+  const lines = [
+    `⛳ ${event.name} — Round ${round}, ${group === 1 ? 'Group 2' : 'Group 1'}${event.major ? ' · A MAJOR' : ''}`,
+    group === 1 && round > 1 ? 'The leaders, every shot, all nine holes.' : 'Every shot, all nine holes.',
+  ]
+  if (round === ROUNDS_PER_EVENT && group === 1) {
+    lines.push(golfEventCaption(state, record))
+  } else {
+    lines.push(golfLeaderLineAfter(state, record, round))
+    lines.push('Who wins it? Drop your pick 👇')
+    lines.push(`${GOLF_HASHTAGS} #${event.short.replace(/\s/g, '')}`)
+  }
+  return lines.join('\n')
+}
+
+/** Caption for an event's Tuesday course-preview teaser (title card + 9 holes). */
+export function golfPreviewCaption(eventId: string): string {
+  const event = eventById(eventId)
+  const course = golfCourseById(event.courseId)
+  return [
+    `🎬 COURSE PREVIEW — ${event.name}${event.major ? ' · A MAJOR' : ''}`,
+    `First look at all 9 holes of ${course.name} (par ${course.par}). Play begins Thursday.`,
+    'Where does this week get won? 👇',
+    `${GOLF_HASHTAGS} #${event.short.replace(/\s/g, '')}`,
+  ].join('\n')
 }
 
 /** Caption for a single round video (uses the round's own field ordering). */
@@ -58,12 +115,13 @@ export function golfRoundCaption(state: GolfSeasonState, result: GolfRoundResult
 export function golfEventCaption(state: GolfSeasonState, record: GolfEventRecord): string {
   const event = eventById(record.eventId)
   const winner = golferById(state, record.winnerId)
-  const career = state.career[record.winnerId]
   const lines: string[] = [
     `🏆 ${winner.identity.name} wins ${event.name}${event.major ? ' — A MAJOR 🏆' : ''}`,
   ]
-  if (career.wins === 1) lines.push(`A FIRST CAREER WIN for ${first(winner.identity.name)}!`)
-  else if (event.major && career.majorWins === 1) lines.push(`The major drought is OVER.`)
+  // Use the record's FROZEN point-in-time milestones (state.career may be a later,
+  // whole-season total when captions are built after the season is simmed to the end).
+  if (record.winnerFirstWin) lines.push(`A FIRST CAREER WIN for ${first(winner.identity.name)}!`)
+  else if (record.winnerFirstMajor) lines.push(`The major drought is OVER.`)
   if (record.wireToWire) lines.push('Wire to wire. Never headed.')
   if (record.comeback) lines.push('Stormed from the pack on the final nine.')
   if (record.blownLeadId) {

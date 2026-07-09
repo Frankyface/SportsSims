@@ -65,9 +65,19 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 
 ### [ ] Add the SGA (golf) logo
 - **What:** Save the SGA crest you made as **`public/logos/sga.png`** in the `SportsSims` repo.
-- **Why:** It shows on the golf intro card and the rankings card. Until it's there, the app draws a stand-in shield crest — nothing breaks, it just isn't your artwork.
+- **Why:** It shows on the golf rankings card and stands in on any event that doesn't yet have its own crest. Until it's there, the app draws a stand-in shield crest — nothing breaks, it just isn't your artwork.
 - **How:** Put the PNG (transparent background, roughly square, ~1024px is ideal) at `public/logos/sga.png` and tell Claude (or commit it). Anything in `public/` is published automatically — no code change needed.
 - **Unblocks:** nothing — pure branding polish.
+
+### [ ] Add the four Major logos (you already made these)
+- **What:** Save the 4 major crests you generated, one PNG each, with these exact names:
+  - `public/logos/evergreen-invitational.png` (The Evergreen Invitational)
+  - `public/logos/saltmarsh-open.png` (The Saltmarsh Open)
+  - `public/logos/redrock-classic.png` (The Redrock Classic)
+  - `public/logos/pinnacle-championship.png` (The Pinnacle Championship)
+- **Why:** Each shows on that major's **course-preview title card** and **round intro** automatically. Until the file is there, the drawn SGA crest stands in — nothing breaks.
+- **How:** Drop the PNGs (transparent background ideal) at those paths and tell Claude (or commit them). The filename must match the event id exactly. Other tournaments can get crests the same way later — the id list is in `src/ratings/golfCourses.ts`.
+- **Unblocks:** nothing — pure branding polish (but these four are worth it, they're the marquee events).
 
 ### [ ] Regenerate the Highmoor "Stags" rugby crest on a transparent background
 - **What:** Re-export the Highmoor RFC crest with a transparent (or dark) background instead of the grey one.

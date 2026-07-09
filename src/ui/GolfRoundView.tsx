@@ -7,6 +7,7 @@ import {
 } from '../render/golfRenderMatch'
 import { ensureFontsLoaded } from '../render/fonts'
 import { ensureSgaLogo } from '../render/golfBrand'
+import { ensureEventLogo } from '../render/golfEventLogos'
 import { exportGolfRoundMp4 } from '../export/exportGolfMp4'
 import { downloadBlob } from '../export/exportMp4'
 
@@ -26,6 +27,7 @@ function GolfRoundCanvas({ model, playKey }: { model: GolfRenderModel; playKey: 
     if (!ctx) return
     void ensureFontsLoaded()
     void ensureSgaLogo()
+    void ensureEventLogo(model.event.id)
     let raf = 0
     let start: number | null = null
     const loop = (ts: number) => {

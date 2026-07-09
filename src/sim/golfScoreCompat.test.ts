@@ -16,6 +16,12 @@ import { toGolferRating } from '../ratings/golfStrength'
  * change, not a sim-math change — the score stream is unchanged, so saved
  * tours keep their frozen fields; only freshly generated fields differ.
  *
+ * v3 (2026-07-09, "a guy having a day"): the boost roll lives on a dedicated
+ * `:day` sub-stream, so a round only moves when the 9% actually fires. None of
+ * these six golden seeds fire it, so the snapshot data is UNCHANGED from v2 —
+ * only GOLF_SIM_VERSION advanced. (The fired-boost path is pinned separately in
+ * golfSim.test.ts.)
+ *
  * If this test fails you have changed the stream: every saved season would
  * re-render different rounds. Either make the change stream-neutral, or bump
  * GOLF_SIM_VERSION and consciously regenerate the snapshot (documenting why),
@@ -35,9 +41,9 @@ const GOLDEN: Record<
 
 const COURSES = ['harborlight', 'saltmarsh', 'redrock', 'pinnacle', 'verdanthollow', 'palmshade']
 
-describe('golf score-stream compatibility (golden, GOLF_SIM_VERSION 2)', () => {
-  it('is still sim version 2 (bump = regenerate the golden, consciously)', () => {
-    expect(GOLF_SIM_VERSION).toBe(2)
+describe('golf score-stream compatibility (golden, GOLF_SIM_VERSION 3)', () => {
+  it('is still sim version 3 (bump = regenerate the golden, consciously)', () => {
+    expect(GOLF_SIM_VERSION).toBe(3)
   })
 
   for (let i = 0; i < 6; i++) {
