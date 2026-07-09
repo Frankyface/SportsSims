@@ -25,7 +25,7 @@
 | **Elo/Glicko-2 ratings, decoupled from archetype + offseason carry-over** (`src/ratings/`) | Random starting ratings per league (each reset differs); ratings persist season-to-season with a small offseason drift; a "big offseason" raises volatility; no regression to the mean. |
 | **Real crests + Crown League logo** (`src/assets/logos/`, via `src/render/logos.ts`) | Drawn into videos + standings as circular badges; downscaled to ~512px and preloaded before render/export so nothing blocks. |
 
-**Brand:** ESSPN is the network (broadcaster); it presents competitions — the **Crown League** (Soccer) and the **Bastion Championships** (Rugby). Use the specific competition name for a table/league, "ESSPN" for the network wordmark.
+**Brand:** ESSPN is the network (broadcaster); it presents competitions — the **Crown League** (Soccer), the **Bastion Championships** (Rugby), and the **SGA Tour** (Golf — the Simulated Golf Association). Use the specific competition name for a table/league, "ESSPN" for the network wordmark.
 
 Full rationale and the evidence behind these: [`docs/research-findings.md`](docs/research-findings.md).
 
@@ -38,7 +38,7 @@ Inside the simulation module, **never** use: `Math.random`, `Date.now`, `perform
 - Small, focused files (aim 200–400 lines, 800 max). Organize by feature/domain. Extract utilities.
 - Immutability: return new objects, don't mutate. Handle errors explicitly; validate at boundaries (tokens, saved JSON, external API responses).
 - Keep the **pure sim** and the **renderer** in separate modules with no shared mutable state. The renderer is a **pure function `drawFrame(ctx, model, t)`** — same for the live preview and the frame-stepped export, so they stay pixel-identical. Cosmetic randomness (choreography, crowd, audio) lives on **separate PRNG streams** — the render seed (`renderSeed`) and the `seedKey + ':pbp'` choreography stream — so it can NEVER perturb the score-deciding sim stream (which is frozen and golden-guarded by `scoreCompat.test.ts`). Drop-in match audio is discovered from `src/assets/audio/` by name prefix (`music-*`/`cheer-*`/`boo-*`); `SIM_VERSION` is currently **4**.
-- **Multi-sport isolation:** each new sport gets its own modules and must NOT entangle the live soccer path. Rugby lives in `ratings/rugbyTeams.ts`, `render/rugbyLogos.ts`, `ui/RugbyTab.tsx` (its own crest loader + competition brand). Reuse shared types/spine (`ClubDef`, league/persistence/content), don't fork the soccer sim.
+- **Multi-sport isolation:** each new sport gets its own modules and must NOT entangle the live soccer path. Rugby lives in `sim/rugby*`, `render/rugby*`, `ratings/rugbyTeams`, `ui/RugbyTab` (`RUGBY_SIM_VERSION 1`). **Golf** (the SGA Tour — first *individual* sport) lives in `sim/golf*`, `render/golf*` (incl. `golfBrand` + `golfCourseArt`), `ratings/golfers|golfCourses|golfStrength`, `league/golfSeason`, `content/golf*`, `ui/GolfTab` — its own `GOLF_SIM_VERSION` (currently **2**) + golden (`golfScoreCompat.test.ts`), a 20-course pool rotating 10-of-20 per season, and its own brand crest (runtime-loaded `public/logos/sga.png` + drawn fallback). Reuse shared types/spine (league/persistence/content, `prng`, `glicko2`, the WebCodecs export + audio mixer), don't fork the soccer sim.
 - Tests for new logic (sim math especially — Monte-Carlo calibration counts as a test). Aim 80% on core logic.
 - Names: `camelCase` funcs/vars, `PascalCase` types/components, `UPPER_SNAKE_CASE` consts, `is/has/should` booleans.
 
