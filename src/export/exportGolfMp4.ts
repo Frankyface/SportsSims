@@ -160,13 +160,15 @@ async function encodeGolfMp4(
 export function exportGolfRoundMp4(
   model: GolfRenderModel,
   onProgress?: (p: number) => void,
+  opts?: { audio?: boolean },
 ): Promise<Blob> {
   return encodeGolfMp4(
     {
       total: model.plan.total,
       draw: (ctx, t) => drawGolfFrame(ctx, model, t),
       eventId: model.event.id,
-      addAudio: (muxer, onError) => encodeAudio(muxer, model, onError),
+      // audio:false → video-only (CI adds the ambient bed via ffmpeg from a WAV).
+      ...(opts?.audio === false ? {} : { addAudio: (muxer, onError) => encodeAudio(muxer, model, onError) }),
     },
     onProgress,
   )
