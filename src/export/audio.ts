@@ -13,7 +13,7 @@ import type { AudioAssetBank } from './audioAssets'
 
 export const AUDIO_SR = 48000
 
-const EMPTY_BANK: AudioAssetBank = { music: [], cheer: [], boo: [] }
+const EMPTY_BANK: AudioAssetBank = { music: [], cheer: [], boo: [], golfAmb: [] }
 
 function applyGain(out: Float32Array, fromSec: number, toSec: number, gain: number): void {
   const from = Math.max(0, Math.floor(fromSec * AUDIO_SR))
