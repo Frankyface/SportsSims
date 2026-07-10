@@ -42,15 +42,11 @@ import {
 } from '../league/golfSeason'
 import { eventById, golfCourseById, seasonSchedule } from '../ratings/golfCourses'
 import { golfEventBrand } from '../content/golfEventPack'
-import {
-  buildGolfPreviewModel,
-  golfPreviewSeed,
-  exportGolfPreviewImages,
-  exportGolfPreviewImage,
-} from '../render/golfCoursePreview'
+import { buildGolfPreviewModel, golfPreviewSeed, exportGolfPreviewImages } from '../render/golfCoursePreview'
 import { buildGolfRenderModel } from '../render/golfRenderMatch'
 import { exportGolfRoundMp4 } from '../export/exportGolfMp4'
 import { exportGolfLeaderboardPng } from '../render/golfLeaderboardCard'
+import { exportGolfResultsCarousel } from '../render/golfResultsCarousel'
 import { exportGolfRankingsPng } from '../render/golfRankingsCard'
 import { exportGolfChampionPng } from '../render/golfChampionCard'
 import { buildGolfAmbientAudio } from '../export/golfAudio'
@@ -266,16 +262,19 @@ async function golfPreviewPost(state: GolfSeasonState, eventIndex: number, tag: 
 }
 
 async function golfResultsPost(state: GolfSeasonState, record: GolfEventRecord, tag: string, order: number): Promise<Post> {
-  const event = eventById(record.eventId)
-  const course = golfCourseById(event.courseId)
-  const brand = golfEventBrand(record.eventId)
   window.__STAGE__ = `golf results (event ${record.eventIndex + 1})`
-  const model = buildGolfPreviewModel(brand, course, golfPreviewSeed(state.seedKey, record.season, record.eventIndex), undefined, undefined, 'results')
-  const title = `golf-${tag}-e${record.eventIndex + 1}-results-title.png`
-  await saveBlob(await exportGolfPreviewImage(model, 0), title)
-  const board = `golf-${tag}-e${record.eventIndex + 1}-results-board.png`
-  await saveBlob(await exportGolfLeaderboardPng({ event, season: record.season, field: record.field, toParByRound: record.toParByRound }), board)
-  return { account: 'golf', order, kind: 'carousel', caption: golfResultsCaption(state, record), images: [title, board] }
+  // Three 4:5 feed pages: RESULTS title, final leaderboard, season league-board
+  // (wins/majors/top-3/points as "this-season (all-time)"). The tall 9:16
+  // leaderboard stays only as the reel end-card.
+  const pages = await exportGolfResultsCarousel(state, record)
+  const names = ['results-title', 'results-board', 'season-board']
+  const images: string[] = []
+  for (let i = 0; i < pages.length; i++) {
+    const file = `golf-${tag}-e${record.eventIndex + 1}-${names[i]}.png`
+    await saveBlob(pages[i], file)
+    images.push(file)
+  }
+  return { account: 'golf', order, kind: 'carousel', caption: golfResultsCaption(state, record), images }
 }
 
 /** Golf posts for one day + slot. g1 = Group-1 reel; main = Group-2 reel;

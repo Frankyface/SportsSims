@@ -112,9 +112,10 @@ export function buildMatchAudio(model: RenderModel, bank: AudioAssetBank = EMPTY
     else if (m.kind === 'card') duck(out, m.t + 0.1, 1.7, 0.55)
   }
 
-  // Whistles at kickoff, half-time and full-time (always procedural — crisp).
+  // Whistles at half-time and full-time only. (The kickoff whistle was a high
+  // 2100 Hz sine that read as a squeak at the very start of every clip — removed.)
   for (const m of plan.moments) {
-    if (m.kind === 'kickoff' || m.kind === 'halftime' || m.kind === 'fulltime') {
+    if (m.kind === 'halftime' || m.kind === 'fulltime') {
       addWhistle(out, m.t + 0.05)
     }
   }
