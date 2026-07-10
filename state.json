@@ -11,5 +11,10 @@
     "day": 5,
     "rolls": [],
     "postedHWM": -1
+  },
+  "lastRun": {
+    "g1": "",
+    "main": "",
+    "companions": ""
   }
 }
