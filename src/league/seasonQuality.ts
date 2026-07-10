@@ -120,7 +120,9 @@ function scoreSoccerSeason(finished: LeagueState, target: string): Scored {
 
   const spread = pts[0] - pts[n - 1]
   if (prior && prior.championId === champion) add('dynasty', 1) // back-to-back
-  add('title-race', titleGap <= 3 ? parityRace : 0)
+  // A close race only thrills if the table isn't FLAT — a 6-way logjam reads as
+  // random, not exciting; scale by the parity band so stdev→0 kills the score.
+  add('title-race', (titleGap <= 3 ? parityRace : 0) * parityBand)
   // rivalry: top 2 tight AND clear of 3rd
   if (n >= 3) add('rivalry', clamp01((1 - titleGap / 4) * clamp01((pts[1] - pts[2]) / 4)))
   if (!wonBefore) add('maiden', 0.72)
@@ -160,7 +162,9 @@ function scoreGolfSeason(finished: GolfSeasonState, target: string): Scored {
   const add = (name: string, strength: number) => { if (strength > 0.01) hooks.push({ name, strength: clamp01(strength) }) }
 
   if (prior && prior.rankingsChampionId === champion) add('dynasty', 1)
-  add('title-race', margin <= 300 ? closeRace : 0)
+  // scale by parityWinners so a two-golfer duel with everyone else absent doesn't
+  // read as a great "title race"
+  add('title-race', (margin <= 300 ? closeRace : 0) * parityWinners)
   add('rivalry', clamp01((1 - margin / 400) * clamp01((rankings[1].points - rankings[2].points) / 300)))
   if (!wonBefore) add('maiden', 0.7)
   if (topMajorStack >= 2) add('dynasty', clamp01((topMajorStack - 1) / 3)) // multi-major season
@@ -181,7 +185,12 @@ function scoreGolfSeason(finished: GolfSeasonState, target: string): Scored {
 function composite(parity: number, hooksIn: { name: string; strength: number }[], target: string): Scored {
   // Gated (upset-flavored) hooks contribute to the score ONLY in their own
   // archetype season — otherwise they stay detected but can't win the fallback.
-  const hooks = hooksIn.filter((h) => !GATED_HOOKS.has(h.name) || h.name === target)
+  const gated = hooksIn.filter((h) => !GATED_HOOKS.has(h.name) || h.name === target)
+  // Collapse duplicate hook NAMES (a season can add e.g. 'dynasty' twice) to the
+  // max strength each, so SECOND_HOOK_BONUS rewards a genuinely DISTINCT story.
+  const byName = new Map<string, number>()
+  for (const h of gated) byName.set(h.name, Math.max(byName.get(h.name) ?? 0, h.strength))
+  const hooks = [...byName].map(([name, strength]) => ({ name, strength }))
   const sorted = [...hooks].sort((a, b) => b.strength - a.strength)
   const best = sorted[0]?.strength ?? 0
   const archetypeHit = sorted.find((h) => h.name === target)

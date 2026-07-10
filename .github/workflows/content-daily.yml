@@ -34,6 +34,10 @@ on:
         description: 'One-off: render the S1 seed-drop gap posts (soccer R1 table, golf E1 results, E2 preview). Cursor not advanced.'
         type: boolean
         default: false
+      force:
+        description: 'Bypass the "already ran this slot today" guard (use only to re-run a failed slot on purpose).'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -68,19 +72,36 @@ jobs:
             *) SLOT="${{ github.event.inputs.slot }}" ;;
           esac
           [ -z "$SLOT" ] && SLOT=companions
+          TODAY=$(date -u +%F)
+          # Which real date did this slot last run? (idempotency: at most once/day)
+          case "$SLOT" in
+            g1) LASTRUN="${{ steps.state.outputs.lr_g1 }}" ;;
+            main) LASTRUN="${{ steps.state.outputs.lr_main }}" ;;
+            companions) LASTRUN="${{ steps.state.outputs.lr_companions }}" ;;
+          esac
+          FORCE="${{ github.event.inputs.force }}"
           RUN=false; POST=false
           if [ "$EVENT" = "schedule" ]; then
             MODE=live
-            if [ "$ENABLED" = "true" ]; then RUN=true; POST=true; else echo "⏸ cadence paused (enabled=false) — skipping."; fi
+            if [ "$ENABLED" != "true" ]; then echo "⏸ cadence paused (enabled=false) — skipping."
+            elif [ "$LASTRUN" = "$TODAY" ] && [ "$FORCE" != "true" ]; then echo "⏭ slot $SLOT already ran $TODAY — skipping (idempotent)."
+            else RUN=true; POST=true; fi
           else
-            RUN=true
-            [ "$MODE" = "live" ] && POST=true
+            # Manual dispatch: dry-run always runs; a live re-fire honours the date
+            # guard unless force=true (so a re-fired companions can't double-post).
+            if [ "$MODE" = "live" ] && [ "$LASTRUN" = "$TODAY" ] && [ "$FORCE" != "true" ]; then
+              echo "⏭ slot $SLOT already posted $TODAY — pass force=true to override."
+            else
+              RUN=true
+              [ "$MODE" = "live" ] && POST=true
+            fi
           fi
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
           echo "post=$POST" >> "$GITHUB_OUTPUT"
           echo "slot=$SLOT" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
-          echo "plan: event=$EVENT slot=$SLOT mode=$MODE enabled=$ENABLED → run=$RUN post=$POST"
+          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
+          echo "plan: event=$EVENT slot=$SLOT mode=$MODE enabled=$ENABLED lastRun=$LASTRUN today=$TODAY → run=$RUN post=$POST"
 
       - name: Install deps + Chromium + ffmpeg
         if: steps.plan.outputs.run == 'true'
@@ -115,6 +136,17 @@ jobs:
           git push -f origin content-host
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      # CLAIM the slot BEFORE posting: persist the advanced cursor + stamp
+      # lastRun[slot]=today. If the post below then fails, the slot is DROPPED
+      # (recoverable next day) rather than DUPLICATED on a retry. The generator
+      # encodes the advance logic (HWM bump per slot; companions advances the day /
+      # runs the season transition).
+      - name: Advance / mark cadence cursor
+        if: steps.plan.outputs.post == 'true' && github.event.inputs.catchup != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/cadence-state.mjs advance content-out/manifest.json "${{ steps.plan.outputs.slot }}" "${{ steps.plan.outputs.today }}"
+
       - name: Post to Instagram
         if: steps.plan.outputs.post == 'true'
         env:
@@ -123,13 +155,3 @@ jobs:
           IG_USER_ID_GOLF: ${{ secrets.IG_USER_ID_GOLF }}
           IG_ACCESS_TOKEN_GOLF: ${{ secrets.IG_ACCESS_TOKEN_GOLF }}
         run: node scripts/ig-post.mjs content-out "https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.host.outputs.sha }}/content-out"
-
-      # Persist the cursor after every posting slot. The generator encodes all the
-      # logic: each slot bumps its account's posted high-water mark; only the
-      # companions slot advances the day / runs the season transition. This makes
-      # slots idempotent (re-fires + a dropped 19:00 recover without duplicates).
-      - name: Advance / mark cadence cursor
-        if: steps.plan.outputs.post == 'true' && github.event.inputs.catchup != 'true'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/cadence-state.mjs advance content-out/manifest.json

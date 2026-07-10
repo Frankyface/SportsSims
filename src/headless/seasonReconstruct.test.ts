@@ -9,9 +9,9 @@ import {
   SOCCER_ID,
   GOLF_ID,
 } from './seasonReconstruct'
-import { createLeague, winnerOf, seasonComplete } from '../league/league'
+import { createLeague, winnerOf, seasonComplete, computeStandings } from '../league/league'
 import { createGolfSeason, golfRankings, golfSeasonComplete } from '../league/golfSeason'
-// (winnerOf/golfRankings also used by the GOLDEN chain test below)
+import { seedFromKey } from '../sim/prng'
 
 describe('season reconstruction — season 1 is unchanged', () => {
   it('soccer S1 reconstruct === createLeague (no rolls consumed)', () => {
@@ -66,23 +66,34 @@ describe('season reconstruction — deterministic & re-rollable', () => {
     expect(champs.size).toBeGreaterThan(1)
   })
 
-  it('GOLDEN: the whole season-chain surface is frozen (fixtures/schedule/offseason/glicko/points/seeding)', () => {
+  it('GOLDEN: the whole POSTED result surface is frozen (every scoreline/table/leaderboard, not just the champion)', () => {
     // Reconstruction replays ALL prior seasons through CURRENT code on every
     // generation, and content is NEVER stored — only the seed + rolls. If any
-    // future change silently re-simulates a past season, the champion the cadence
-    // reconstructs would no longer match what was already posted to Instagram.
-    // This pins the champions of the roll0 chain so such drift fails CI loudly.
-    const soc = (s: number) =>
-      winnerOf(playSoccerSeasonToEnd(reconstructSoccerSeason(s, ['crown-alpha:s2:roll0', 'crown-alpha:s3:roll0'].slice(0, s - 1))), 'final')
-    expect(soc(1)).toBe('MAR')
-    expect(soc(2)).toBe('MDN') // topped by MAR (shield) but won the playoffs — a Cinderella
-    expect(soc(3)).toBe('MDN')
-
-    const golf = (s: number) =>
-      golfRankings(playGolfSeasonToEnd(reconstructGolfSeason(s, ['sga-mrdklysr-2qbfer:s2:roll0', 'sga-mrdklysr-2qbfer:s3:roll0'].slice(0, s - 1))))[0].golferId
-    expect(golf(1)).toBe('ACE')
-    expect(golf(2)).toBe('STL')
-    expect(golf(3)).toBe('DUV')
+    // future change re-simulates a past season DIFFERENTLY than what was already
+    // posted to Instagram, that content is public + unrecoverable. Champions alone
+    // aren't enough: soccer offseason drift keys off finishing POSITION, so a
+    // scoreline change preserving W/D/L order leaves the champion identical while
+    // rewriting every posted match reel + table. So we hash the FULL surface:
+    //   soccer = all fixture scorelines + final table (pts/GD)
+    //   golf   = every event's winner + per-round to-par (also guards the glicko
+    //            rating carry — a cross-engine transcendental drift changes it).
+    const socRolls = ['crown-alpha:s2:roll0', 'crown-alpha:s3:roll0']
+    const golfRolls = ['sga-mrdklysr-2qbfer:s2:roll0', 'sga-mrdklysr-2qbfer:s3:roll0']
+    const socSurface = (s: number): number => {
+      const st = playSoccerSeasonToEnd(reconstructSoccerSeason(s, socRolls.slice(0, s - 1)))
+      const results = Object.entries(st.results).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `${k}:${v.home}-${v.away}`).join('|')
+      const tbl = computeStandings(st).map((r) => `${r.teamId}:${r.points}:${r.gd}`).join(',')
+      return seedFromKey(results + '#' + tbl) >>> 0
+    }
+    const golfSurface = (s: number): number => {
+      const st = playGolfSeasonToEnd(reconstructGolfSeason(s, golfRolls.slice(0, s - 1)))
+      const surf = st.completed.map((r) => `${r.eventId}:${r.winnerId}:${r.toParByRound.map((rd) => rd.join('.')).join(';')}`).join('|')
+      return seedFromKey(surf) >>> 0
+    }
+    // S2 soccer: MAR tops the table (shield) but MDN wins the playoffs — a Cinderella.
+    expect([socSurface(1), socSurface(2), socSurface(3)]).toEqual([2297906155, 3993361353, 2156284244])
+    // Golf champions along this chain are ACE → STL → DUV.
+    expect([golfSurface(1), golfSurface(2), golfSurface(3)]).toEqual([4291636429, 2196730902, 2114034155])
   })
 
   it('carried ratings are identical across different result rolls (only outcomes vary)', () => {
