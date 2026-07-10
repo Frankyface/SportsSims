@@ -1,27 +1,37 @@
 name: Daily post (auto cadence)
 
-# The hands-off newsroom: once per day, render the NEXT day's content for each
-# account (soccer match / round table / playoff; golf preview / round) from the
-# per-account cursor in state.json (on the automation-state branch), host it, and
-# post it. Reuses the same render → finalize → host(orphan) → post spine as
-# content-post.yml. See src/headless/dailyCalendar.ts for the day→content mapping.
+# The hands-off newsroom. Three runs a day, each posting one time SLOT:
+#   13:00 UTC (g1)         — golf Group-1 reel
+#   16:00 UTC (main)       — golf Group-2 reel + soccer match reel
+#   19:00 UTC (companions) — carousels/photos (results, previews, tables,
+#                            playoffs/finals/champions) + cursor advance + (on a
+#                            champions day) the season-transition selection.
+# Content + the correct SEASON are reconstructed from the cursor in state.json
+# (automation-state branch); see src/headless/dailyCalendar.ts + seasonReconstruct.ts.
+# Reuses the render → finalize → host(orphan) → post spine of content-post.yml.
 #
-# SAFETY: the scheduled run only posts when state.json `enabled` is true (the
-# one-switch pause). Manual runs offer dry-run (generate + host, NO post) so a
-# day's content can be eyeballed before going live.
+# SAFETY: scheduled runs post only when state.json `enabled` is true (the one-switch
+# pause). Manual runs offer dry-run (generate + host, NO post) to eyeball a slot.
 
 on:
   schedule:
-    - cron: '0 16 * * *' # 16:00 UTC daily (operator can retune)
+    - cron: '0 13 * * *' # g1: golf Group 1
+    - cron: '0 16 * * *' # main: golf Group 2 + soccer match
+    - cron: '0 19 * * *' # companions: carousels/photos + advance
   workflow_dispatch:
     inputs:
       mode:
-        description: 'dry-run = generate + host, do NOT post or advance. live = post + advance the cursor.'
+        description: 'dry-run = generate + host, do NOT post or advance. live = post (+ advance on the companions slot).'
         type: choice
         options: [dry-run, live]
         default: dry-run
+      slot:
+        description: 'Which slot to render/post.'
+        type: choice
+        options: [g1, main, companions]
+        default: companions
       catchup:
-        description: 'One-off: render the seed-drop gap posts (soccer R1 table, golf E1 results, E2 preview) instead of a calendar day. Cursor is not advanced.'
+        description: 'One-off: render the S1 seed-drop gap posts (soccer R1 table, golf E1 results, E2 preview). Cursor not advanced.'
         type: boolean
         default: false
 
@@ -50,8 +60,17 @@ jobs:
           EVENT="${{ github.event_name }}"
           MODE="${{ github.event.inputs.mode }}"
           ENABLED="${{ steps.state.outputs.enabled }}"
+          # Map the firing cron to a slot; dispatch uses the chosen slot input.
+          case "${{ github.event.schedule }}" in
+            "0 13 * * *") SLOT=g1 ;;
+            "0 16 * * *") SLOT=main ;;
+            "0 19 * * *") SLOT=companions ;;
+            *) SLOT="${{ github.event.inputs.slot }}" ;;
+          esac
+          [ -z "$SLOT" ] && SLOT=companions
           RUN=false; POST=false
           if [ "$EVENT" = "schedule" ]; then
+            MODE=live
             if [ "$ENABLED" = "true" ]; then RUN=true; POST=true; else echo "⏸ cadence paused (enabled=false) — skipping."; fi
           else
             RUN=true
@@ -59,7 +78,9 @@ jobs:
           fi
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
           echo "post=$POST" >> "$GITHUB_OUTPUT"
-          echo "plan: event=$EVENT mode=${MODE:-scheduled} enabled=$ENABLED → run=$RUN post=$POST (soccerDay=${{ steps.state.outputs.soccer }} golfDay=${{ steps.state.outputs.golf }})"
+          echo "slot=$SLOT" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "plan: event=$EVENT slot=$SLOT mode=$MODE enabled=$ENABLED → run=$RUN post=$POST"
 
       - name: Install deps + Chromium + ffmpeg
         if: steps.plan.outputs.run == 'true'
@@ -69,9 +90,11 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      - name: Generate today's content
+      - name: Generate this slot's content
         if: steps.plan.outputs.run == 'true'
-        run: node scripts/daily-content.mjs content-out "${{ steps.state.outputs.soccer }}" "${{ steps.state.outputs.golf }}" ${{ github.event.inputs.catchup == 'true' && 'catchup' || '' }}
+        run: |
+          STATE=$(echo "${{ steps.state.outputs.state_b64 }}" | base64 -d)
+          node scripts/daily-content.mjs content-out "$STATE" "${{ steps.plan.outputs.slot }}" "${{ steps.plan.outputs.mode }}" ${{ github.event.inputs.catchup == 'true' && 'catchup' || '' }}
 
       - name: Finalize reels (mux audio + scoreboard end-card)
         if: steps.plan.outputs.run == 'true'
@@ -101,7 +124,11 @@ jobs:
           IG_ACCESS_TOKEN_GOLF: ${{ secrets.IG_ACCESS_TOKEN_GOLF }}
         run: node scripts/ig-post.mjs content-out "https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.host.outputs.sha }}/content-out"
 
-      - name: Advance cadence cursor
+      # Persist the cursor after every posting slot. The generator encodes all the
+      # logic: each slot bumps its account's posted high-water mark; only the
+      # companions slot advances the day / runs the season transition. This makes
+      # slots idempotent (re-fires + a dropped 19:00 recover without duplicates).
+      - name: Advance / mark cadence cursor
         if: steps.plan.outputs.post == 'true' && github.event.inputs.catchup != 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}

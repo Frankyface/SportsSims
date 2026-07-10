@@ -92,6 +92,9 @@ export interface GolfSeasonState {
   history: GolfSeasonRecord[]
   simVersion: number
   offseasonBig?: string[]
+  /** Optional per-season RESULT seed (see golfResultSeed). Absent = the default
+   * `${seedKey}:s${season}`; set by the auto-roll selector to re-roll outcomes. */
+  resultSeed?: string
 }
 
 function freshCareer(): GolferCareer {
@@ -152,11 +155,21 @@ export function golfSeasonComplete(state: GolfSeasonState): boolean {
  * the leaderboard with the LEADERS OUT LAST (indices 4..7 = the final group,
  * best of all at 7). Returns TOUR-ORDER indices in field order.
  */
-export function golfFieldOrder(state: GolfSeasonState, ev: GolfEventState, round: number): number[] {
+/** The per-season RESULT seed — the prefix golf outcome seeds hang off. Defaults
+ * to `${seedKey}:s${season}` (byte-identical). A season may carry an explicit
+ * `resultSeed` (for its OWN season only) so the cadence can re-roll outcomes while
+ * ratings + venue schedule stay derived from the root. */
+export function golfResultSeed(state: GolfSeasonState, season: number): string {
+  return season === state.season && state.resultSeed ? state.resultSeed : `${state.seedKey}:s${season}`
+}
+
+export function golfFieldOrder(state: GolfSeasonState, ev: GolfEventState, round: number, season = state.season): number[] {
   const n = state.golfers.length
   if (round === 1) {
-    // seeded shuffle (Fisher-Yates on the deterministic stream)
-    const rng = makeRng(`${state.seedKey}:s${state.season}:e${ev.eventIndex}:draw`)
+    // seeded shuffle (Fisher-Yates on the deterministic stream). Thread `season`
+    // so the draw seed agrees with the round-config seed even when rendering a
+    // record whose season differs from state.season.
+    const rng = makeRng(`${golfResultSeed(state, season)}:e${ev.eventIndex}:draw`)
     const order = state.golfers.map((_, i) => i)
     for (let i = n - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1))
@@ -180,9 +193,9 @@ export function golfRoundConfig(
   season = state.season,
 ): GolfRoundConfig {
   const event = eventById(ev.eventId)
-  const order = golfFieldOrder(state, ev, round)
+  const order = golfFieldOrder(state, ev, round, season)
   return {
-    seedKey: `${state.seedKey}:s${season}:e${ev.eventIndex}:r${round}`,
+    seedKey: `${golfResultSeed(state, season)}:e${ev.eventIndex}:r${round}`,
     course: golfCourseById(event.courseId),
     golfers: order.map((i) => ev.field[i]),
     round,
@@ -430,6 +443,14 @@ export function simGolfSeasonToEnd(state: GolfSeasonState): GolfSeasonState {
 
 /** Roll into the next season: crown the rankings champion, drift the ratings. */
 export function advanceGolfSeason(state: GolfSeasonState): GolfSeasonState {
+  return advanceGolfSeasonWithSeed(state)
+}
+
+/** advanceGolfSeason, but the NEXT season's outcomes hang off `resultRoll` instead
+ * of the default `${seedKey}:s${nextSeason}`. Ratings carry + offseason drift +
+ * venue schedule are UNCHANGED (derived from the root), so omitting `resultRoll`
+ * is byte-identical. Used by the auto-roll selector. */
+export function advanceGolfSeasonWithSeed(state: GolfSeasonState, resultRoll?: string): GolfSeasonState {
   if (!golfSeasonComplete(state)) return state
   const rankings = golfRankings(state)
   const championId = rankings[0].golferId
@@ -461,6 +482,7 @@ export function advanceGolfSeason(state: GolfSeasonState): GolfSeasonState {
   return {
     ...state,
     season: nextSeason,
+    resultSeed: resultRoll ?? `${state.seedKey}:s${nextSeason}`,
     golfers,
     current: freshEvent(0, scheduledEventId(state.seedKey, nextSeason, 0), golfers),
     completed: [],

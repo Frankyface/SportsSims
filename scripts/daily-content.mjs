@@ -3,9 +3,11 @@
 // MP4s + WAV sidecars + PNGs) plus manifest.json (which also carries the advanced
 // cursor for the workflow to persist).
 //
-// Usage: node scripts/daily-content.mjs <outDir> <soccerDay> <golfDay> [catchup]
-//   catchup — render the one-off seed-drop gap posts instead of a calendar day
-//             (cursor comes back unchanged).
+// Usage: node scripts/daily-content.mjs <outDir> <stateJson> <slot> <mode> [catchup]
+//   stateJson — the cadence state: {"soccer":{season,day,rolls,postedHWM},"golf":{...}}
+//   slot      — g1 | main | companions (which posts to render this run)
+//   mode      — live | dry-run (dry-run renders all content, ignores markers)
+//   catchup   — render the one-off seed-drop gap posts (cursor unchanged)
 
 import { chromium } from 'playwright'
 import { createServer } from 'vite'
@@ -15,13 +17,24 @@ import path from 'node:path'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = process.argv[2] || path.join(projectRoot, 'content-out')
-const soccerDay = process.argv[3]
-const golfDay = process.argv[4]
-const isCatchup = process.argv[5] === 'catchup'
-if (soccerDay === undefined || golfDay === undefined) {
-  console.error('usage: node scripts/daily-content.mjs <outDir> <soccerDay> <golfDay> [catchup]')
+const stateJson = process.argv[3]
+const slot = process.argv[4] || 'companions'
+const mode = process.argv[5] || 'live'
+const isCatchup = process.argv[6] === 'catchup'
+const isDry = mode === 'dry-run'
+if (!stateJson) {
+  console.error('usage: node scripts/daily-content.mjs <outDir> <stateJson> <slot> <mode> [catchup]')
   process.exit(2)
 }
+let state
+try {
+  state = JSON.parse(stateJson)
+} catch (e) {
+  console.error('[runner] bad stateJson:', e.message)
+  process.exit(2)
+}
+const soccer = state.soccer || { season: 1, day: -1, rolls: [], postedHWM: -1 }
+const golf = state.golf || { season: 1, day: -1, rolls: [], postedHWM: -1 }
 const TIMEOUT_MS = 30 * 60 * 1000
 
 fs.rmSync(outDir, { recursive: true, force: true })
@@ -36,7 +49,7 @@ const server = await createServer({
 await server.listen()
 const base = (server.resolvedUrls?.local?.[0] || 'http://localhost:5199/').replace(/\/$/, '')
 console.log(`[runner] vite dev server: ${base}`)
-console.log(`[runner] cursors: soccerDay=${soccerDay} golfDay=${golfDay}`)
+console.log(`[runner] slot=${slot} mode=${mode} soccer=S${soccer.season}/d${soccer.day} golf=S${golf.season}/d${golf.day}${isCatchup ? ' (catchup)' : ''}`)
 
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage()
@@ -55,8 +68,14 @@ await page.exposeFunction('__SAVE_CHUNK__', (filename, b64, isFirst) => {
 })
 
 const t0 = Date.now()
-const catchupParam = isCatchup ? '&catchup=1' : ''
-const url = `${base}/headless-daily.html?soccerDay=${encodeURIComponent(soccerDay)}&golfDay=${encodeURIComponent(golfDay)}${catchupParam}`
+const q = new URLSearchParams({
+  slot,
+  dry: isDry ? '1' : '0',
+  soccer: JSON.stringify(soccer),
+  golf: JSON.stringify(golf),
+})
+if (isCatchup) q.set('catchup', '1')
+const url = `${base}/headless-daily.html?${q.toString()}`
 await page.goto(url, { waitUntil: 'load', timeout: 60000 })
 await page.waitForFunction(() => window.__DONE__ === true, null, { timeout: TIMEOUT_MS, polling: 1000 })
 

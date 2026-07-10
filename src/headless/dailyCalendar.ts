@@ -24,10 +24,13 @@ export const SOCCER_REGULAR_MATCHES = SOCCER_REGULAR_ROUNDS * SOCCER_MATCHES_PER
 /** Regular matches, then sf1, sf2, final, champions day. */
 export const SOCCER_TOTAL_DAYS = SOCCER_REGULAR_MATCHES + 4 // 34
 
-/** Golf: E1 = 5 legacy days; events 2..14 = 4 round-days each; + champions day. */
-export const GOLF_E1_DAYS = 1 + ROUNDS_PER_EVENT // 5
-export const GOLF_DAYS_PER_EVENT = ROUNDS_PER_EVENT // 4 (E2 onward)
-export const GOLF_TOTAL_DAYS = GOLF_E1_DAYS + (EVENTS_PER_SEASON - 1) * GOLF_DAYS_PER_EVENT + 1 // 58
+/** Golf (season-uniform): day 0 = E1 preview, then 14 events × 4 round-days, then
+ * a champions day. Every event's preview rides the PRIOR event's R4 day, except
+ * E1's which is the standalone day-0 preview. (Season 1's day 0-4 were the seed
+ * drop + catch-up; its cursor simply starts past them.) */
+export const GOLF_DAYS_PER_EVENT = ROUNDS_PER_EVENT // 4 round days per event
+export const GOLF_TOTAL_DAYS = 1 + EVENTS_PER_SEASON * GOLF_DAYS_PER_EVENT + 1 // 58
+export const GOLF_CHAMPIONS_DAY = GOLF_TOTAL_DAYS - 1 // 57
 
 export type SoccerDayPlan =
   | {
@@ -85,21 +88,16 @@ export function soccerPlanForDay(day: number): SoccerDayPlan {
   return { kind: 'none' } // season over — transition/re-roll deferred
 }
 
-/** What the golf account posts on `day` (0-based since season start). */
+/** What the golf account posts on `day` (0-based since season start). Uniform
+ * every season: day 0 = E1 preview, days 1..56 = rounds (event = ⌊(d-1)/4⌋,
+ * round = (d-1)%4+1; R4 adds results + the next event's preview), day 57 = champions. */
 export function golfPlanForDay(day: number): GolfDayPlan {
   if (!Number.isInteger(day) || day < 0 || day >= GOLF_TOTAL_DAYS) return { kind: 'none' }
+  if (day === 0) return { kind: 'preview', eventIndex: 0 }
+  if (day === GOLF_CHAMPIONS_DAY) return { kind: 'champions' }
 
-  // E1 legacy shape (the seed drop): day 0 preview, days 1-4 rounds 1-4.
-  // Its R4 day predates the results/next-preview format — the one-off catch-up
-  // run posted those, so the calendar leaves E1's round days plain.
-  if (day < GOLF_E1_DAYS) {
-    if (day === 0) return { kind: 'preview', eventIndex: 0 }
-    return { kind: 'round', eventIndex: 0, round: day, results: false, nextPreviewEventIndex: null }
-  }
-
-  const roundDay = day - GOLF_E1_DAYS
-  const eventIndex = 1 + Math.floor(roundDay / GOLF_DAYS_PER_EVENT)
-  if (eventIndex >= EVENTS_PER_SEASON) return { kind: 'champions' } // day 57
+  const roundDay = day - 1
+  const eventIndex = Math.floor(roundDay / GOLF_DAYS_PER_EVENT)
   const round = (roundDay % GOLF_DAYS_PER_EVENT) + 1
   const isFinalRound = round === ROUNDS_PER_EVENT
   return {

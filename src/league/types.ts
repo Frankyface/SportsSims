@@ -36,6 +36,9 @@ export interface LeagueState {
   history: SeasonRecord[]
   simVersion: number
   offseasonBig?: string[] // clubs that had a big (high-volatility) offseason entering this season
+  /** Optional per-season RESULT seed (see resultSeedOf). Absent = the default
+   * `${seedKey}:s${season}`; set by the auto-roll selector to re-roll outcomes. */
+  resultSeed?: string
 }
 
 export interface StandingRow {

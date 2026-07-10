@@ -6,9 +6,9 @@ import {
   nextGolfDay,
   SOCCER_REGULAR_MATCHES,
   SOCCER_TOTAL_DAYS,
-  GOLF_E1_DAYS,
   GOLF_DAYS_PER_EVENT,
   GOLF_TOTAL_DAYS,
+  GOLF_CHAMPIONS_DAY,
 } from './dailyCalendar'
 
 describe('soccerPlanForDay', () => {
@@ -64,31 +64,36 @@ describe('soccerPlanForDay', () => {
   })
 })
 
-describe('golfPlanForDay', () => {
-  it('keeps E1 in the legacy seed-drop shape (preview day + plain round days)', () => {
+describe('golfPlanForDay (season-uniform)', () => {
+  it('opens with E1 preview on day 0, then E1 rounds on days 1-4', () => {
     expect(golfPlanForDay(0)).toEqual({ kind: 'preview', eventIndex: 0 })
     expect(golfPlanForDay(1)).toEqual({ kind: 'round', eventIndex: 0, round: 1, results: false, nextPreviewEventIndex: null })
-    expect(golfPlanForDay(4)).toEqual({ kind: 'round', eventIndex: 0, round: 4, results: false, nextPreviewEventIndex: null })
+    // E1 R4 (day 4) carries results + E2 preview, like every event
+    expect(golfPlanForDay(4)).toEqual({ kind: 'round', eventIndex: 0, round: 4, results: true, nextPreviewEventIndex: 1 })
   })
 
-  it('runs E2+ as 4 round days; R4 carries results + the NEXT preview', () => {
+  it('runs every event as 4 round days; R4 carries results + the NEXT preview', () => {
     // E2 = days 5-8
     expect(golfPlanForDay(5)).toEqual({ kind: 'round', eventIndex: 1, round: 1, results: false, nextPreviewEventIndex: null })
     expect(golfPlanForDay(8)).toEqual({ kind: 'round', eventIndex: 1, round: 4, results: true, nextPreviewEventIndex: 2 })
     // E3 = days 9-12
-    expect(golfPlanForDay(9)).toEqual({ kind: 'round', eventIndex: 2, round: 1, results: false, nextPreviewEventIndex: null })
     expect(golfPlanForDay(12)).toEqual({ kind: 'round', eventIndex: 2, round: 4, results: true, nextPreviewEventIndex: 3 })
   })
 
   it("the season's last event posts results but no next preview", () => {
-    const lastR4 = GOLF_E1_DAYS + 13 * GOLF_DAYS_PER_EVENT - 1 // E14 R4 = day 56
+    const lastR4 = 1 + 13 * GOLF_DAYS_PER_EVENT + (GOLF_DAYS_PER_EVENT - 1) // E14 R4 = day 56
     expect(golfPlanForDay(lastR4)).toEqual({ kind: 'round', eventIndex: 13, round: 4, results: true, nextPreviewEventIndex: null })
   })
 
   it('posts the champions carousel the day after E14, then goes quiet', () => {
-    expect(golfPlanForDay(57)).toEqual({ kind: 'champions' })
+    expect(golfPlanForDay(GOLF_CHAMPIONS_DAY)).toEqual({ kind: 'champions' })
+    expect(GOLF_CHAMPIONS_DAY).toBe(57)
     expect(golfPlanForDay(GOLF_TOTAL_DAYS).kind).toBe('none')
     expect(golfPlanForDay(-1).kind).toBe('none')
+  })
+
+  it('S1 cursor value 5 still maps to E2 R1 (no migration needed)', () => {
+    expect(golfPlanForDay(5)).toMatchObject({ kind: 'round', eventIndex: 1, round: 1 })
   })
 
   it('covers every event round exactly once across the season', () => {
@@ -104,16 +109,14 @@ describe('golfPlanForDay', () => {
     expect(seen.size).toBe(14 * 4)
   })
 
-  it('previews every event exactly once (E1 standalone; E2+ ride the prior R4 day)', () => {
+  it('previews every event exactly once (E1 on day 0; E2..E14 ride the prior R4 day)', () => {
     const previews: number[] = []
     for (let d = 0; d < GOLF_TOTAL_DAYS; d++) {
       const p = golfPlanForDay(d)
       if (p.kind === 'preview') previews.push(p.eventIndex)
       if (p.kind === 'round' && p.nextPreviewEventIndex !== null) previews.push(p.nextPreviewEventIndex)
     }
-    // E2's preview was the one-off catch-up (E1's R4 predates the format), so the
-    // calendar itself covers previews for E1 and E3..E14.
-    expect(previews.sort((a, b) => a - b)).toEqual([0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+    expect(previews.sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
   })
 })
 

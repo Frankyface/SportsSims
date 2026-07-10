@@ -42,9 +42,17 @@ export function fixtureById(state: LeagueState, id: string): Fixture {
   return f
 }
 
+/** The per-season RESULT seed — the prefix all match seeds hang off. Defaults to
+ * `${seedKey}:s${season}` (byte-identical to the original), but a season can carry
+ * an explicit `resultSeed` so the cadence can RE-ROLL a season's outcomes on the
+ * same carried ratings (offseason drift + fixtures stay derived from the root). */
+export function resultSeedOf(state: LeagueState): string {
+  return state.resultSeed ?? `${state.seedKey}:s${state.season}`
+}
+
 /** Deterministic seed key for a fixture, stable across re-simulation. */
 export function fixtureSeedKey(state: LeagueState, f: Fixture): string {
-  return `${state.seedKey}:s${state.season}:${f.id}`
+  return `${resultSeedOf(state)}:${f.id}`
 }
 
 export function simFixture(state: LeagueState, f: Fixture): MatchScore {
@@ -186,6 +194,15 @@ export function seasonComplete(state: LeagueState): boolean {
  * so it swings more next year. No regression to the mean: strength persists.
  */
 export function advanceSeason(state: LeagueState): LeagueState {
+  return advanceSeasonWithSeed(state)
+}
+
+/** advanceSeason, but the NEXT season's result outcomes hang off `resultRoll`
+ * instead of the default `${seedKey}:s${nextSeason}`. Ratings carry + offseason
+ * drift + fixtures are UNCHANGED (still derived from the root), so omitting
+ * `resultRoll` is byte-identical to advanceSeason. Used by the auto-roll selector
+ * to pick a GOOD next season without touching the rating model. */
+export function advanceSeasonWithSeed(state: LeagueState, resultRoll?: string): LeagueState {
   if (!seasonComplete(state)) return state
   const table = computeStandings(state)
   const record: SeasonRecord = {
@@ -208,9 +225,11 @@ export function advanceSeason(state: LeagueState): LeagueState {
   })
 
   const fixtures = generateFixtures(nextTeams.map((t) => t.identity.id))
+  const nextSeason = state.season + 1
   return {
     ...state,
-    season: state.season + 1,
+    season: nextSeason,
+    resultSeed: resultRoll ?? `${state.seedKey}:s${nextSeason}`,
     phase: 'regular',
     teams: nextTeams,
     fixtures,
