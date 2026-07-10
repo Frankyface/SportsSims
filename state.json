@@ -1,9 +1,13 @@
 {
   "enabled": false,
   "soccer": {
-    "nextDay": 3
+    "season": 1,
+    "day": 3,
+    "rolls": []
   },
   "golf": {
-    "nextDay": 5
+    "season": 1,
+    "day": 5,
+    "rolls": []
   }
 }
