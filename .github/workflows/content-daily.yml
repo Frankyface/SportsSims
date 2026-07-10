@@ -14,10 +14,13 @@ name: Daily post (auto cadence)
 # pause). Manual runs offer dry-run (generate + host, NO post) to eyeball a slot.
 
 on:
+  # Minutes are OFF the hour on purpose: GitHub runs scheduled workflows best-effort
+  # and DROPS on-the-hour runs (:00) under peak load, so we use :09 to stay reliable.
+  # (Times are ~9:09am / 12:09pm / 3:09pm US-Eastern.)
   schedule:
-    - cron: '0 13 * * *' # g1: golf Group 1
-    - cron: '0 16 * * *' # main: golf Group 2 + soccer match
-    - cron: '0 19 * * *' # companions: carousels/photos + advance
+    - cron: '9 13 * * *' # g1: golf Group 1
+    - cron: '9 16 * * *' # main: golf Group 2 + soccer match
+    - cron: '9 19 * * *' # companions: carousels/photos + advance
   workflow_dispatch:
     inputs:
       mode:
@@ -66,9 +69,9 @@ jobs:
           ENABLED="${{ steps.state.outputs.enabled }}"
           # Map the firing cron to a slot; dispatch uses the chosen slot input.
           case "${{ github.event.schedule }}" in
-            "0 13 * * *") SLOT=g1 ;;
-            "0 16 * * *") SLOT=main ;;
-            "0 19 * * *") SLOT=companions ;;
+            "9 13 * * *") SLOT=g1 ;;
+            "9 16 * * *") SLOT=main ;;
+            "9 19 * * *") SLOT=companions ;;
             *) SLOT="${{ github.event.inputs.slot }}" ;;
           esac
           [ -z "$SLOT" ] && SLOT=companions
