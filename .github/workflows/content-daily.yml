@@ -20,6 +20,10 @@ on:
         type: choice
         options: [dry-run, live]
         default: dry-run
+      catchup:
+        description: 'One-off: render the seed-drop gap posts (soccer R1 table, golf E1 results, E2 preview) instead of a calendar day. Cursor is not advanced.'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -67,7 +71,7 @@ jobs:
 
       - name: Generate today's content
         if: steps.plan.outputs.run == 'true'
-        run: node scripts/daily-content.mjs content-out "${{ steps.state.outputs.soccer }}" "${{ steps.state.outputs.golf }}"
+        run: node scripts/daily-content.mjs content-out "${{ steps.state.outputs.soccer }}" "${{ steps.state.outputs.golf }}" ${{ github.event.inputs.catchup == 'true' && 'catchup' || '' }}
 
       - name: Finalize reels (mux audio + scoreboard end-card)
         if: steps.plan.outputs.run == 'true'
@@ -98,7 +102,7 @@ jobs:
         run: node scripts/ig-post.mjs content-out "https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.host.outputs.sha }}/content-out"
 
       - name: Advance cadence cursor
-        if: steps.plan.outputs.post == 'true'
+        if: steps.plan.outputs.post == 'true' && github.event.inputs.catchup != 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/cadence-state.mjs advance content-out/manifest.json

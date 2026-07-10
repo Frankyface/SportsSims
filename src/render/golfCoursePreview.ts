@@ -34,6 +34,9 @@ export interface GolfPreviewModel {
   width: number
   height: number
   seed: number
+  /** 'preview' = the Tuesday teaser (default); 'results' = the post-event
+   * results carousel's title card (page 2 is the final leaderboard). */
+  variant: 'preview' | 'results'
 }
 
 /**
@@ -52,6 +55,7 @@ export function buildGolfPreviewModel(
   seed: number,
   width = GOLF_RENDER_W,
   height = GOLF_RENDER_H,
+  variant: 'preview' | 'results' = 'preview',
 ): GolfPreviewModel {
   const layouts: GolfHoleLayout[] = []
   for (let hIdx = 0; hIdx < HOLES_PER_ROUND; hIdx++) {
@@ -65,6 +69,7 @@ export function buildGolfPreviewModel(
     width,
     height,
     seed: seed >>> 0,
+    variant,
   }
 }
 
@@ -183,11 +188,12 @@ function drawPreviewTitle(ctx: Ctx, model: GolfPreviewModel): void {
 
   ctx.fillStyle = model.event.major ? '#d4af37' : '#ff5566'
   ctx.font = 'bold 36px system-ui, sans-serif'
+  const kickerTail = model.variant === 'results' ? 'RESULTS' : 'COURSE PREVIEW'
   const kicker = model.event.championship
-    ? 'THE CHAMPIONSHIP · COURSE PREVIEW'
+    ? `THE CHAMPIONSHIP · ${kickerTail}`
     : model.event.major
-      ? 'A MAJOR · COURSE PREVIEW'
-      : 'SGA TOUR · COURSE PREVIEW'
+      ? `A MAJOR · ${kickerTail}`
+      : `SGA TOUR · ${kickerTail}`
   ctx.fillText(kicker, cx, 640)
 
   ctx.fillStyle = '#f2f4f3'
@@ -208,10 +214,11 @@ function drawPreviewTitle(ctx: Ctx, model: GolfPreviewModel): void {
 
   ctx.fillStyle = 'rgba(255,255,255,0.85)'
   ctx.font = 'bold 34px system-ui, sans-serif'
-  ctx.fillText(`ALL 9 HOLES · PAR ${model.coursePar}`, cx, 952)
+  const isResults = model.variant === 'results'
+  ctx.fillText(isResults ? 'TOURNAMENT COMPLETE' : `ALL 9 HOLES · PAR ${model.coursePar}`, cx, 952)
 
-  // "playing tomorrow" pill (previews post the day before the round)
-  const label = 'PLAYING TOMORROW'
+  // pill: previews post the day before play; results wrap the finished event
+  const label = isResults ? 'RESULTS' : 'PLAYING TOMORROW'
   ctx.font = 'bold 32px system-ui, sans-serif'
   const pw = ctx.measureText(label).width + 96
   roundRect(ctx, cx - pw / 2, 1024, pw, 68, 12)
@@ -224,10 +231,10 @@ function drawPreviewTitle(ctx: Ctx, model: GolfPreviewModel): void {
   ctx.fillStyle = '#e8edf4'
   ctx.fillText(label, cx, 1058)
 
-  // swipe hint — this is image 1 of a 10-image carousel
+  // swipe hint — page 1 of the carousel
   ctx.fillStyle = 'rgba(255,255,255,0.5)'
   ctx.font = 'bold 26px system-ui, sans-serif'
-  ctx.fillText('SWIPE FOR ALL 9 HOLES →', cx, 1150)
+  ctx.fillText(isResults ? 'SWIPE FOR THE FINAL LEADERBOARD →' : 'SWIPE FOR ALL 9 HOLES →', cx, 1150)
 }
 
 /** Draw one still of the carousel: index 0 = title card, 1..9 = that hole. Pure. */

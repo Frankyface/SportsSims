@@ -2,7 +2,7 @@
 // hook (the top comment-driver for this genre).
 
 import type { LeagueState, Fixture, MatchScore, StandingRow } from '../league/types'
-import { computeStandings, teamById } from '../league/league'
+import { computeStandings, teamById, winnerOf } from '../league/league'
 import { HASHTAGS } from '../brand'
 
 export function matchCaption(state: LeagueState, f: Fixture, sc: MatchScore): string {
@@ -57,5 +57,50 @@ export function standingsCaption(state: LeagueState, roundLabel: string, rowsOve
     '',
     "Who's winning the title? 👇",
     HASHTAGS,
+  ].join('\n')
+}
+
+/** The playoffs-preview post (bracket card), after the last regular-season match. */
+export function playoffsPreviewCaption(state: LeagueState): string {
+  const top = computeStandings(state).slice(0, 4)
+  const n = (i: number) => teamById(state, top[i].teamId).identity.nickname
+  return [
+    `🏆 THE PLAYOFFS — Season ${state.season}`,
+    '',
+    `The regular season is done. Four remain.`,
+    `SF1: ${n(0)} v ${n(3)} · SF2: ${n(1)} v ${n(2)}`,
+    'Semi-final 1 drops tomorrow.',
+    '',
+    'Who lifts the crown? 👇',
+    HASHTAGS,
+  ].join('\n')
+}
+
+/** The finals-preview post (matchup card), after the second semi-final. */
+export function finalsPreviewCaption(state: LeagueState): string {
+  const a = teamById(state, winnerOf(state, 'sf1')).identity
+  const b = teamById(state, winnerOf(state, 'sf2')).identity
+  return [
+    `🏆 THE FINAL — Season ${state.season}`,
+    '',
+    `${a.name} v ${b.name}. One match for the title.`,
+    'Kick-off tomorrow.',
+    '',
+    'Call it 👇',
+    `${HASHTAGS} #${a.abbr} #${b.abbr}`,
+  ].join('\n')
+}
+
+/** The champions carousel (champions card + the final table), the day after the final. */
+export function championsCaption(state: LeagueState): string {
+  const champ = teamById(state, winnerOf(state, 'final')).identity
+  return [
+    `👑 CHAMPIONS — ${champ.name.toUpperCase()}`,
+    '',
+    `${champ.nickname} are kings of the Crown League, Season ${state.season}.`,
+    'Swipe for the final table →',
+    '',
+    `Were they the best team all year? 👇`,
+    `${HASHTAGS} #${champ.abbr}`,
   ].join('\n')
 }

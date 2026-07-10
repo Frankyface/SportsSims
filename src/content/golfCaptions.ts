@@ -42,20 +42,24 @@ export function golfLeaderLineAfter(
   return `${leader.identity.name} leads on ${formatToPar(totals[order[0]])} after ${round * 9} holes.`
 }
 
-/** Caption for one round's group video of a COMPLETED event. Group 2 of the
- * final round crowns the winner; every other clip sells the ongoing race. */
+/** Caption for one round's group video of a COMPLETED event. With `includeFinale`
+ * (the in-app event pack), Group 2 of the final round crowns the winner; the
+ * daily pipeline passes false — its standalone Results carousel does the crowning.
+ * (No "leaders" group phrasing: display foursomes are a mixed draw, see
+ * golfDisplayGroups.) */
 export function golfGroupVideoCaption(
   state: GolfSeasonState,
   record: GolfEventRecord,
   round: number,
   group: 0 | 1,
+  includeFinale = true,
 ): string {
   const event = eventById(record.eventId)
   const lines = [
     `⛳ ${event.name} — Round ${round}, ${group === 1 ? 'Group 2' : 'Group 1'}${event.major ? ' · A MAJOR' : ''}`,
-    group === 1 && round > 1 ? 'The leaders, every shot, all nine holes.' : 'Every shot, all nine holes.',
+    'Every shot, all nine holes.',
   ]
-  if (round === ROUNDS_PER_EVENT && group === 1) {
+  if (round === ROUNDS_PER_EVENT && group === 1 && includeFinale) {
     lines.push(golfEventCaption(state, record))
   } else {
     lines.push(golfLeaderLineAfter(state, record, round))
@@ -63,6 +67,33 @@ export function golfGroupVideoCaption(
     lines.push(`${GOLF_HASHTAGS} #${event.short.replace(/\s/g, '')}`)
   }
   return lines.join('\n')
+}
+
+/** Caption for the season-champions carousel (champion card + final rankings). */
+export function golfChampionsCaption(state: GolfSeasonState): string {
+  const rankings = golfRankings(state)
+  const champ = golferById(state, rankings[0].golferId)
+  const wins = rankings[0].wins
+  return [
+    `👑 SEASON ${state.season} CHAMPION — ${champ.identity.name.toUpperCase()}`,
+    '',
+    `${first(champ.identity.name)} tops the SGA Tour on ${rankings[0].points} pts (${wins} win${wins === 1 ? '' : 's'}).`,
+    'Swipe for the final rankings →',
+    '',
+    'Season MVP or points merchant? 👇',
+    GOLF_HASHTAGS,
+  ].join('\n')
+}
+
+/** Caption for the post-event RESULTS carousel (course title card + final board). */
+export function golfResultsCaption(state: GolfSeasonState, record: GolfEventRecord): string {
+  const event = eventById(record.eventId)
+  return [
+    `🏆 RESULTS — ${event.name}${event.major ? ' · A MAJOR' : ''}`,
+    golfEventCaption(state, record),
+    'Swipe for the final leaderboard →',
+    `${GOLF_HASHTAGS} #${event.short.replace(/\s/g, '')}`,
+  ].join('\n')
 }
 
 /** Caption for an event's Tuesday course-preview teaser (title card + 9 holes). */

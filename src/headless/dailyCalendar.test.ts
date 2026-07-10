@@ -6,38 +6,39 @@ import {
   nextGolfDay,
   SOCCER_REGULAR_MATCHES,
   SOCCER_TOTAL_DAYS,
+  GOLF_E1_DAYS,
   GOLF_DAYS_PER_EVENT,
   GOLF_TOTAL_DAYS,
 } from './dailyCalendar'
 
 describe('soccerPlanForDay', () => {
-  it('posts round 1 matches on days 0-2 with no round table', () => {
-    for (let d = 0; d < 3; d++) {
+  it('posts one match per day; the round table rides the round-CLOSER day', () => {
+    expect(soccerPlanForDay(0)).toEqual({ kind: 'match', matchIndex: 0, round: 0, roundTable: null, playoffsPreview: false })
+    expect(soccerPlanForDay(1)).toEqual({ kind: 'match', matchIndex: 1, round: 0, roundTable: null, playoffsPreview: false })
+    // day 2 = round 1's last match → round 1's full table posts the same day
+    expect(soccerPlanForDay(2)).toEqual({ kind: 'match', matchIndex: 2, round: 0, roundTable: 0, playoffsPreview: false })
+    // day 3 = round 2 opener → NO table (it moved to the closer day)
+    expect(soccerPlanForDay(3)).toEqual({ kind: 'match', matchIndex: 3, round: 1, roundTable: null, playoffsPreview: false })
+    expect(soccerPlanForDay(5)).toEqual({ kind: 'match', matchIndex: 5, round: 1, roundTable: 1, playoffsPreview: false })
+  })
+
+  it('adds the playoffs bracket post on the last regular match day (29)', () => {
+    expect(soccerPlanForDay(29)).toEqual({ kind: 'match', matchIndex: 29, round: 9, roundTable: 9, playoffsPreview: true })
+    // no other day carries it
+    for (let d = 0; d < 29; d++) {
       const p = soccerPlanForDay(d)
-      expect(p).toEqual({ kind: 'match', matchIndex: d, round: 0, roundTable: null })
+      if (p.kind === 'match') expect(p.playoffsPreview).toBe(false)
     }
   })
 
-  it('carries the previous full round table on each round-opener', () => {
-    // Day 3 = round 1 opener → post round 0's table. Day 6 = round 2 opener → round 1.
-    expect(soccerPlanForDay(3)).toEqual({ kind: 'match', matchIndex: 3, round: 1, roundTable: 0 })
-    expect(soccerPlanForDay(6)).toEqual({ kind: 'match', matchIndex: 6, round: 2, roundTable: 1 })
-    expect(soccerPlanForDay(27)).toEqual({ kind: 'match', matchIndex: 27, round: 9, roundTable: 8 })
+  it('runs sf1, then sf2 + the finals preview, then the final', () => {
+    expect(soccerPlanForDay(30)).toEqual({ kind: 'playoff', fixture: 'sf1', finalsPreview: false })
+    expect(soccerPlanForDay(31)).toEqual({ kind: 'playoff', fixture: 'sf2', finalsPreview: true })
+    expect(soccerPlanForDay(32)).toEqual({ kind: 'playoff', fixture: 'final', finalsPreview: false })
   })
 
-  it('mid-round match-days have no round table', () => {
-    expect(soccerPlanForDay(4).kind).toBe('match')
-    expect((soccerPlanForDay(4) as { roundTable: number | null }).roundTable).toBeNull()
-    expect((soccerPlanForDay(5) as { roundTable: number | null }).roundTable).toBeNull()
-  })
-
-  it('runs playoffs after the 30 regular matches; sf1 carries the final regular table', () => {
-    expect(soccerPlanForDay(30)).toEqual({ kind: 'playoff', fixture: 'sf1', finalRegTable: true })
-    expect(soccerPlanForDay(31)).toEqual({ kind: 'playoff', fixture: 'sf2', finalRegTable: false })
-    expect(soccerPlanForDay(32)).toEqual({ kind: 'playoff', fixture: 'final', finalRegTable: false })
-  })
-
-  it('is empty once the season (incl. playoffs) is done', () => {
+  it('posts the champions carousel the day after the final, then goes quiet', () => {
+    expect(soccerPlanForDay(33)).toEqual({ kind: 'champions' })
     expect(soccerPlanForDay(SOCCER_TOTAL_DAYS).kind).toBe('none')
     expect(soccerPlanForDay(99).kind).toBe('none')
   })
@@ -47,41 +48,72 @@ describe('soccerPlanForDay', () => {
     expect(soccerPlanForDay(1.5).kind).toBe('none')
   })
 
-  it('covers every regular match exactly once across the regular window', () => {
-    const seen = new Set<number>()
+  it('covers every regular match exactly once and every round table exactly once', () => {
+    const matches = new Set<number>()
+    const tables = new Set<number>()
     for (let d = 0; d < SOCCER_REGULAR_MATCHES; d++) {
       const p = soccerPlanForDay(d)
       expect(p.kind).toBe('match')
-      if (p.kind === 'match') seen.add(p.matchIndex)
+      if (p.kind === 'match') {
+        matches.add(p.matchIndex)
+        if (p.roundTable !== null) tables.add(p.roundTable)
+      }
     }
-    expect(seen.size).toBe(SOCCER_REGULAR_MATCHES)
+    expect(matches.size).toBe(SOCCER_REGULAR_MATCHES)
+    expect([...tables].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
   })
 })
 
 describe('golfPlanForDay', () => {
-  it('opens each 5-day event cycle with a preview', () => {
+  it('keeps E1 in the legacy seed-drop shape (preview day + plain round days)', () => {
     expect(golfPlanForDay(0)).toEqual({ kind: 'preview', eventIndex: 0 })
-    expect(golfPlanForDay(5)).toEqual({ kind: 'preview', eventIndex: 1 })
-    expect(golfPlanForDay(65)).toEqual({ kind: 'preview', eventIndex: 13 })
+    expect(golfPlanForDay(1)).toEqual({ kind: 'round', eventIndex: 0, round: 1, results: false, nextPreviewEventIndex: null })
+    expect(golfPlanForDay(4)).toEqual({ kind: 'round', eventIndex: 0, round: 4, results: false, nextPreviewEventIndex: null })
   })
 
-  it('maps days 1-4 of a cycle to rounds 1-4', () => {
-    expect(golfPlanForDay(1)).toEqual({ kind: 'round', eventIndex: 0, round: 1 })
-    expect(golfPlanForDay(4)).toEqual({ kind: 'round', eventIndex: 0, round: 4 })
-    expect(golfPlanForDay(6)).toEqual({ kind: 'round', eventIndex: 1, round: 1 })
-    expect(golfPlanForDay(69)).toEqual({ kind: 'round', eventIndex: 13, round: 4 })
+  it('runs E2+ as 4 round days; R4 carries results + the NEXT preview', () => {
+    // E2 = days 5-8
+    expect(golfPlanForDay(5)).toEqual({ kind: 'round', eventIndex: 1, round: 1, results: false, nextPreviewEventIndex: null })
+    expect(golfPlanForDay(8)).toEqual({ kind: 'round', eventIndex: 1, round: 4, results: true, nextPreviewEventIndex: 2 })
+    // E3 = days 9-12
+    expect(golfPlanForDay(9)).toEqual({ kind: 'round', eventIndex: 2, round: 1, results: false, nextPreviewEventIndex: null })
+    expect(golfPlanForDay(12)).toEqual({ kind: 'round', eventIndex: 2, round: 4, results: true, nextPreviewEventIndex: 3 })
   })
 
-  it('is empty after the 14-event season', () => {
+  it("the season's last event posts results but no next preview", () => {
+    const lastR4 = GOLF_E1_DAYS + 13 * GOLF_DAYS_PER_EVENT - 1 // E14 R4 = day 56
+    expect(golfPlanForDay(lastR4)).toEqual({ kind: 'round', eventIndex: 13, round: 4, results: true, nextPreviewEventIndex: null })
+  })
+
+  it('posts the champions carousel the day after E14, then goes quiet', () => {
+    expect(golfPlanForDay(57)).toEqual({ kind: 'champions' })
     expect(golfPlanForDay(GOLF_TOTAL_DAYS).kind).toBe('none')
     expect(golfPlanForDay(-1).kind).toBe('none')
   })
 
-  it('produces exactly one preview + four rounds per event', () => {
-    for (let ev = 0; ev < 14; ev++) {
-      const kinds = Array.from({ length: GOLF_DAYS_PER_EVENT }, (_, i) => golfPlanForDay(ev * GOLF_DAYS_PER_EVENT + i).kind)
-      expect(kinds).toEqual(['preview', 'round', 'round', 'round', 'round'])
+  it('covers every event round exactly once across the season', () => {
+    const seen = new Set<string>()
+    for (let d = 0; d < GOLF_TOTAL_DAYS; d++) {
+      const p = golfPlanForDay(d)
+      if (p.kind === 'round') {
+        const key = `${p.eventIndex}:${p.round}`
+        expect(seen.has(key)).toBe(false)
+        seen.add(key)
+      }
     }
+    expect(seen.size).toBe(14 * 4)
+  })
+
+  it('previews every event exactly once (E1 standalone; E2+ ride the prior R4 day)', () => {
+    const previews: number[] = []
+    for (let d = 0; d < GOLF_TOTAL_DAYS; d++) {
+      const p = golfPlanForDay(d)
+      if (p.kind === 'preview') previews.push(p.eventIndex)
+      if (p.kind === 'round' && p.nextPreviewEventIndex !== null) previews.push(p.nextPreviewEventIndex)
+    }
+    // E2's preview was the one-off catch-up (E1's R4 predates the format), so the
+    // calendar itself covers previews for E1 and E3..E14.
+    expect(previews.sort((a, b) => a - b)).toEqual([0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
   })
 })
 

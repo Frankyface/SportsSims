@@ -28,6 +28,7 @@ import {
 } from './golfCourseArt'
 import { drawWordmark } from './wordmark'
 import { drawEventLogo } from './golfEventLogos'
+import { golfDisplayGroups } from './golfDisplayGroups'
 import { HOLES_PER_ROUND } from '../sim/golfTypes'
 
 export interface GolfEventBrand {
@@ -72,8 +73,13 @@ export function buildGolfRenderModel(
   for (let hIdx = 0; hIdx < HOLES_PER_ROUND; hIdx++) {
     layouts.push(buildHoleLayout(m.config.course, hIdx, m.renderSeed))
   }
+  // Videos follow DISPLAY foursomes (a seeded draw on the round's own seedKey),
+  // not the sim's worst-first/leaders-last field split — otherwise "Group 2"
+  // always holds the top four and telegraphs the leaderboard. Render-side only;
+  // deterministic, so replays still match.
+  const members = golfDisplayGroups(m.config.seedKey)[group]
   return {
-    plan: buildGolfGroupPlan(m, group),
+    plan: buildGolfGroupPlan(m, group, members),
     m,
     event,
     courseName,
@@ -403,14 +409,17 @@ function drawGroupBoard(ctx: Ctx, model: GolfRenderModel, t: number, activeGolfe
   roundRect(ctx, x, y, w, h, 12)
   ctx.stroke()
 
+  // Header: short THRU label on the left; RD/TOT aligned over their own columns
+  // (a long left label + one combined right label used to collide mid-board).
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = 'rgba(255,255,255,0.6)'
   ctx.font = 'bold 19px system-ui, sans-serif'
   const thru = rows[0]?.thru ?? 0
-  ctx.fillText(thru >= HOLES_PER_ROUND ? 'GROUP · F' : `GROUP · THRU ${thru}`, x + 16, y + 28)
+  ctx.fillText(thru >= HOLES_PER_ROUND ? 'FINAL' : `THRU ${thru}`, x + 16, y + 28)
   ctx.textAlign = 'right'
-  ctx.fillText('RD·TOT', x + w - 14, y + 28)
+  ctx.fillText('RD', x + w - 82, y + 28)
+  ctx.fillText('TOT', x + w - 14, y + 28)
 
   rows.forEach((r, i) => {
     const g = model.m.config.golfers[r.golfer]

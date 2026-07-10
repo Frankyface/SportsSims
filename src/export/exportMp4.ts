@@ -149,5 +149,8 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.appendChild(a)
   a.click()
   a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  // Chromium QUEUES rapid successive downloads — one can start well after its
+  // click, and a revoked URL fails it silently (the headless carousel export
+  // lost trailing images at a 1s revoke). Keep URLs alive to outlast any queue.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }

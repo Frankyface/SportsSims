@@ -205,8 +205,11 @@ const MOMENT_PRIORITY: Record<GolfMomentKind, number> = {
 }
 
 /** Build the full render plan for ONE foursome's round video. */
-export function buildGolfGroupPlan(m: GolfRoundResult, group: 0 | 1): GolfGroupPlan {
-  const golfers = Array.from({ length: GROUP_SIZE }, (_, i) => group * GROUP_SIZE + i)
+export function buildGolfGroupPlan(m: GolfRoundResult, group: 0 | 1, members?: number[]): GolfGroupPlan {
+  // Default = the sim's field split (0-3 / 4-7). Pass `members` to follow a
+  // display foursome instead (see golfDisplayGroups — mixes the leaders so the
+  // pairings don't telegraph the leaderboard).
+  const golfers = members ?? Array.from({ length: GROUP_SIZE }, (_, i) => group * GROUP_SIZE + i)
   const inGroup = new Set(golfers)
 
   // --- interleave every hole, collect raw weights ---

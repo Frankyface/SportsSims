@@ -11,15 +11,18 @@ import { execFileSync } from 'node:child_process'
 const dir = process.argv[2]
 if (!dir) { console.error('usage: node scripts/finalize-reels.mjs <dir>'); process.exit(2) }
 const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'))
-const BOARD_SEC = '2.5'
+// Golf leaderboards carry 8 rows + round columns — hold them longer than the
+// compact soccer table so viewers can actually read them (operator ask).
+const BOARD_SEC_BY_ACCOUNT = { soccer: '2.5', golf: '5' }
 
 for (const post of manifest.posts) {
   if (post.kind !== 'reel') continue
+  const BOARD_SEC = BOARD_SEC_BY_ACCOUNT[post.account] || '2.5'
   const video = path.join(dir, post.video)
   const wav = video.replace(/\.mp4$/, '.wav')
   const board = path.join(dir, post.board)
   const tmp = path.join(dir, `fin-${post.video}`)
-  console.log(`finalizing reel ${post.video} (+ ${post.board})`)
+  console.log(`finalizing reel ${post.video} (+ ${post.board}, ${BOARD_SEC}s end-card)`)
 
   execFileSync('ffmpeg', [
     '-y',
