@@ -149,28 +149,6 @@ function drawPreviewBug(ctx: Ctx, model: GolfPreviewModel, holeIdx: number, par:
   ctx.fillText(`PAR ${par}`, x + w - 26, y + hgt / 2 + 18)
 }
 
-/** The centred HOLE n / PAR x card. */
-function drawPreviewHoleCard(ctx: Ctx, model: GolfPreviewModel, holeIdx: number): void {
-  const hole = model.layouts[holeIdx].hole
-  const cx = model.width / 2 - 110
-  const cy = GOLF_ART.y + 190
-  roundRect(ctx, cx - 190, cy - 56, 380, 112, 14)
-  ctx.fillStyle = 'rgba(9,13,20,0.88)'
-  ctx.fill()
-  ctx.strokeStyle = model.event.color
-  ctx.lineWidth = 3
-  roundRect(ctx, cx - 190, cy - 56, 380, 112, 14)
-  ctx.stroke()
-  ctx.fillStyle = '#fff'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.font = 'bold 46px system-ui, sans-serif'
-  ctx.fillText(`HOLE ${holeIdx + 1}`, cx, cy - 14)
-  ctx.fillStyle = 'rgba(255,255,255,0.6)'
-  ctx.font = 'bold 25px system-ui, sans-serif'
-  ctx.fillText(`PAR ${hole.par}${hole.water ? ' · WATER' : ''}`, cx, cy + 28)
-}
-
 function drawPreviewTitle(ctx: Ctx, model: GolfPreviewModel): void {
   ctx.fillStyle = 'rgba(6,9,14,0.98)'
   ctx.fillRect(0, 0, model.width, model.height)
@@ -260,7 +238,8 @@ export function drawGolfPreviewImage(ctx: Ctx, model: GolfPreviewModel, index: n
   ctx.restore()
 
   drawPreviewBug(ctx, model, holeIdx, layout.hole.par)
-  drawPreviewHoleCard(ctx, model, holeIdx)
+  // (the big centre "HOLE n" card was removed — it overlapped the flag and just
+  //  repeated the hole/par already shown in the top bug)
   drawHoleDots(ctx, model, holeIdx)
   drawWordmark(ctx, model.width / 2, WORDMARK_Y, 32)
 }
