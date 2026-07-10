@@ -54,7 +54,20 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 ### [x] 6. Add the automation secrets to GitHub ✅ DONE
 - **What/Why:** So the scheduled poster can log in to each account without exposing anything publicly.
 - **Done:** All 5 secrets are in the `SportsSims` repo and **verified working** (an Actions check confirmed both accounts authenticate): `IG_APP_SECRET`, `IG_USER_ID_GOLF` / `IG_ACCESS_TOKEN_GOLF`, `IG_USER_ID_SOCCER` / `IG_ACCESS_TOKEN_SOCCER`.
-- **Later (only when we build the auto-refresh):** you'll add one more secret — a fine-grained GitHub token with **"Secrets: write"** — so the monthly job can refresh the 60-day IG tokens itself. Claude will tell you the exact steps then.
+---
+
+### [ ] 7. Add a "token refresher" secret so the IG tokens never expire ⏳ DO THIS ONCE
+
+- **What/Why:** Instagram tokens die after **60 days**. A weekly job now refreshes both tokens automatically — but to save the new token back into the repo it needs a GitHub token that's allowed to **write secrets** (the built-in one isn't). Add it once and you never touch tokens again.
+- **Steps (≈3 min, on a computer or phone browser):**
+  1. Go to <https://github.com/settings/personal-access-tokens/new> (fine-grained token; confirm password if asked).
+  2. **Token name:** `EliteSim token refresher`. **Expiration:** pick the longest allowed (e.g. 1 year — set a reminder to redo it then).
+  3. **Resource owner:** your account. **Repository access:** *Only select repositories* → choose **`Frankyface/SportsSims`**.
+  4. **Permissions → Repository permissions → Secrets:** set to **Read and write**. (Leave everything else "No access".)
+  5. **Generate token**, then **copy** it (starts with `github_pat_…` — shown once).
+  6. Add it as a repo secret: **SportsSims → Settings → Secrets and variables → Actions → New repository secret.** **Name:** `GH_SECRETS_PAT` (exactly). **Value:** paste the token. **Add secret.**
+  7. Tell me "refresher secret added" and I'll fire the refresh job once to confirm it works.
+- **Until you do this:** the weekly refresh job just skips (no error), and the current tokens still work — but they expire ~60 days after they were issued, so do this within a few weeks.
 
 ---
 

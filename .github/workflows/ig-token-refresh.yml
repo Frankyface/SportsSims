@@ -1,0 +1,46 @@
+name: Refresh Instagram tokens
+
+# Instagram long-lived tokens expire after 60 days. This job refreshes BOTH
+# account tokens weekly and writes the new tokens back into the repo secrets, so
+# posting never breaks. Each refresh extends the window another 60 days, so even
+# several missed weeks leave big margin.
+#
+# Needs GH_SECRETS_PAT — a PAT with "Secrets: write" on this repo (the default
+# GITHUB_TOKEN can't write secrets). See help.md. If GH_SECRETS_PAT isn't set yet,
+# the run just no-ops with a note.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Guard — is the admin PAT configured?
+        id: guard
+        env:
+          GH_SECRETS_PAT: ${{ secrets.GH_SECRETS_PAT }}
+        run: |
+          if [ -z "$GH_SECRETS_PAT" ]; then
+            echo "⚠️ GH_SECRETS_PAT is not set — skipping. Add it (help.md) to enable auto-refresh."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Refresh + store tokens
+        if: steps.guard.outputs.run == 'true'
+        env:
+          GH_SECRETS_PAT: ${{ secrets.GH_SECRETS_PAT }}
+          IG_ACCESS_TOKEN_SOCCER: ${{ secrets.IG_ACCESS_TOKEN_SOCCER }}
+          IG_ACCESS_TOKEN_GOLF: ${{ secrets.IG_ACCESS_TOKEN_GOLF }}
+        run: |
+          npm i --no-save libsodium-wrappers >/dev/null 2>&1
+          node scripts/ig-token-refresh.mjs
