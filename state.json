@@ -3,11 +3,13 @@
   "soccer": {
     "season": 1,
     "day": 3,
-    "rolls": []
+    "rolls": [],
+    "postedHWM": -1
   },
   "golf": {
     "season": 1,
     "day": 5,
-    "rolls": []
+    "rolls": [],
+    "postedHWM": -1
   }
 }
