@@ -106,7 +106,8 @@ function drawHoleDots(ctx: Ctx, model: GolfPreviewModel, current: number): void 
   const n = HOLES_PER_ROUND
   const gap = 46
   const cx = model.width / 2
-  const y = GOLF_ART.y + GOLF_ART.h + 70
+  const feed = model.height <= 1400
+  const y = feed ? model.height - 58 : GOLF_ART.y + GOLF_ART.h + 70
   const x0 = cx - ((n - 1) * gap) / 2
   for (let i = 0; i < n; i++) {
     const on = i === current
@@ -153,66 +154,68 @@ function drawPreviewTitle(ctx: Ctx, model: GolfPreviewModel): void {
   ctx.fillStyle = 'rgba(6,9,14,0.98)'
   ctx.fillRect(0, 0, model.width, model.height)
   const cx = model.width / 2
+  // 4:5 feed layout compresses the 9:16 stack; y-positions switch on `feed`.
+  const feed = model.height <= 1400
+  const Y = feed
+    ? { logo: 232, logoR: 168, kicker: 452, name: 540, course: 618, div: 672, sub: 736, pill: 800, swipe: 1210 }
+    : { logo: 360, logoR: 210, kicker: 640, name: 740, course: 828, div: 892, sub: 952, pill: 1024, swipe: 1150 }
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  const grad = ctx.createLinearGradient(0, 300, 0, 1500)
+  const grad = ctx.createLinearGradient(0, feed ? 200 : 300, 0, feed ? 1150 : 1500)
   grad.addColorStop(0, model.event.color + '55')
   grad.addColorStop(1, 'rgba(6,9,14,0)')
   ctx.fillStyle = grad
-  ctx.fillRect(0, 260, model.width, 1240)
+  ctx.fillRect(0, feed ? 180 : 260, model.width, feed ? 900 : 1240)
 
-  drawEventLogo(ctx, model.event.id, cx, 360, 210)
+  drawEventLogo(ctx, model.event.id, cx, Y.logo, Y.logoR)
 
   ctx.fillStyle = model.event.major ? '#d4af37' : '#ff5566'
-  ctx.font = 'bold 36px system-ui, sans-serif'
+  ctx.font = 'bold 34px system-ui, sans-serif'
   const kickerTail = model.variant === 'results' ? 'RESULTS' : 'COURSE PREVIEW'
   const kicker = model.event.championship
     ? `THE CHAMPIONSHIP · ${kickerTail}`
     : model.event.major
       ? `A MAJOR · ${kickerTail}`
       : `SGA TOUR · ${kickerTail}`
-  ctx.fillText(kicker, cx, 640)
+  ctx.fillText(kicker, cx, Y.kicker)
 
   ctx.fillStyle = '#f2f4f3'
-  fitText(ctx, model.event.name.toUpperCase(), 960, 78)
-  ctx.fillText(model.event.name.toUpperCase(), cx, 740)
+  fitText(ctx, model.event.name.toUpperCase(), 960, 74)
+  ctx.fillText(model.event.name.toUpperCase(), cx, Y.name)
 
-  ctx.font = 'bold 40px system-ui, sans-serif'
+  ctx.font = 'bold 38px system-ui, sans-serif'
   ctx.fillStyle = model.event.colorAlt
-  ctx.fillText(model.courseName.toUpperCase(), cx, 828)
+  ctx.fillText(model.courseName.toUpperCase(), cx, Y.course)
 
-  // divider
   ctx.strokeStyle = 'rgba(255,255,255,0.22)'
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.moveTo(cx - 300, 892)
-  ctx.lineTo(cx + 300, 892)
+  ctx.moveTo(cx - 300, Y.div)
+  ctx.lineTo(cx + 300, Y.div)
   ctx.stroke()
 
   ctx.fillStyle = 'rgba(255,255,255,0.85)'
-  ctx.font = 'bold 34px system-ui, sans-serif'
+  ctx.font = 'bold 32px system-ui, sans-serif'
   const isResults = model.variant === 'results'
-  ctx.fillText(isResults ? 'TOURNAMENT COMPLETE' : `ALL 9 HOLES · PAR ${model.coursePar}`, cx, 952)
+  ctx.fillText(isResults ? 'TOURNAMENT COMPLETE' : `ALL 9 HOLES · PAR ${model.coursePar}`, cx, Y.sub)
 
-  // pill: previews post the day before play; results wrap the finished event
   const label = isResults ? 'RESULTS' : 'PLAYING TOMORROW'
   ctx.font = 'bold 32px system-ui, sans-serif'
   const pw = ctx.measureText(label).width + 96
-  roundRect(ctx, cx - pw / 2, 1024, pw, 68, 12)
+  roundRect(ctx, cx - pw / 2, Y.pill, pw, 68, 12)
   ctx.fillStyle = 'rgba(255,255,255,0.08)'
   ctx.fill()
   ctx.strokeStyle = model.event.color
   ctx.lineWidth = 2
-  roundRect(ctx, cx - pw / 2, 1024, pw, 68, 12)
+  roundRect(ctx, cx - pw / 2, Y.pill, pw, 68, 12)
   ctx.stroke()
   ctx.fillStyle = '#e8edf4'
-  ctx.fillText(label, cx, 1058)
+  ctx.fillText(label, cx, Y.pill + 34)
 
-  // swipe hint — page 1 of the carousel
   ctx.fillStyle = 'rgba(255,255,255,0.5)'
   ctx.font = 'bold 26px system-ui, sans-serif'
-  ctx.fillText(isResults ? 'SWIPE FOR THE FINAL LEADERBOARD →' : 'SWIPE FOR ALL 9 HOLES →', cx, 1150)
+  ctx.fillText(isResults ? 'SWIPE FOR THE FINAL LEADERBOARD →' : 'SWIPE FOR ALL 9 HOLES →', cx, Y.swipe)
 }
 
 /** Draw one still of the carousel: index 0 = title card, 1..9 = that hole. Pure. */
@@ -229,10 +232,25 @@ export function drawGolfPreviewImage(ctx: Ctx, model: GolfPreviewModel, index: n
   const holeIdx = Math.min(HOLES_PER_ROUND - 1, index - 1)
   const layout = model.layouts[holeIdx]
   const A = GOLF_ART
+  const feed = model.height <= 1400
   ctx.save()
-  ctx.beginPath()
-  ctx.rect(A.x, A.y, A.w, A.h)
-  ctx.clip()
+  if (feed) {
+    // GOLF_ART is a shared, test-locked 9:16 region; fit it into the 4:5 canvas by
+    // clipping to a feed art band and y-scaling the hole art into it (the overlays
+    // below draw crisply at feed positions, outside this transform).
+    const top = 250
+    const targetH = model.height - top - 116 // leave room for the dot rail
+    const sy = targetH / A.h
+    ctx.beginPath()
+    ctx.rect(A.x, top, A.w, targetH)
+    ctx.clip()
+    ctx.translate(0, top - A.y * sy)
+    ctx.scale(1, sy)
+  } else {
+    ctx.beginPath()
+    ctx.rect(A.x, A.y, A.w, A.h)
+    ctx.clip()
+  }
   drawGolfHole(ctx, layout)
   drawFlagstick(ctx, layout.pin)
   ctx.restore()

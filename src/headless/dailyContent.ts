@@ -21,6 +21,7 @@ import { playFixture, fixtureMatch, fixtureById, startPlayoffs, advancePlayoffs 
 import type { Fixture, LeagueState } from '../league/types'
 import { exportMatchMp4, downloadBlob } from '../export/exportMp4'
 import { exportStandingsPng } from '../render/standingsCard'
+import { exportStandingsFeedPng } from '../render/standingsFeedCard'
 import { exportPlayoffsPreviewPng, exportFinalsPreviewPng, exportChampionsPng } from '../render/soccerSeasonCards'
 import {
   matchCaption,
@@ -46,8 +47,7 @@ import { buildGolfPreviewModel, golfPreviewSeed, exportGolfPreviewImages } from 
 import { buildGolfRenderModel } from '../render/golfRenderMatch'
 import { exportGolfRoundMp4 } from '../export/exportGolfMp4'
 import { exportGolfLeaderboardPng } from '../render/golfLeaderboardCard'
-import { exportGolfResultsCarousel } from '../render/golfResultsCarousel'
-import { exportGolfRankingsPng } from '../render/golfRankingsCard'
+import { exportGolfResultsCarousel, exportGolfSeasonBoardPng } from '../render/golfResultsCarousel'
 import { exportGolfChampionPng } from '../render/golfChampionCard'
 import { buildGolfAmbientAudio } from '../export/golfAudio'
 import {
@@ -178,7 +178,7 @@ async function soccerPostsForSlot(bank: Bank, cur: Cursor, slot: Slot): Promise<
       const label = `Round ${plan.roundTable + 1}`
       const img = `soccer-${tag}-r${plan.roundTable + 1}-table`
       window.__STAGE__ = `soccer ${label} table`
-      await saveBlob(await exportStandingsPng(played, `${label.toUpperCase()} · FINAL TABLE`), `${img}.png`)
+      await saveBlob(await exportStandingsFeedPng(played, `${label} · FINAL TABLE`), `${img}.png`)
       posts.push({ account: 'soccer', order: order++, kind: 'photo', caption: standingsCaption(played, label), image: `${img}.png` })
     }
     if (slot === 'companions' && plan.playoffsPreview) {
@@ -228,7 +228,7 @@ async function soccerPostsForSlot(bank: Bank, cur: Cursor, slot: Slot): Promise<
   const champImg = `soccer-${tag}-champions.png`
   const tableImg = `soccer-${tag}-final-table.png`
   await saveBlob(await exportChampionsPng(state), champImg)
-  await saveBlob(await exportStandingsPng(regState, 'FINAL TABLE'), tableImg)
+  await saveBlob(await exportStandingsFeedPng(regState, 'Final table'), tableImg)
   posts.push({ account: 'soccer', order: 1, kind: 'carousel', caption: championsCaption(state), images: [champImg, tableImg] })
   return posts
 }
@@ -250,7 +250,8 @@ async function golfPreviewPost(state: GolfSeasonState, eventIndex: number, tag: 
   const course = golfCourseById(eventById(eventId).courseId)
   const brand = golfEventBrand(eventId)
   window.__STAGE__ = `golf preview (event ${eventIndex + 1})`
-  const model = buildGolfPreviewModel(brand, course, golfPreviewSeed(state.seedKey, state.season, eventIndex))
+  // 4:5 (1080x1350) feed carousel — consistent with the results carousel.
+  const model = buildGolfPreviewModel(brand, course, golfPreviewSeed(state.seedKey, state.season, eventIndex), 1080, 1350)
   const imgs = await exportGolfPreviewImages(model)
   const images: string[] = []
   for (let i = 0; i < imgs.length; i++) {
@@ -292,7 +293,7 @@ async function golfPostsForSlot(bank: Bank, cur: Cursor, slot: Slot): Promise<Po
     const champImg = `golf-${tag}-champion.png`
     const rankImg = `golf-${tag}-final-rankings.png`
     await saveBlob(await exportGolfChampionPng(state), champImg)
-    await saveBlob(await exportGolfRankingsPng(state), rankImg)
+    await saveBlob(await exportGolfSeasonBoardPng(state), rankImg)
     return [{ account: 'golf', order: 1, kind: 'carousel', caption: golfChampionsCaption(state), images: [champImg, rankImg] }]
   }
 
@@ -383,7 +384,7 @@ async function catchupPosts(): Promise<Post[]> {
   for (let i = 0; i < 3; i++) soccer = playFixture(soccer, fixtures[i].id)
   window.__STAGE__ = 'catchup: soccer R1 table'
   const img = 'soccer-catchup-r1-table.png'
-  await saveBlob(await exportStandingsPng(soccer, 'ROUND 1 · FINAL TABLE'), img)
+  await saveBlob(await exportStandingsFeedPng(soccer, 'Round 1 · Final table'), img)
   posts.push({ account: 'soccer', order: 1, kind: 'photo', caption: standingsCaption(soccer, 'Round 1'), image: img })
 
   const { state, record } = golfSeasonAtEvent({ season: 1, day: 0, rolls: [], postedHWM: -1 }, 0)

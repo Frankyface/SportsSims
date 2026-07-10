@@ -381,3 +381,9 @@ export async function exportGolfResultsCarousel(state: GolfSeasonState, record: 
     await toPng((ctx) => drawSeasonBoard(ctx, state)),
   ]
 }
+
+/** Just the 4:5 season league-board (reused as page 2 of the champions carousel). */
+export async function exportGolfSeasonBoardPng(state: GolfSeasonState): Promise<Blob> {
+  await ensureFontsLoaded()
+  return toPng((ctx) => drawSeasonBoard(ctx, state))
+}
