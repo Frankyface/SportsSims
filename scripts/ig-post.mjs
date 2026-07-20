@@ -37,10 +37,14 @@ async function reachable(url) {
 }
 async function waitFinished(tok, containerId, label) {
   for (let i = 0; i < 40; i++) {
-    const r = await fetch(`${API}/${containerId}?fields=status_code&access_token=${tok}`)
+    // `status` carries Meta's human-readable reason (e.g. which spec failed) —
+    // status_code alone just says ERROR, which is undebuggable from the logs.
+    const r = await fetch(`${API}/${containerId}?fields=status_code,status&access_token=${tok}`)
     const j = await r.json()
     if (j.status_code === 'FINISHED') return
-    if (j.status_code === 'ERROR' || j.error) throw new Error(`${label}: ${JSON.stringify(j.error || j)}`)
+    if (j.status_code === 'ERROR' || j.error) {
+      throw new Error(`${label}: ${JSON.stringify({ status_code: j.status_code, status: j.status, error: j.error })}`)
+    }
     console.log(`   ${label} ${j.status_code || '?'}`)
     await sleep(5000)
   }
@@ -59,11 +63,26 @@ async function publish(igId, tok, creationId) {
 async function postReel(acct, post) {
   const url = `${baseUrl}/${post.video}`
   if (!(await reachable(url))) throw new Error(`unreachable ${post.video}`)
-  const c = await api(`${acct.id}/media`, { media_type: 'REELS', video_url: url, caption: post.caption, access_token: acct.tok })
-  if (!c.id) throw new Error(`reel container: ${JSON.stringify(c.error || c)}`)
-  await waitFinished(acct.tok, c.id, `reel ${post.video}`)
-  await sleep(2000)
-  return publish(acct.id, acct.tok, c.id)
+  // Meta's reel processing occasionally fails transiently — one fresh-container
+  // retry rescues those. A genuine spec rejection fails identically twice and
+  // surfaces the readable `status` from waitFinished.
+  let lastErr
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const c = await api(`${acct.id}/media`, { media_type: 'REELS', video_url: url, caption: post.caption, access_token: acct.tok })
+    if (!c.id) throw new Error(`reel container: ${JSON.stringify(c.error || c)}`)
+    try {
+      await waitFinished(acct.tok, c.id, `reel ${post.video}`)
+      await sleep(2000)
+      return publish(acct.id, acct.tok, c.id)
+    } catch (e) {
+      lastErr = e
+      if (attempt < 2) {
+        console.log(`   retrying with a fresh container after: ${e.message}`)
+        await sleep(8000)
+      }
+    }
+  }
+  throw lastErr
 }
 async function postPhoto(acct, post) {
   const url = `${baseUrl}/${post.image}`

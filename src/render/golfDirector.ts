@@ -82,7 +82,11 @@ const RESULT_DUR = 4.2
 const FT_BEAT = 0.6
 const HOLE_GAP = 0.45 // breath between holes (scaled with the play window)
 const PLAY_MIN = 62
-const PLAY_MAX = 80
+// PLAY_MAX is REELS-CAP LOAD-BEARING: Instagram's publishing API rejects reels
+// over 90s, and the auto-poster appends a 5s leaderboard end-card (finalize-
+// reels.mjs). Max clip = INTRO + PLAY_MAX + FT_BEAT + RESULT = 81.4s → 86.4s
+// posted. 80 made every golf reel 92.4s and Meta ERROR'd all of them.
+const PLAY_MAX = 74
 
 export function formatToPar(n: number): string {
   return n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`

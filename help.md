@@ -56,7 +56,7 @@ You do **not** need any of this for v1. In v1 you'll just download each finished
 - **Done:** All 5 secrets are in the `SportsSims` repo and **verified working** (an Actions check confirmed both accounts authenticate): `IG_APP_SECRET`, `IG_USER_ID_GOLF` / `IG_ACCESS_TOKEN_GOLF`, `IG_USER_ID_SOCCER` / `IG_ACCESS_TOKEN_SOCCER`.
 ---
 
-### [ ] 7. Add a "token refresher" secret so the IG tokens never expire ⏳ DO THIS ONCE
+### [x] 7. Add a "token refresher" secret so the IG tokens never expire ⏳ DO THIS ONCE
 
 - **What/Why:** Instagram tokens die after **60 days**. A weekly job now refreshes both tokens automatically — but to save the new token back into the repo it needs a GitHub token that's allowed to **write secrets** (the built-in one isn't). Add it once and you never touch tokens again.
 - **Steps (≈3 min, on a computer or phone browser):**

@@ -26,13 +26,18 @@ function cfg(seed: string, courseId: string, round: number): GolfRoundConfig {
 describe('golf group director — every shot, all nine holes', () => {
   const seeds = Array.from({ length: 200 }, (_, i) => i)
 
-  it('every group video lands under the Reels cap (60-88s), over 200 seeds × 2 groups', () => {
+  it('every group video + the 5s end-card fits the IG 90s reel cap, over 200 seeds × 2 groups', () => {
+    // The auto-poster appends a 5s leaderboard end-card (finalize-reels.mjs),
+    // and Instagram's publishing API hard-rejects reels over 90s — so the plan
+    // itself must stay ≤ 84.5s. (80s PLAY_MAX shipped 92.4s reels; all ERROR'd.)
+    const END_CARD = 5
+    const REEL_CAP = 90
     for (const i of seeds) {
       const m = simulateGolfRound(cfg(`band-${i}`, GOLF_COURSES[i % GOLF_COURSES.length].id, (i % 4) + 1))
       for (const g of [0, 1] as const) {
         const plan = buildGolfGroupPlan(m, g)
         expect(plan.total).toBeGreaterThanOrEqual(60)
-        expect(plan.total).toBeLessThanOrEqual(88)
+        expect(plan.total + END_CARD).toBeLessThanOrEqual(REEL_CAP - 0.5)
       }
     }
   })
