@@ -2,19 +2,19 @@
   "enabled": true,
   "soccer": {
     "season": 1,
-    "day": 14,
+    "day": 15,
     "rolls": [],
-    "postedHWM": 1000141
+    "postedHWM": 1000142
   },
   "golf": {
     "season": 1,
-    "day": 16,
+    "day": 17,
     "rolls": [],
-    "postedHWM": 1000161
+    "postedHWM": 1000162
   },
   "lastRun": {
     "g1": "2026-07-21",
     "main": "2026-07-21",
-    "companions": "2026-07-20"
+    "companions": "2026-07-21"
   }
 }
