@@ -1,0 +1,35 @@
+{
+  "posts": [
+    {
+      "account": "soccer",
+      "order": 1,
+      "kind": "reel",
+      "caption": "Matchday 6 · Season 1\nIronhaven United 0–0 Marlowe City\n\nThe Foundry and The Artisans share the spoils.\n\nWho wins the next one? Drop your score 👇\n#ESSPN #SimSoccer #IRN #MAR",
+      "video": "soccer-s1-d17-match.mp4",
+      "board": "soccer-s1-d17-match-table.png"
+    },
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "reel",
+      "caption": "⛳ The Sable Dunes Open — Round 3, Group 2\nEvery shot, all nine holes.\nAce Delgado leads on -10 after 27 holes.\nWho wins it? Drop your pick 👇\n#ESSPN #SimGolf #SABLEDUNES",
+      "video": "golf-s1-d19-r3-g2.mp4",
+      "board": "golf-s1-d19-r3-lb.png"
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 1,
+      "day": 17,
+      "rolls": [],
+      "postedHWM": 1000171
+    },
+    "golf": {
+      "season": 1,
+      "day": 19,
+      "rolls": [],
+      "postedHWM": 1000191
+    }
+  },
+  "slot": "main"
+}
