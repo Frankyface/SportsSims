@@ -4,16 +4,16 @@
     "season": 1,
     "day": 19,
     "rolls": [],
-    "postedHWM": 1000182
+    "postedHWM": 1000190
   },
   "golf": {
     "season": 1,
     "day": 21,
     "rolls": [],
-    "postedHWM": 1000202
+    "postedHWM": 1000210
   },
   "lastRun": {
-    "g1": "2026-07-25",
+    "g1": "2026-07-26",
     "main": "2026-07-25",
     "companions": "2026-07-25"
   }
