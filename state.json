@@ -6,17 +6,17 @@
     "rolls": [
       "crown-alpha:s2:roll0"
     ],
-    "postedHWM": 2000090
+    "postedHWM": 2000091
   },
   "golf": {
     "season": 1,
     "day": 45,
     "rolls": [],
-    "postedHWM": 1000450
+    "postedHWM": 1000451
   },
   "lastRun": {
     "g1": "2026-08-20",
-    "main": "2026-08-19",
+    "main": "2026-08-20",
     "companions": "2026-08-19"
   }
 }
