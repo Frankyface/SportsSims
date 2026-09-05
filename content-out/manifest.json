@@ -1,0 +1,39 @@
+{
+  "posts": [
+    {
+      "account": "soccer",
+      "order": 1,
+      "kind": "reel",
+      "caption": "Matchday 9 · Season 2\nKingsbridge Athletic 2–2 Marlowe City\n\nThe Crowns and The Artisans share the spoils.\n\nWho wins the next one? Drop your score 👇\n#ESSPN #SimSoccer #KNG #MAR",
+      "video": "soccer-s2-d24-match.mp4",
+      "board": "soccer-s2-d24-match-table.png"
+    },
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "reel",
+      "caption": "⛳ The Blackmoor Cup — Round 2, Group 2\nEvery shot, all nine holes.\nGrant Beaumont leads on -7 after 18 holes.\nWho wins it? Drop your pick 👇\n#ESSPN #SimGolf #BLACKMOOR",
+      "video": "golf-s2-d2-r2-g2.mp4",
+      "board": "golf-s2-d2-r2-lb.png"
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 2,
+      "day": 24,
+      "rolls": [
+        "crown-alpha:s2:roll0"
+      ],
+      "postedHWM": 2000241
+    },
+    "golf": {
+      "season": 2,
+      "day": 2,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0"
+      ],
+      "postedHWM": 2000021
+    }
+  },
+  "slot": "main"
+}
