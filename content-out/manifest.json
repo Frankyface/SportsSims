@@ -1,0 +1,22 @@
+{
+  "posts": [],
+  "cursor": {
+    "soccer": {
+      "season": 2,
+      "day": 26,
+      "rolls": [
+        "crown-alpha:s2:roll0"
+      ],
+      "postedHWM": 2000252
+    },
+    "golf": {
+      "season": 2,
+      "day": 4,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0"
+      ],
+      "postedHWM": 2000032
+    }
+  },
+  "slot": "companions"
+}
