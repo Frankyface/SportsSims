@@ -1,0 +1,53 @@
+{
+  "posts": [
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "carousel",
+      "caption": "🏆 RESULTS — The Vulture Gorge Championship\n🏆 Sterling Duval wins The Vulture Gorge Championship\n#ESSPN #SimGolf #VULTURE\nSwipe for the final leaderboard →\n#ESSPN #SimGolf #VULTURE",
+      "images": [
+        "golf-s2-d12-e3-results-title.png",
+        "golf-s2-d12-e3-results-board.png",
+        "golf-s2-d12-e3-season-board.png"
+      ]
+    },
+    {
+      "account": "golf",
+      "order": 2,
+      "kind": "carousel",
+      "caption": "🎬 COURSE PREVIEW — The Evergreen Invitational · A MAJOR\nFirst look at all 9 holes of Verdant Hollow (par 36). Play begins tomorrow.\nWhere does this week get won? 👇\n#ESSPN #SimGolf #EVERGREEN",
+      "images": [
+        "golf-s2-d12-e4-preview-00.png",
+        "golf-s2-d12-e4-preview-01.png",
+        "golf-s2-d12-e4-preview-02.png",
+        "golf-s2-d12-e4-preview-03.png",
+        "golf-s2-d12-e4-preview-04.png",
+        "golf-s2-d12-e4-preview-05.png",
+        "golf-s2-d12-e4-preview-06.png",
+        "golf-s2-d12-e4-preview-07.png",
+        "golf-s2-d12-e4-preview-08.png",
+        "golf-s2-d12-e4-preview-09.png"
+      ]
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 3,
+      "day": 1,
+      "rolls": [
+        "crown-alpha:s2:roll0",
+        "crown-alpha:s3:roll5"
+      ],
+      "postedHWM": 3000002
+    },
+    "golf": {
+      "season": 2,
+      "day": 13,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0"
+      ],
+      "postedHWM": 2000122
+    }
+  },
+  "slot": "companions"
+}
