@@ -7,7 +7,7 @@
       "crown-alpha:s2:roll0",
       "crown-alpha:s3:roll5"
     ],
-    "postedHWM": 3000022
+    "postedHWM": 3000030
   },
   "golf": {
     "season": 2,
@@ -15,10 +15,10 @@
     "rolls": [
       "sga-mrdklysr-2qbfer:s2:roll0"
     ],
-    "postedHWM": 2000142
+    "postedHWM": 2000150
   },
   "lastRun": {
-    "g1": "2026-09-17",
+    "g1": "2026-09-18",
     "main": "2026-09-17",
     "companions": "2026-09-17"
   }
