@@ -1,0 +1,40 @@
+{
+  "posts": [
+    {
+      "account": "soccer",
+      "order": 1,
+      "kind": "reel",
+      "caption": "Matchday 2 · Season 3\nSundervale Rovers 4–2 Ironhaven United\n\nThe Terriers edge a tight one.\n\nWho wins the next one? Drop your score 👇\n#ESSPN #SimSoccer #SUN #IRN",
+      "video": "soccer-s3-d4-match.mp4",
+      "board": "soccer-s3-d4-match-table.png"
+    },
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "reel",
+      "caption": "⛳ The Evergreen Invitational — Round 4, Group 2 · A MAJOR\nEvery shot, all nine holes.\nVic Steele leads on -11 after 36 holes.\nWho wins it? Drop your pick 👇\n#ESSPN #SimGolf #EVERGREEN",
+      "video": "golf-s2-d16-r4-g2.mp4",
+      "board": "golf-s2-d16-r4-lb.png"
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 3,
+      "day": 4,
+      "rolls": [
+        "crown-alpha:s2:roll0",
+        "crown-alpha:s3:roll5"
+      ],
+      "postedHWM": 3000041
+    },
+    "golf": {
+      "season": 2,
+      "day": 16,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0"
+      ],
+      "postedHWM": 2000161
+    }
+  },
+  "slot": "main"
+}
