@@ -1,0 +1,40 @@
+{
+  "posts": [
+    {
+      "account": "soccer",
+      "order": 1,
+      "kind": "reel",
+      "caption": "Matchday 4 · Season 3\nSundervale Rovers 3–3 Meridian FC\n\nThe Terriers and The Nomads share the spoils.\n\nWho wins the next one? Drop your score 👇\n#ESSPN #SimSoccer #SUN #MDN",
+      "video": "soccer-s3-d11-match.mp4",
+      "board": "soccer-s3-d11-match-table.png"
+    },
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "reel",
+      "caption": "⛳ The Ravenscliff Cup — Round 3, Group 2\nEvery shot, all nine holes.\nVic Steele leads on -13 after 27 holes.\nWho wins it? Drop your pick 👇\n#ESSPN #SimGolf #RAVENSCLIFF",
+      "video": "golf-s2-d23-r3-g2.mp4",
+      "board": "golf-s2-d23-r3-lb.png"
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 3,
+      "day": 11,
+      "rolls": [
+        "crown-alpha:s2:roll0",
+        "crown-alpha:s3:roll5"
+      ],
+      "postedHWM": 3000111
+    },
+    "golf": {
+      "season": 2,
+      "day": 23,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0"
+      ],
+      "postedHWM": 2000231
+    }
+  },
+  "slot": "main"
+}
