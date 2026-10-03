@@ -1,0 +1,40 @@
+{
+  "posts": [
+    {
+      "account": "soccer",
+      "order": 1,
+      "kind": "reel",
+      "caption": "Matchday 7 · Season 3\nKingsbridge Athletic 1–1 Meridian FC\n\nThe Crowns and The Nomads share the spoils.\n\nWho wins the next one? Drop your score 👇\n#ESSPN #SimSoccer #KNG #MDN",
+      "video": "soccer-s3-d18-match.mp4",
+      "board": "soccer-s3-d18-match-table.png"
+    },
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "reel",
+      "caption": "⛳ The Saltmarsh Open — Round 2, Group 2 · A MAJOR\nEvery shot, all nine holes.\nSterling Duval leads on -8 after 18 holes.\nWho wins it? Drop your pick 👇\n#ESSPN #SimGolf #SALTMARSH",
+      "video": "golf-s2-d30-r2-g2.mp4",
+      "board": "golf-s2-d30-r2-lb.png"
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 3,
+      "day": 18,
+      "rolls": [
+        "crown-alpha:s2:roll0",
+        "crown-alpha:s3:roll5"
+      ],
+      "postedHWM": 3000181
+    },
+    "golf": {
+      "season": 2,
+      "day": 30,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0"
+      ],
+      "postedHWM": 2000301
+    }
+  },
+  "slot": "main"
+}
