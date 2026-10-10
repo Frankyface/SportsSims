@@ -1,0 +1,53 @@
+{
+  "posts": [
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "carousel",
+      "caption": "🏆 RESULTS — The Old Quarry Shield\n🏆 Vic Steele wins The Old Quarry Shield\nWire to wire. Never headed.\n#ESSPN #SimGolf #OLDQUARRY\nSwipe for the final leaderboard →\n#ESSPN #SimGolf #OLDQUARRY",
+      "images": [
+        "golf-s2-d36-e9-results-title.png",
+        "golf-s2-d36-e9-results-board.png",
+        "golf-s2-d36-e9-season-board.png"
+      ]
+    },
+    {
+      "account": "golf",
+      "order": 2,
+      "kind": "carousel",
+      "caption": "🎬 COURSE PREVIEW — The Palmshade Classic\nFirst look at all 9 holes of Palmshade Cay (par 36). Play begins tomorrow.\nWhere does this week get won? 👇\n#ESSPN #SimGolf #PALMSHADE",
+      "images": [
+        "golf-s2-d36-e10-preview-00.png",
+        "golf-s2-d36-e10-preview-01.png",
+        "golf-s2-d36-e10-preview-02.png",
+        "golf-s2-d36-e10-preview-03.png",
+        "golf-s2-d36-e10-preview-04.png",
+        "golf-s2-d36-e10-preview-05.png",
+        "golf-s2-d36-e10-preview-06.png",
+        "golf-s2-d36-e10-preview-07.png",
+        "golf-s2-d36-e10-preview-08.png",
+        "golf-s2-d36-e10-preview-09.png"
+      ]
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 3,
+      "day": 25,
+      "rolls": [
+        "crown-alpha:s2:roll0",
+        "crown-alpha:s3:roll5"
+      ],
+      "postedHWM": 3000242
+    },
+    "golf": {
+      "season": 2,
+      "day": 37,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0"
+      ],
+      "postedHWM": 2000362
+    }
+  },
+  "slot": "companions"
+}
