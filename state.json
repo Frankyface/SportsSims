@@ -2,25 +2,25 @@
   "enabled": true,
   "soccer": {
     "season": 4,
-    "day": 0,
+    "day": 1,
     "rolls": [
       "crown-alpha:s2:roll0",
       "crown-alpha:s3:roll5",
       "crown-alpha:s4:roll0"
     ],
-    "postedHWM": 4000001
+    "postedHWM": 4000002
   },
   "golf": {
     "season": 2,
-    "day": 46,
+    "day": 47,
     "rolls": [
       "sga-mrdklysr-2qbfer:s2:roll0"
     ],
-    "postedHWM": 2000461
+    "postedHWM": 2000462
   },
   "lastRun": {
     "g1": "2026-10-21",
     "main": "2026-10-21",
-    "companions": "2026-10-20"
+    "companions": "2026-10-21"
   }
 }
