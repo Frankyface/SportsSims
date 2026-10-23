@@ -1,0 +1,61 @@
+{
+  "posts": [
+    {
+      "account": "soccer",
+      "order": 1,
+      "kind": "photo",
+      "caption": "📊 THE TABLE — Round 1, Season 4\n\nThe Artisans lead on 3 pts, 2 clear of The Chrome.\nThe Foundry prop up the table.\nTop 4 make the playoffs.\n\nWho's winning the title? 👇\n#ESSPN #SimSoccer",
+      "image": "soccer-s4-d2-r1-table.png"
+    },
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "carousel",
+      "caption": "🏆 RESULTS — The Elmsworth Trophy\n🏆 Theo Santana wins The Elmsworth Trophy\n#ESSPN #SimGolf #ELMSWORTH\nSwipe for the final leaderboard →\n#ESSPN #SimGolf #ELMSWORTH",
+      "images": [
+        "golf-s2-d48-e12-results-title.png",
+        "golf-s2-d48-e12-results-board.png",
+        "golf-s2-d48-e12-season-board.png"
+      ]
+    },
+    {
+      "account": "golf",
+      "order": 2,
+      "kind": "carousel",
+      "caption": "🎬 COURSE PREVIEW — The Frostpine Invitational\nFirst look at all 9 holes of Frostpine Vale (par 36). Play begins tomorrow.\nWhere does this week get won? 👇\n#ESSPN #SimGolf #FROSTPINE",
+      "images": [
+        "golf-s2-d48-e13-preview-00.png",
+        "golf-s2-d48-e13-preview-01.png",
+        "golf-s2-d48-e13-preview-02.png",
+        "golf-s2-d48-e13-preview-03.png",
+        "golf-s2-d48-e13-preview-04.png",
+        "golf-s2-d48-e13-preview-05.png",
+        "golf-s2-d48-e13-preview-06.png",
+        "golf-s2-d48-e13-preview-07.png",
+        "golf-s2-d48-e13-preview-08.png",
+        "golf-s2-d48-e13-preview-09.png"
+      ]
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 4,
+      "day": 3,
+      "rolls": [
+        "crown-alpha:s2:roll0",
+        "crown-alpha:s3:roll5",
+        "crown-alpha:s4:roll0"
+      ],
+      "postedHWM": 4000022
+    },
+    "golf": {
+      "season": 2,
+      "day": 49,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0"
+      ],
+      "postedHWM": 2000482
+    }
+  },
+  "slot": "companions"
+}
