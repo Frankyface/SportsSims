@@ -1,0 +1,33 @@
+{
+  "posts": [
+    {
+      "account": "soccer",
+      "order": 1,
+      "kind": "photo",
+      "caption": "📊 THE TABLE — Round 9, Season 4\n\nThe Terriers lead on 22 pts, 3 clear of The Crowns.\nThe Foundry prop up the table.\nTop 4 make the playoffs.\n\nWho's winning the title? 👇\n#ESSPN #SimSoccer",
+      "image": "soccer-s4-d26-r9-table.png"
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 4,
+      "day": 27,
+      "rolls": [
+        "crown-alpha:s2:roll0",
+        "crown-alpha:s3:roll5",
+        "crown-alpha:s4:roll0"
+      ],
+      "postedHWM": 4000262
+    },
+    "golf": {
+      "season": 3,
+      "day": 15,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0",
+        "sga-mrdklysr-2qbfer:s3:roll0"
+      ],
+      "postedHWM": 3000142
+    }
+  },
+  "slot": "companions"
+}
