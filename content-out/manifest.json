@@ -1,0 +1,55 @@
+{
+  "posts": [
+    {
+      "account": "golf",
+      "order": 1,
+      "kind": "carousel",
+      "caption": "🏆 RESULTS — The Timberline Classic\n🏆 Theo Santana wins The Timberline Classic\n#ESSPN #SimGolf #TIMBERLINE\nSwipe for the final leaderboard →\n#ESSPN #SimGolf #TIMBERLINE",
+      "images": [
+        "golf-s3-d20-e5-results-title.png",
+        "golf-s3-d20-e5-results-board.png",
+        "golf-s3-d20-e5-season-board.png"
+      ]
+    },
+    {
+      "account": "golf",
+      "order": 2,
+      "kind": "carousel",
+      "caption": "🎬 COURSE PREVIEW — The Harborlight Cup\nFirst look at all 9 holes of Harborlight Point (par 36). Play begins tomorrow.\nWhere does this week get won? 👇\n#ESSPN #SimGolf #HARBORLIGHT",
+      "images": [
+        "golf-s3-d20-e6-preview-00.png",
+        "golf-s3-d20-e6-preview-01.png",
+        "golf-s3-d20-e6-preview-02.png",
+        "golf-s3-d20-e6-preview-03.png",
+        "golf-s3-d20-e6-preview-04.png",
+        "golf-s3-d20-e6-preview-05.png",
+        "golf-s3-d20-e6-preview-06.png",
+        "golf-s3-d20-e6-preview-07.png",
+        "golf-s3-d20-e6-preview-08.png",
+        "golf-s3-d20-e6-preview-09.png"
+      ]
+    }
+  ],
+  "cursor": {
+    "soccer": {
+      "season": 4,
+      "day": 33,
+      "rolls": [
+        "crown-alpha:s2:roll0",
+        "crown-alpha:s3:roll5",
+        "crown-alpha:s4:roll0"
+      ],
+      "postedHWM": 4000322
+    },
+    "golf": {
+      "season": 3,
+      "day": 21,
+      "rolls": [
+        "sga-mrdklysr-2qbfer:s2:roll0",
+        "sga-mrdklysr-2qbfer:s3:roll0"
+      ],
+      "postedHWM": 3000202
+    }
+  },
+  "slot": "companions"
+}
